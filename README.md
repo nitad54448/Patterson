@@ -4,7 +4,7 @@ This document provides a technical overview of the Patterson Simulator, an inter
 
 ## How to Start
 
-To start the program, you can go [here](https://[your-github-username].github.io/[repository-name]/Patterson.html). (Please replace the placeholder with the actual URL).
+To start the program, you can go [here](https://nitad54448.github.io/Patterson/Patterson.html).
 
 ## Table of Contents
 
@@ -179,5 +179,6 @@ This is the key interactive feature of the simulator.
 ## About This Tool
 
 This 2D crystal structure, diffraction pattern, and Patterson function simulator was developed by NitaD, Univ. Paris-Saclay (ver 11 oct 2025).
+This documentation was created by an AI assistant on 20 oct 2025.
 
 </section>
