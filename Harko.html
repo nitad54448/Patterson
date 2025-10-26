@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Harko-Patterson Map Analysis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; margin: 0; background-color: #f1f5f9; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        #app-container { display: flex; width: 100%; flex-grow: 1; min-height: 0; }
+#controls-panel {
+    width: 450px;
+    min-width: 400px;
+    max-width: 600px;
+    flex-shrink: 0;
+    padding: 24px;
+    background-color: #111827;
+    border-right: 1px solid #374151;
+    overflow-y: auto;
+    color: #d1d5db;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 20;
+}
+        #drag-handle { width: 6px; cursor: col-resize; background-color: #374151; flex-shrink: 0; transition: background-color 0.2s; }
+        #drag-handle:hover { background-color: #3b82f6; }
+        #results-area { flex-grow: 1; background-color: #f1f5f9; min-width: 0; padding: 1.5rem; color: #1f2937; overflow-y: auto; }
+
+        .control-group { margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid #374151;}
+        .control-group:last-of-type { border-bottom: none; padding-bottom: 0; margin-bottom: 0;}
+        .control-label { display: block; margin-bottom: 8px; font-weight: 500; color: #9ca3af; }
+
+        .btn { display: inline-block; padding: 0.6rem 1rem; border-radius: 0.375rem; font-weight: 600; transition: background-color 0.2s; cursor: pointer; text-align: center; width: auto; }
+        .btn-full { width: 100%; }
+        .btn-primary { background-color: #3b82f6; color: white; }
+        .btn-primary:hover { background-color: #2563eb; }
+        .btn:disabled { background-color: #4b5563; color: #9ca3af; cursor: not-allowed; }
+
+        .info-box { background-color: #1f2937; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 0.8rem; line-height: 1.6; }
+        .canvas-wrapper { background-color: #1e2937; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.2); width: 100%; overflow: hidden; aspect-ratio: 1 / 1; border-radius: 8px; }
+        canvas { display: block; width: 100%; height: 100%; }
+
+        /* Styled Tables */
+        .styled-table { width: 100%; font-size: 0.8rem; border-collapse: collapse; }
+        .styled-table th, .styled-table td { text-align: left; padding: 8px 10px; font-family: monospace; color: #374151; }
+        .styled-table thead th { color: #4b5563; border-bottom: 2px solid #d1d5db; }
+        .styled-table tbody tr { border-bottom: 1px solid #e5e7eb; }
+        .styled-table tbody tr:nth-of-type(even) { background-color: #f9fafb; }
+        .styled-table tbody tr:hover { background-color: #eff6ff; }
+        .table-container { flex-grow: 1; overflow-y: auto; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.5rem; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); }
+
+        .dark-table { width: 100%; }
+        .dark-table th, .dark-table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #374151; font-family: monospace;}
+        .dark-table th { color: #9ca3af; }
+        .dark-table tbody tr:hover { background-color: #374151; }
+        .dark-table-container { flex-grow: 1; overflow-y: auto; background-color: #111827; border: 1px solid #374151; border-radius: 0.5rem; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); }
+
+
+        body.resizing { cursor: col-resize !important; user-select: none; }
+
+        /* Left Panel Tabs */
+        .left-tabs { display: flex; border-bottom: 1px solid #374151; margin-bottom: 1.5rem; }
+        .left-tab-button {
+            padding: 0.5rem 1rem; font-weight: 600; color: #9ca3af; background-color: transparent;
+            border: none; border-bottom: 2px solid transparent; cursor: pointer; transition: all 0.2s;
+        }
+        .left-tab-button:hover:not(.left-tab-active):not(:disabled) { color: #d1d5db; border-color: #4b5563; }
+        .left-tab-button.left-tab-active { color: #3b82f6; border-color: #3b82f6; }
+        .left-tab-button:disabled { color: #4b5563; cursor: not-allowed; }
+        .left-tab-content { display: none; flex-grow: 1; flex-direction: column;}
+        .left-tab-content.active { display: flex; }
+
+        /* Tooltip (opens down) */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 280px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px 12px;
+            position: absolute;
+            z-index: 100;
+            top: 150%;
+            left: 50%;
+            margin-left: -250px; /* Adjusted margin-left */
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+        .tooltip .tooltiptext::after {
+            content: "";
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: transparent transparent #333 transparent;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+
+
+
+
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <div id="controls-panel">
+            <div class="control-group flex justify-between items-center">
+                <button id="open-file-btn" class="btn btn-primary w-11/12 mr-2">Select Data File</button>
+                <div class="tooltip w-1/12 text-center text-gray-400">
+                    <span class="text-xl font-bold">?</span>
+                    <span class="tooltiptext">Load a Pawley refinement output file (.dat or .txt), generated by Powder5. It contains cell parameters, space group, and reflection intensities. The standard settings of spaces groups are used and found in 'space_groups_harker.js'.</span>
+                </div>
+                <input type="file" id="data-file-input" class="hidden"/>
+            </div>
+            <div id="status-message" class="text-sm text-amber-400 -mt-4 mb-4 h-4"></div>
+
+            <div class="flex-grow flex flex-col">
+                <div class="left-tabs">
+                    <button class="left-tab-button left-tab-active" data-tab="map-controls-tab">Map</button>
+                    <button class="left-tab-button" data-tab="slices-controls-tab" disabled>Slices</button>
+                    <button class="left-tab-button" data-tab="peaks-controls-tab" disabled>Peaks</button>
+                </div>
+
+                <div id="map-controls-tab" class="left-tab-content active">
+                    <div class="control-group">
+                        <label class="control-label">Crystal & Refinement Data</label>
+                        <div id="crystal-info-box" class="info-box min-h-[120px]">Upload a file to see data.</div>
+                    </div>
+                    <div class="control-group">
+                        <label class="control-label">Patterson Map Calculation</label>
+                        <div>
+                            <label for="resolution-slider" class="block mb-2 text-sm font-medium">Map Resolution: <span id="resolution-value" class="font-bold">50</span></label>
+                            <input type="range" id="resolution-slider" min="20" max="100" value="50" step="5" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" disabled>
+                        </div>
+                        <button id="calculate-btn" class="btn btn-primary btn-full mt-4" disabled>Calculate 3D Map & Analyze</button>
+                    </div>
+                </div>
+
+                <div id="slices-controls-tab" class="left-tab-content">
+                     <div class="control-group">
+                        <label class="control-label">Slice Controls</label>
+                        <div class="space-y-4">
+                            <div>
+                                <label for="slice-slider-u" class="block mb-2 text-sm font-medium">Slice Position U: <span id="slice-value-u" class="font-bold">0.500</span></label>
+                                <input type="range" id="slice-slider-u" min="0" max="1" value="0.5" step="0.02" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" disabled>
+                            </div>
+                            <div>
+                                <label for="slice-slider-v" class="block mb-2 text-sm font-medium">Slice Position V: <span id="slice-value-v" class="font-bold">0.500</span></label>
+                                <input type="range" id="slice-slider-v" min="0" max="1" value="0.5" step="0.02" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" disabled>
+                            </div>
+                            <div>
+                                <label for="slice-slider-w" class="block mb-2 text-sm font-medium">Slice Position W: <span id="slice-value-w" class="font-bold">0.500</span></label>
+                                <input type="range" id="slice-slider-w" min="0" max="1" value="0.5" step="0.02" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" disabled>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="peaks-controls-tab" class="left-tab-content flex-grow flex flex-col">
+                    <div class="control-group">
+                        <label class="control-label">Peak Analysis</label>
+                        <div>
+                            <label for="tolerance-slider" class="block mb-2 text-sm font-medium">Combination Tolerance: <span id="tolerance-value" class="font-bold">0.030</span></label>
+                            <input type="range" id="tolerance-slider" min="0.01" max="0.10" value="0.03" step="0.005" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" disabled>
+                        </div>
+                    </div>
+                     <div class="control-group flex-grow flex flex-col">
+                        <h3 class="font-semibold text-gray-300 mb-2">Proposed Heavy Atom Sites (Partial)</h3>
+                        <div id="sites-table-container" class="dark-table-container flex-grow">
+                            <table class="w-full dark-table">
+                                <thead class="sticky top-0 bg-gray-800"><tr><th>Source</th><th>(x, y, z)</th></tr></thead>
+                                <tbody id="sites-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button id="generate-report-btn" class="btn btn-primary btn-full mt-auto" disabled>Generate PDF Report</button>
+        </div>
+
+        <div id="drag-handle"></div>
+
+        <div id="results-area" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                 <h2 id="slice-title" class="text-lg font-semibold text-center mb-3">Patterson Map Slice</h2>
+                 <div class="canvas-wrapper"><canvas id="patterson-canvas"></canvas></div>
+                 <div id="coords-display" class="font-mono text-sm text-center mt-2 h-5 text-slate-600"></div>
+            </div>
+            <div class="flex flex-col min-h-0 gap-6">
+                 <div class="flex flex-col flex-1">
+                    <h2 class="text-lg font-semibold text-center mb-3 flex-shrink-0">Found Patterson Peaks</h2>
+                    <div class="table-container max-h-full">
+                        <table id="peaks-table" class="styled-table">
+                            <thead><tr><th>Height</th><th>(u, v, w)</th></tr></thead>
+                            <tbody id="peaks-table-body"></tbody>
+                        </table>
+                    </div>
+                 </div>
+                 <div class="flex flex-col flex-1">
+                    <h2 class="text-lg font-semibold text-center mb-3 flex-shrink-0">Consolidated Heavy Atom Sites</h2>
+                    <div class="table-container max-h-full">
+                        <table id="consolidated-sites-table" class="styled-table">
+                            <thead><tr><th>(x, y, z)</th></tr></thead>
+                            <tbody id="consolidated-sites-table-body"></tbody>
+                        </table>
+                    </div>
+                 </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="fixed bottom-0 right-0 p-2 text-xs text-slate-400">Harker sections in Patterson maps. v 26 oct 2025.</footer> <!-- Version bump -->
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- DOM ELEMENTS ---
+        const openFileBtn = document.getElementById('open-file-btn');
+        const fileInput = document.getElementById('data-file-input');
+        const statusMessage = document.getElementById('status-message');
+        const crystalInfoBox = document.getElementById('crystal-info-box');
+        const calculateBtn = document.getElementById('calculate-btn');
+        const resolutionSlider = document.getElementById('resolution-slider');
+        const resolutionValue = document.getElementById('resolution-value');
+        const sliceSliderU = document.getElementById('slice-slider-u'), sliceValueU = document.getElementById('slice-value-u');
+        const sliceSliderV = document.getElementById('slice-slider-v'), sliceValueV = document.getElementById('slice-value-v');
+        const sliceSliderW = document.getElementById('slice-slider-w'), sliceValueW = document.getElementById('slice-value-w');
+        const sliceTitle = document.getElementById('slice-title');
+        const toleranceSlider = document.getElementById('tolerance-slider');
+        const toleranceValue = document.getElementById('tolerance-value');
+        const peaksTableBody = document.getElementById('peaks-table-body');
+        const sitesTableBody = document.getElementById('sites-table-body');
+        const consolidatedSitesTableBody = document.getElementById('consolidated-sites-table-body');
+        const pattersonCanvas = document.getElementById('patterson-canvas');
+        const coordsDisplay = document.getElementById('coords-display');
+        const pattersonCtx = pattersonCanvas.getContext('2d');
+        const generateReportBtn = document.getElementById('generate-report-btn');
+        const leftTabButtons = document.querySelectorAll('.left-tab-button');
+        const leftTabContents = document.querySelectorAll('.left-tab-content');
+
+        // --- STATE ---
+        let state = {
+            crystalData: null, spaceGroups: null, pattersonMap3D: null, fileName: null,
+            mapResolution: 50, harkerTolerance: 0.03,
+            foundPeaks: [], harkerAnalysisResults: [], consolidatedSites: [],
+            sliceU: 0.5, sliceV: 0.5, sliceW: 0.5,
+            activeSlicingAxis: 'w',
+        };
+
+        // --- INITIALIZATION ---
+        fetch('space_groups_harker.json')
+            .then(response => {
+                if (!response.ok) {
+                    if (response.status === 404) {
+                         throw new Error("space_groups_harker.json not found. Place it in the same directory.");
+                    }
+                    throw new Error(`HTTP error ${response.status} loading space_groups_harker.json`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                state.spaceGroups = data;
+                console.log("Harker data loaded.");
+                 statusMessage.textContent = "Harker definitions loaded.";
+                 statusMessage.classList.remove('text-red-500');
+                 statusMessage.classList.add('text-green-500');
+                 setTimeout(() => { if (statusMessage.textContent === "Harker definitions loaded.") statusMessage.textContent = ''; }, 3000);
+            })
+            .catch(error => {
+                console.error("Error loading space_groups_harker.json:", error);
+                statusMessage.textContent = `Error: ${error.message}`;
+                statusMessage.classList.remove('text-amber-400', 'text-green-500');
+                statusMessage.classList.add('text-red-500');
+                 calculateBtn.disabled = true;
+            })
+            .finally(() => {
+                updateUIStates();
+            });
+
+
+        resizeCanvas();
+        updateUIStates();
+        updateAllTables();
+
+        // --- UI UTILS ---
+        function updateUIStates() {
+            const hasHarkerData = !!state.spaceGroups;
+            const hasCrystalData = !!state.crystalData;
+            const hasMap = !!state.pattersonMap3D;
+            const hasConsolidatedSites = state.consolidatedSites.length > 0;
+
+            resolutionSlider.disabled = !hasCrystalData;
+            calculateBtn.disabled = !hasCrystalData || !hasHarkerData;
+
+            [sliceSliderU, sliceSliderV, sliceSliderW].forEach(s => s.disabled = !hasMap);
+            toleranceSlider.disabled = state.harkerAnalysisResults.length < 2;
+
+            leftTabButtons.forEach(btn => {
+                const tab = btn.dataset.tab;
+                if (tab.includes('slices')) { btn.disabled = !hasMap; }
+                else if (tab.includes('peaks')) { btn.disabled = !hasMap || !hasHarkerData; }
+            });
+
+            generateReportBtn.disabled = !hasConsolidatedSites;
+        }
+
+
+        function showLeftTab(tabId) {
+            leftTabContents.forEach(content => content.classList.remove('active'));
+            leftTabButtons.forEach(button => button.classList.remove('left-tab-active'));
+            document.getElementById(tabId).classList.add('active');
+            document.querySelector(`.left-tab-button[data-tab="${tabId}"]`).classList.add('left-tab-active');
+        }
+
+        // --- PARSING & CALCULATION ---
+        function solveCoordinate(solverString, peak) {
+            if (solverString === '?') return '?';
+            try {
+                const sanitizedExpression = solverString.replace(/[^uvw\d\+\-\*\/\%\.\(\)\s]/g, '');
+                const solverFunc = new Function('u', 'v', 'w', `return ${sanitizedExpression}`);
+                const result = solverFunc(peak.u, peak.v, peak.w);
+                 if (typeof result !== 'number' || isNaN(result) || !isFinite(result)) { throw new Error(`Solver returned non-finite: ${result}`); }
+                return (((result % 1) + 1) % 1).toFixed(3);
+            } catch (e) { console.error(`Error solving: "${solverString}" for peak (${peak.u.toFixed(3)}, ${peak.v.toFixed(3)}, ${peak.w.toFixed(3)}):`, e); return 'err'; }
+        }
+
+
+        function parsePawleyFile(text) {
+            console.log("Parsing file...");
+            const data = { cell: {}, reflections: [], spaceGroup: null };
+            const cellRegex = /^\s*([a-zA-Z]+)\s*\(.*\)\s+([\d.eE+-]+)/;
+            const spaceGroupRegex = /Space Group:\s+(\d+)\s*[-–]\s*(.+)/;
+            const reflectionRegex = /^\(\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*\)\s+[\d.]+\s+([\d.]+)/;
+            let inReflectionsSection = false;
+            const lines = text.split('\n');
+
+            for (let i = 0; i < lines.length; i++) {
+                const originalLine = lines[i]; const line = originalLine.trim();
+                if (line.includes('--- Reflections List')) { inReflectionsSection = true; continue; }
+                if (line.includes('--- Point-by-Point Intensity Data')) { break; }
+                if (!inReflectionsSection) {
+                    let cellMatch = line.match(cellRegex);
+                    if (cellMatch) { data.cell[cellMatch[1]] = parseFloat(cellMatch[2]); continue; }
+                    if (!data.spaceGroup) {
+                         let spaceGroupMatch = line.match(spaceGroupRegex);
+                        if (spaceGroupMatch) { data.spaceGroup = { number: parseInt(spaceGroupMatch[1]), name: spaceGroupMatch[2].trim() }; console.log(` Found space group: ${data.spaceGroup.number}`); }
+                    }
+                } else {
+                    const reflectionMatch = line.match(reflectionRegex);
+                    if (reflectionMatch) {
+                        try {
+                            const h = parseInt(reflectionMatch[1].trim()); const k = parseInt(reflectionMatch[2].trim()); const l = parseInt(reflectionMatch[3].trim()); const intensity = parseFloat(reflectionMatch[4]);
+                            const reflection = { h, k, l, intensity };
+                            if (!isNaN(h) && !isNaN(k) && !isNaN(l) && !isNaN(intensity)) { data.reflections.push(reflection); }
+                            else { console.warn(`Skipped reflection (NaN):`, originalLine); }
+                        } catch (parseError) { console.error(`Error parsing reflection: "${originalLine}"`, parseError); }
+                    }
+                }
+            }
+
+            if (!data.cell.hasOwnProperty('alpha')) data.cell.alpha = 90;
+            if (!data.cell.hasOwnProperty('beta')) data.cell.beta = 90;
+            if (!data.cell.hasOwnProperty('gamma')) data.cell.gamma = 90;
+            if (data.cell.hasOwnProperty('a') && !isNaN(data.cell.a)) {
+                if (!data.cell.hasOwnProperty('b') || isNaN(data.cell.b)) { data.cell.b = data.cell.a; console.log(` Inferred b=a`); }
+                if (!data.cell.hasOwnProperty('c') || isNaN(data.cell.c)) { data.cell.c = data.cell.a; console.log(` Inferred c=a`); }
+            }
+
+            if (!data.spaceGroup) { throw new Error("Could not parse Space Group."); }
+            if (!data.cell.a || isNaN(data.cell.a) || !data.cell.b || isNaN(data.cell.b) || !data.cell.c || isNaN(data.cell.c)) { throw new Error("Could not determine cell parameters (a, b, c)."); }
+            if (data.reflections.length === 0 && inReflectionsSection) { console.warn("No reflections parsed."); }
+
+            console.log(`Parsed ${data.reflections.length} reflections.`);
+            return data;
+        }
+
+
+        async function calculatePattersonMap() {
+            return new Promise((resolve, reject) => {
+                statusMessage.textContent = 'Calculating 3D Patterson map...';
+                setTimeout(() => { // Use timeout to allow UI update
+                   try {
+                        const { cell, reflections } = state.crystalData;
+                        if (!reflections || reflections.length === 0) { throw new Error("No reflection data."); }
+                        if (!cell || !cell.a || !cell.b || !cell.c || isNaN(cell.a) || isNaN(cell.b) || isNaN(cell.c)) { throw new Error("Invalid cell data."); }
+                        const res = state.mapResolution; const V = cell.a * cell.b * cell.c;
+                        if (!V || !isFinite(V) || V <= 0) { throw new Error(`Invalid volume: ${V}`); }
+                        state.pattersonMap3D = new Float32Array(res * res * res);
+                        for (let iw=0; iw<res; iw++) for (let iv=0; iv<res; iv++) for (let iu=0; iu<res; iu++) {
+                            const u=iu/res, v=iv/res, w=iw/res; let p=0;
+                            for (const r of reflections) { if (isNaN(r.intensity) || isNaN(r.h) || isNaN(r.k) || isNaN(r.l)) continue; p += r.intensity * Math.cos(2*Math.PI*(r.h*u + r.k*v + r.l*w)); }
+                            if (!isFinite(p)) { p = 0; } state.pattersonMap3D[iw*res*res + iv*res + iu] = p/V;
+                        }
+                        let mapMin = Infinity, mapMax = -Infinity;
+                        if (state.pattersonMap3D.length > 0) { mapMin = state.pattersonMap3D[0]; mapMax = state.pattersonMap3D[0]; for (let i = 1; i < state.pattersonMap3D.length; i++) { const v = state.pattersonMap3D[i]; if (isFinite(v)) { if (v < mapMin) mapMin = v; if (v > mapMax) mapMax = v; } } } else { mapMin = 0; mapMax = 0; }
+                        if (!isFinite(mapMin) || !isFinite(mapMax)) { throw new Error("Map has non-finite values."); }
+                        console.log(`Map calculated. Min: ${mapMin.toFixed(2)}, Max: ${mapMax.toFixed(2)}`);
+                        resolve();
+                   } catch (error) { console.error("Map calc error:", error); statusMessage.textContent = `Map Error: ${error.message}`; statusMessage.classList.add('text-red-500'); state.pattersonMap3D = null; reject(error); }
+                }, 10); // Short delay
+            });
+        }
+
+
+        function findPeaks() {
+            const res=state.mapResolution, map=state.pattersonMap3D; if(!map) { state.foundPeaks = []; return; }
+            let peaks=[], maxVal=-Infinity, minVal = Infinity;
+            for (let i = 0; i < map.length; i++) { const v = map[i]; if (isFinite(v)) { if (v > maxVal) maxVal = v; if (v < minVal) minVal = v; } }
+            if (!isFinite(maxVal) || maxVal === minVal) { console.warn(`Map flat/invalid. Skipping peaks.`); state.foundPeaks = []; return; }
+            const threshold = minVal + (maxVal - minVal) * 0.15;
+            for(let iw=1; iw<res-1; iw++) for(let iv=1; iv<res-1; iv++) for(let iu=1; iu<res-1; iu++) {
+                const idx=iw*res*res+iv*res+iu, val=map[idx]; if(val < threshold || !isFinite(val)) continue;
+                let isMax=true;
+                for(let dw=-1; dw<=1 && isMax; dw++) for(let dv=-1; dv<=1 && isMax; dv++) for(let du=-1; du<=1 && isMax; du++) { if(du===0 && dv===0 && dw===0) continue; const nv = map[(iw+dw)*res*res+(iv+dv)*res+(iu+du)]; if(isFinite(nv) && nv > val) { isMax=false; break; } }
+                if(isMax) { const normH = (maxVal > minVal) ? (val - minVal) / (maxVal - minVal) : 0; peaks.push({u:iu/res, v:iv/res, w:iw/res, height: normH }); }
+            }
+            peaks.sort((a,b)=>b.height-a.height); state.foundPeaks=peaks.slice(0,50);
+            console.log(`Found ${peaks.length} peaks. Kept ${state.foundPeaks.length}.`);
+        }
+
+
+        function analyzeHarkerPeaks() {
+            state.harkerAnalysisResults = [];
+            if (!state.crystalData?.spaceGroup || state.foundPeaks.length === 0 || !state.spaceGroups) { console.log("Skipping Harker."); return; }
+            const sgNumber = state.crystalData.spaceGroup.number; const sgData = state.spaceGroups[sgNumber];
+            const gridSpacing = 1.0 / state.mapResolution; const tol = 1.5 * gridSpacing;
+            console.log(`Analyzing SG: ${sgNumber}. Tol: ${tol.toFixed(3)}`);
+            if (!sgData?.harker_sections) { console.warn(`No Harker data for SG ${sgNumber}.`); statusMessage.textContent = `Warn: No Harker data for SG ${sgNumber}.`; return; }
+            if (sgData.harker_sections.length === 0) { console.log(`No Harker sections for SG ${sgNumber}.`); statusMessage.textContent = `Info: No Harker sections for SG ${sgNumber}.`; return; }
+            console.log(`Found ${sgData.harker_sections.length} Harker sections.`);
+            sgData.harker_sections.forEach((section, si) => {
+                 if (!section.coordinate || !['u', 'v', 'w'].includes(section.coordinate) || typeof section.value !== 'number' || !section.solver) { console.warn(`Skip invalid section ${si + 1}`); return; }
+                state.foundPeaks.forEach((peak, pi) => {
+                    const pc = peak[section.coordinate]; const diff = Math.abs(pc - section.value); const pDiff = Math.min(diff, 1.0 - diff);
+                    if (pDiff < tol) {
+                        const site = { source: `${section.type?.charAt(0).toUpperCase() + section.type?.slice(1)||'Unk'} (${section.coordinate}=${section.value.toFixed(3)})`, peakCoords: `(${peak.u.toFixed(3)}, ${peak.v.toFixed(3)}, ${peak.w.toFixed(3)})`, x: solveCoordinate(section.solver.x, peak), y: solveCoordinate(section.solver.y, peak), z: solveCoordinate(section.solver.z, peak) };
+                        if (site.x === 'err' || site.y === 'err' || site.z === 'err') { console.error(`   Solver error. Peak ${pi}, Sec ${si+1}. Discarded.`); }
+                        else { state.harkerAnalysisResults.push(site); }
+                    }
+                });
+            });
+            const numFound = state.harkerAnalysisResults.length;
+            if (numFound > 0) { const msg = `Harker found ${numFound} partial site(s).`; console.log(msg); statusMessage.textContent = msg; }
+            else { const msg = `No matching Harker peaks found.`; console.log(msg); statusMessage.textContent = msg; }
+        }
+
+        function combineSites() {
+            console.log("--- Starting Site Combination ---");
+            state.consolidatedSites = [];
+            const results = state.harkerAnalysisResults.filter(site => site.x !== 'err' && site.y !== 'err' && site.z !== 'err');
+            const tol = state.harkerTolerance;
+            console.log(`Attempting to combine ${results.length} valid partial sites. Tolerance: ${tol.toFixed(3)}`);
+
+            if (results.length < 2) {
+                 const message = `Site Combination: Found 0 sites (Need >= 2 partial sites).`;
+                 console.log(message); statusMessage.textContent = message; updateAllTables();
+                 console.log("--- Finished Site Combination (Not enough sites) ---"); return;
+            }
+
+            const areClose = (c1, c2) => { if (c1 === '?' || c2 === '?') return false; const v1 = parseFloat(c1); const v2 = parseFloat(c2); if (isNaN(v1) || isNaN(v2)) return false; const diff = Math.abs(v1 - v2); return Math.min(diff, 1 - diff) < tol; };
+            const isNum = (c) => c !== '?' && !isNaN(parseFloat(c));
+
+            const potentialSites = [];
+            for (let i = 0; i < results.length; i++) {
+                for (let j = i + 1; j < results.length; j++) {
+                    const r1 = results[i], r2 = results[j]; let combinedSite = null;
+                    try {
+                        if (areClose(r1.z, r2.z) && isNum(r1.x) && isNum(r2.y)) { const avgZ = averagePeriodic(parseFloat(r1.z), parseFloat(r2.z)); combinedSite = { x: parseFloat(r1.x), y: parseFloat(r2.y), z: avgZ }; }
+                        else if (areClose(r1.z, r2.z) && isNum(r2.x) && isNum(r1.y)) { const avgZ = averagePeriodic(parseFloat(r1.z), parseFloat(r2.z)); combinedSite = { x: parseFloat(r2.x), y: parseFloat(r1.y), z: avgZ }; }
+                        else if (areClose(r1.y, r2.y) && isNum(r1.x) && isNum(r2.z)) { const avgY = averagePeriodic(parseFloat(r1.y), parseFloat(r2.y)); combinedSite = { x: parseFloat(r1.x), y: avgY, z: parseFloat(r2.z) }; }
+                        else if (areClose(r1.y, r2.y) && isNum(r2.x) && isNum(r1.z)) { const avgY = averagePeriodic(parseFloat(r1.y), parseFloat(r2.y)); combinedSite = { x: parseFloat(r2.x), y: avgY, z: parseFloat(r1.z) }; }
+                        else if (areClose(r1.x, r2.x) && isNum(r1.y) && isNum(r2.z)) { const avgX = averagePeriodic(parseFloat(r1.x), parseFloat(r2.x)); combinedSite = { x: avgX, y: parseFloat(r1.y), z: parseFloat(r2.z) }; }
+                        else if (areClose(r1.x, r2.x) && isNum(r2.y) && isNum(r1.z)) { const avgX = averagePeriodic(parseFloat(r1.x), parseFloat(r2.x)); combinedSite = { x: avgX, y: parseFloat(r2.y), z: parseFloat(r1.z) }; }
+                        if (combinedSite) { const norm = val => (((val % 1) + 1) % 1); combinedSite.x = norm(combinedSite.x); combinedSite.y = norm(combinedSite.y); combinedSite.z = norm(combinedSite.z); potentialSites.push(combinedSite); }
+                    } catch (error) { console.error(`Error combining pair (${i+1}, ${j+1}):`, error, r1, r2); }
+                }
+            }
+            console.log(`Generated ${potentialSites.length} potential combined sites.`);
+
+            if (potentialSites.length === 0) {
+                 const message = `Site Combination: Found 0 sites (Partial sites found, but no pairs combined).`;
+                 console.log(message); statusMessage.textContent = message; updateAllTables();
+                 console.log("--- Finished Site Combination (No pairs combined) ---"); return;
+            }
+
+            console.log(" Clustering potential sites...");
+            const finalSites = []; let unassignedSites = [...potentialSites];
+            while (unassignedSites.length > 0) {
+                let currentGroup = [unassignedSites.shift()]; let remainingSites = [];
+                for (const site of unassignedSites) { if (currentGroup.some(member => areClose(site.x, member.x) && areClose(site.y, member.y) && areClose(site.z, member.z))) { currentGroup.push(site); } else { remainingSites.push(site); } }
+                unassignedSites = remainingSites;
+                let sumX = 0, sumY = 0, sumZ = 0; const refX = currentGroup[0].x, refY = currentGroup[0].y, refZ = currentGroup[0].z;
+                for (const site of currentGroup) { sumX += adjustPeriodic(site.x, refX); sumY += adjustPeriodic(site.y, refY); sumZ += adjustPeriodic(site.z, refZ); }
+                const avgSite = { x: sumX / currentGroup.length, y: sumY / currentGroup.length, z: sumZ / currentGroup.length };
+                const norm = val => (((val % 1) + 1) % 1);
+                finalSites.push({ x: norm(avgSite.x), y: norm(avgSite.y), z: norm(avgSite.z), count: currentGroup.length });
+                 console.log(`  Cluster (Size ${currentGroup.length}): Avg=(${finalSites[finalSites.length-1].x.toFixed(3)}, ${finalSites[finalSites.length-1].y.toFixed(3)}, ${finalSites[finalSites.length-1].z.toFixed(3)})`);
+            }
+
+            state.consolidatedSites = finalSites;
+            const message = `Site Combination: Found ${finalSites.length} unique site(s).`;
+            console.log(message); console.log("Final Sites:", finalSites.map(s => `(${s.x.toFixed(3)}, ${s.y.toFixed(3)}, ${s.z.toFixed(3)}) [${s.count}]`));
+            statusMessage.textContent = message;
+            console.log("--- Finished Site Combination ---");
+        }
+
+
+        function averagePeriodic(v1, v2) { const diff = v1 - v2; if (Math.abs(diff) > 0.5) { if (v1 < v2) v1 += 1.0; else v2 += 1.0; } return ((( (v1 + v2) / 2.0 ) % 1) + 1) % 1; }
+        function adjustPeriodic(value, ref) { if (value - ref > 0.5) return value - 1.0; if (ref - value > 0.5) return value + 1.0; return value; }
+
+
+        // --- UI & DRAWING ---
+        function updateCrystalInfo() {
+            if (!state.crystalData) { crystalInfoBox.innerHTML = 'Upload file.'; return; }
+            const { cell, spaceGroup, reflections } = state.crystalData;
+            const sgInfo = spaceGroup ? `${spaceGroup.number} (${spaceGroup.name})` : '<span class="text-red-500">N/A</span>';
+            crystalInfoBox.innerHTML = `<strong>SG:</strong> ${sgInfo}<br>
+            <strong>Cell:</strong> a=${cell.a?.toFixed(4)}, b=${cell.b?.toFixed(4)}, c=${cell.c?.toFixed(4)}<br>
+            <strong>Ang:</strong> α=${cell.alpha?.toFixed(1)}°, β=${cell.beta?.toFixed(1)}°, γ=${cell.gamma?.toFixed(1)}°<br>
+            <strong>Refls:</strong> ${reflections?.length || 0}`;
+        }
+
+        function drawPattersonSlice() {
+            if (!state.pattersonMap3D) { pattersonCtx.fillStyle='#1e2937'; pattersonCtx.fillRect(0,0,pattersonCanvas.width,pattersonCanvas.height); return; }
+            const res=state.mapResolution, map=state.pattersonMap3D, axis=state.activeSlicingAxis;
+            const u_idx=Math.round(state.sliceU*(res-1)),v_idx=Math.round(state.sliceV*(res-1)),w_idx=Math.round(state.sliceW*(res-1));
+
+             let sliceMin=Infinity, sliceMax=-Infinity; let isValidSlice = false;
+             for(let i=0; i<res; i++) for(let j=0; j<res; j++) {
+                 let idx;
+                 if (axis === 'u') idx = j*res*res + i*res + u_idx;
+                 else if (axis === 'v') idx = j*res*res + v_idx*res + i;
+                 else idx = w_idx*res*res + j*res + i;
+                 if (idx >= 0 && idx < map.length && isFinite(map[idx])) { isValidSlice = true; if(map[idx]<sliceMin) sliceMin=map[idx]; if(map[idx]>sliceMax) sliceMax=map[idx]; }
+             }
+             if (!isValidSlice || sliceMax === sliceMin) { pattersonCtx.fillStyle='#1e2937'; pattersonCtx.fillRect(0,0,pattersonCanvas.width,pattersonCanvas.height); return; }
+
+            const size=pattersonCanvas.width, img=pattersonCtx.createImageData(size,size), data=img.data; const range = sliceMax - sliceMin;
+            for(let py=0; py<size; py++) for(let px=0; px<size; px++) {
+                let map_x, map_y, fixed_idx, idx;
+                if (axis === 'u') { map_x = Math.floor(px / size * res); map_y = Math.floor((1 - py / size) * res); fixed_idx = u_idx; idx = map_y * res * res + map_x * res + fixed_idx; }
+                else if (axis === 'v') { map_x = Math.floor(px / size * res); map_y = Math.floor((1 - py / size) * res); fixed_idx = v_idx; idx = map_y * res * res + fixed_idx * res + map_x; }
+                else { map_x = Math.floor(px / size * res); map_y = Math.floor((1 - py / size) * res); fixed_idx = w_idx; idx = fixed_idx*res*res + map_y*res + map_x; }
+                const d_idx=(py*size+px)*4;
+                if (idx < 0 || idx >= map.length || !isFinite(map[idx])) { data[d_idx]=30; data[d_idx+1]=41; data[d_idx+2]=59; data[d_idx+3]=255; continue; };
+                const val = range > 1e-9 ? (map[idx]-sliceMin)/range : 0.5; let r=0, g=0, b=0;
+                if (val < 0.25) { r = 0; g = Math.max(0, Math.min(255, Math.round(4 * val * 255))); b = 255; }
+                else if (val < 0.5) { r = 0; g = 255; b = Math.max(0, Math.min(255, Math.round((1 - 4 * (val - 0.25)) * 255))); }
+                else if (val < 0.75) { r = Math.max(0, Math.min(255, Math.round(4 * (val - 0.5) * 255))); g = 255; b = 0; }
+                else { r = 255; g = Math.max(0, Math.min(255, Math.round((1 - 4 * (val - 0.75)) * 255))); b = 0; }
+                data[d_idx]=r; data[d_idx+1]=g; data[d_idx+2]=b; data[d_idx+3]=255;
+            }
+            pattersonCtx.putImageData(img,0,0);
+        }
+
+
+        function updateAllTables() {
+            try { peaksTableBody.innerHTML = state.foundPeaks.length === 0 ? '<tr><td colspan="2" class="text-center py-8">No peaks.</td></tr>' : state.foundPeaks.map(p => `<tr><td>${p.height.toFixed(2)}</td><td>(${p.u.toFixed(3)}, ${p.v.toFixed(3)}, ${p.w.toFixed(3)})</td></tr>`).join(''); } catch (e) { console.error("Err peaks table:", e); }
+            try { sitesTableBody.innerHTML = state.harkerAnalysisResults.length === 0 ? '<tr><td colspan="2" class="text-center py-4">No partial sites.</td></tr>' : state.harkerAnalysisResults.map(s => `<tr><td class="text-xs">${s.source}</td><td>(${s.x}, ${s.y}, ${s.z})</td></tr>`).join(''); } catch (e) { console.error("Err sites table:", e); }
+            try { consolidatedSitesTableBody.innerHTML = state.consolidatedSites.length === 0 ? '<tr><td class="text-center py-8">No sites combined.</td></tr>' : state.consolidatedSites.map(s => `<tr><td>(${s.x.toFixed(3)}, ${s.y.toFixed(3)}, ${s.z.toFixed(3)}) [${s.count}]</td></tr>`).join(''); } catch (e) { console.error("Err combined table:", e); }
+        }
+
+
+        function resizeCanvas() { try { const p = pattersonCanvas.parentElement; if (!p) return; const s=p.clientWidth; if(s<=0) return; pattersonCanvas.width=s; pattersonCanvas.height=s; drawPattersonSlice(); } catch(e) { console.error("Resize err:", e); } }
+
+
+        function resetAnalysis(isNewFile = false) {
+             console.log(`Resetting. New file: ${isNewFile}`);
+            if(isNewFile) { state.crystalData = null; updateCrystalInfo(); }
+            state.pattersonMap3D=null; state.foundPeaks=[]; state.harkerAnalysisResults=[]; state.consolidatedSites=[];
+            updateAllTables(); drawPattersonSlice(); showLeftTab('map-controls-tab');
+            statusMessage.textContent = isNewFile ? '' : (statusMessage.textContent.startsWith("Error:") ? statusMessage.textContent : '');
+             sliceSliderU.value = 0.5; sliceValueU.textContent = (0.5).toFixed(3); state.sliceU = 0.5;
+             sliceSliderV.value = 0.5; sliceValueV.textContent = (0.5).toFixed(3); state.sliceV = 0.5;
+             sliceSliderW.value = 0.5; sliceValueW.textContent = (0.5).toFixed(3); state.sliceW = 0.5;
+             state.activeSlicingAxis = 'w'; sliceTitle.textContent = `Slice ⊥ W at 0.500`;
+             toleranceSlider.value = 0.03; toleranceValue.textContent = (0.03).toFixed(3); state.harkerTolerance = 0.03;
+             resolutionSlider.value = 50; resolutionValue.textContent = 50; state.mapResolution = 50;
+             updateUIStates();
+        }
+
+
+        async function generatePdfReport() {
+            if(!state.crystalData || state.consolidatedSites.length===0) { console.warn("PDF Skip: No data/sites."); statusMessage.textContent = "Cannot gen report: No consolidated sites."; setTimeout(() => { if(statusMessage.textContent.includes("Cannot gen report")) statusMessage.textContent = '';}, 3000); return; }
+            console.log("Generating PDF report...");
+            try {
+                const { jsPDF } = window.jspdf; const doc = new jsPDF({ format: 'a4', unit: 'mm' }); let y=15; const m=10, lh=5; const pageH = doc.internal.pageSize.getHeight(); const pageW = doc.internal.pageSize.getWidth(); const contentW = pageW - 2 * m;
+                doc.setFontSize(16); doc.text("Patterson Analysis Report", m, y); y+=lh*2; const now = new Date(); const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
+                doc.setFontSize(9); doc.text(`Date: ${now.toLocaleString()} | File: ${state.fileName||'N/A'}`, m, y); y+=lh*2;
+                 const {cell,spaceGroup,reflections}=state.crystalData; const sgInfo = spaceGroup ? `${spaceGroup.number} (${spaceGroup.name})` : 'N/A';
+                 doc.autoTable({ startY: y, theme: 'striped', headStyles: { fillColor: [75, 85, 99], fontSize: 8 }, bodyStyles: { fontSize: 7 }, columnStyles: { 0: { cellWidth: 40 }, 1: { cellWidth: 'auto'} }, head: [['Parameter', 'Value']],
+                    body: [ ['SG', sgInfo], ['Cell (Å)', `${cell.a?.toFixed(4)}, ${cell.b?.toFixed(4)}, ${cell.c?.toFixed(4)}`], ['Ang (°)', `${cell.alpha?.toFixed(1)}, ${cell.beta?.toFixed(1)}, ${cell.gamma?.toFixed(1)}`], ['Refls', reflections?.length||0], ['Res', state.mapResolution], ['Tol', state.harkerTolerance.toFixed(3)] ] });
+                 y=doc.autoTable.previous.finalY+lh*2;
+                doc.setFontSize(11); doc.text("Active Patterson Map Slice", m, y); y+=lh; const canvas=pattersonCanvas; const canvasDU = await html2canvas(canvas).then(can => can.toDataURL('image/png')); const imgW = contentW * 0.6; const imgH = (canvas.height * imgW) / canvas.width;
+                 if (y + imgH > pageH - m) { doc.addPage(); y = m + lh; } doc.addImage(canvasDU, 'PNG', m, y, imgW, imgH); y += imgH + lh; doc.setFontSize(8); doc.text(`Slice ⊥ ${state.activeSlicingAxis.toUpperCase()} at ${state[`slice${state.activeSlicingAxis.toUpperCase()}`].toFixed(3)}`, m, y); y += lh * 2;
+                 if (state.foundPeaks.length > 0) { if (y + 30 > pageH - m) { doc.addPage(); y = m + lh; } doc.setFontSize(11); doc.text("Found Patterson Peaks", m, y); y += lh; doc.autoTable({ html: '#peaks-table', startY: y, theme: 'grid', headStyles: { fillColor: [75, 85, 99], fontSize: 8 }, bodyStyles: { fontSize: 7, cellPadding: 1.5 }, tableWidth: 'wrap' }); y = doc.autoTable.previous.finalY + lh * 2; }
+                 if(state.consolidatedSites.length > 0) { if (y + 30 > pageH - m) { doc.addPage(); y = m + lh; } doc.setFontSize(11); doc.text("Consolidated Sites", m, y); y += lh; const tc = document.getElementById('consolidated-sites-table').cloneNode(true); const pb = tc.querySelector('tbody'); pb.innerHTML = state.consolidatedSites.map(s => `<tr><td>(${s.x.toFixed(3)}, ${s.y.toFixed(3)}, ${s.z.toFixed(3)})</td></tr>`).join(''); doc.autoTable({ html: tc, startY: y, theme: 'grid', headStyles: { fillColor: [22, 163, 74], fontSize: 8 }, bodyStyles: { fontSize: 7, cellPadding: 1.5 }, tableWidth: 'wrap' }); y = doc.autoTable.previous.finalY + lh * 2; }
+                 if (state.harkerAnalysisResults.length > 0) { if (y + 30 > pageH - m) { doc.addPage(); y = m + lh; } doc.setFontSize(11); doc.text("Partial Sites (Harker)", m, y); y += lh; if (y + 40 > pageH - m) { doc.addPage(); y = m + lh; } doc.autoTable({ html: '#sites-table', startY: y, theme: 'grid', headStyles: { fillColor: [100, 116, 139], fontSize: 8 }, bodyStyles: { fontSize: 6, cellPadding: 1 }, tableWidth: 'auto' }); }
+                doc.save(`Patterson_Report_${ts}.pdf`); console.log("PDF generated.");
+            } catch (error) { console.error("PDF Error:", error); statusMessage.textContent = "Error generating PDF."; setTimeout(() => { if(statusMessage.textContent.includes("Error generating PDF")) statusMessage.textContent = '';}, 3000); }
+        }
+
+
+        // --- MAIN ANALYSIS FUNCTION ---
+        async function runFullAnalysis() {
+            if (!state.crystalData) { console.error("Run Skip: No data."); statusMessage.textContent = "Error: Load data."; return; }
+            if (!state.spaceGroups) { console.error("Run Skip: No Harker defs."); statusMessage.textContent = "Error: Harker defs missing."; return; }
+             console.log("=== Starting Full Analysis ===");
+            calculateBtn.disabled = true; resolutionSlider.disabled = true; leftTabButtons.forEach(b => b.disabled = true); statusMessage.textContent = 'Calculating map...'; statusMessage.classList.remove('text-red-500', 'text-green-500'); statusMessage.classList.add('text-amber-400');
+             try {
+                // Update slice slider step *before* calculation
+                const step = 1 / state.mapResolution;
+                [sliceSliderU, sliceSliderV, sliceSliderW].forEach(s => s.step = Math.max(0.001, step).toFixed(4));
+
+                await calculatePattersonMap(); findPeaks(); analyzeHarkerPeaks(); combineSites(); updateAllTables(); drawPattersonSlice();
+
+                const numCombined = state.consolidatedSites.length; const numPartial = state.harkerAnalysisResults.length; const numPeaks = state.foundPeaks.length;
+                if (numCombined > 0) { statusMessage.textContent = `Done. Found ${numCombined} site(s).`; statusMessage.classList.add('text-green-500'); statusMessage.classList.remove('text-amber-400'); }
+                 else if (numPartial > 0) { statusMessage.textContent = `Done. Found ${numPartial} partial sites, but none combined.`; statusMessage.classList.add('text-amber-400'); }
+                 else if (numPeaks > 0) { statusMessage.textContent = `Done. Found peaks, but no Harker matches.`; statusMessage.classList.add('text-amber-400'); }
+                 else { statusMessage.textContent = `Done. No significant peaks found.`; statusMessage.classList.add('text-amber-400'); }
+
+                const mapTabBtn = document.querySelector('.left-tab-button[data-tab="map-controls-tab"]'); if (mapTabBtn.classList.contains('left-tab-active') && state.pattersonMap3D) { showLeftTab('slices-controls-tab'); }
+             } catch (error) { console.error("Analysis Pipeline Error:", error); statusMessage.textContent = `Error: ${error.message}`; resetAnalysis(); } // Reset on major error
+             finally { updateUIStates(); console.log("=== Finished Analysis Attempt ==="); }
+        }
+
+
+        // --- EVENT HANDLERS ---
+        openFileBtn.addEventListener('click',()=>fileInput.click());
+        fileInput.addEventListener('change', e => {
+             const f = e.target.files[0]; if(!f) return; console.clear(); console.log(`Loading: ${f.name}`); state.fileName=f.name; const r=new FileReader();
+             r.onload=ev=>{
+                 try{ resetAnalysis(true); state.crystalData = parsePawleyFile(ev.target.result);
+                     if (!state.crystalData || !state.crystalData.spaceGroup || !state.crystalData.cell.a || !state.crystalData.cell.b || !state.crystalData.cell.c) { throw new Error("Parsing failed (SG or Cell). Check logs."); }
+                     if (!state.crystalData.reflections || state.crystalData.reflections.length === 0) { console.warn("No reflections parsed."); statusMessage.textContent = `Warn: ${f.name} loaded, no reflections.`; statusMessage.classList.remove('text-green-500'); statusMessage.classList.add('text-amber-400'); }
+                     else { statusMessage.textContent=`${f.name} loaded. Ready.`; statusMessage.classList.remove('text-red-500','text-amber-400'); statusMessage.classList.add('text-green-500'); }
+                     updateCrystalInfo();
+                 } catch(err) { console.error("File processing error:", err); statusMessage.textContent = `Error: ${err.message}`; statusMessage.classList.remove('text-amber-400', 'text-green-500'); statusMessage.classList.add('text-red-500'); resetAnalysis(true); }
+                 finally { updateUIStates(); fileInput.value = ''; }
+             };
+             r.onerror = (err) => { console.error("FileReader error:", err); statusMessage.textContent = "Error reading file."; statusMessage.classList.remove('text-amber-400', 'text-green-500'); statusMessage.classList.add('text-red-500'); resetAnalysis(true); updateUIStates(); };
+             r.readAsText(f);
+        });
+
+        calculateBtn.addEventListener('click', runFullAnalysis);
+
+        toleranceSlider.addEventListener('change', () => {
+            state.harkerTolerance = parseFloat(toleranceSlider.value); toleranceValue.textContent = state.harkerTolerance.toFixed(3);
+            if (state.harkerAnalysisResults.length > 0) { statusMessage.textContent = 'Re-combining...'; console.log(`Tol changed to ${state.harkerTolerance.toFixed(3)}. Recombining.`); setTimeout(() => { combineSites(); updateAllTables(); updateUIStates(); }, 10); }
+            else { console.log("Tol changed, no results to combine."); }
+        });
+        toleranceSlider.addEventListener('input', () => { toleranceValue.textContent = parseFloat(toleranceSlider.value).toFixed(3); });
+
+        // --- UPDATED RESOLUTION SLIDER ---
+        // Resolution slider updates display on input and sets state
+        resolutionSlider.addEventListener('input', e => {
+            state.mapResolution = parseInt(e.target.value);
+            resolutionValue.textContent = state.mapResolution;
+            // UPDATE: Change status message to prompt button press
+            if (state.crystalData) {
+                statusMessage.textContent = `Resolution set to ${state.mapResolution}. Press Calculate button.`; // Changed message
+                statusMessage.classList.remove('text-red-500', 'text-green-500');
+                statusMessage.classList.add('text-amber-400');
+            }
+        });
+
+
+        function setupSliceSlider(slider, valueEl, axis) {
+            slider.addEventListener('input', e => { const v = parseFloat(e.target.value); state[`slice${axis.toUpperCase()}`] = v; state.activeSlicingAxis = axis; valueEl.textContent = v.toFixed(3); sliceTitle.textContent = `Slice ⊥ ${axis.toUpperCase()} at ${v.toFixed(3)}`; drawPattersonSlice(); sliceValueU.textContent = state.sliceU.toFixed(3); sliceValueV.textContent = state.sliceV.toFixed(3); sliceValueW.textContent = state.sliceW.toFixed(3); });
+             // Set initial step based on default resolution
+             slider.step = Math.max(0.001, (1 / state.mapResolution)).toFixed(4);
+        }
+        setupSliceSlider(sliceSliderU, sliceValueU, 'u');
+        setupSliceSlider(sliceSliderV, sliceValueV, 'v');
+        setupSliceSlider(sliceSliderW, sliceValueW, 'w');
+
+        pattersonCanvas.addEventListener('mousemove', e => { if(!state.pattersonMap3D) return; const r=pattersonCanvas.getBoundingClientRect(); if (r.width===0||r.height===0) return; const px=(e.clientX-r.left); const py=(e.clientY-r.top); const xf=Math.max(0,Math.min(1,px/r.width)); const yf=Math.max(0,Math.min(1,1-(py/r.height))); let u,v,w; const {sliceU,sliceV,sliceW,activeSlicingAxis}=state; if(activeSlicingAxis==='w'){u=xf;v=yf;w=sliceW;}else if(activeSlicingAxis==='v'){u=xf;v=sliceV;w=yf;}else{u=sliceU;v=xf;w=yf;} coordsDisplay.textContent=`(u=${u.toFixed(3)}, v=${v.toFixed(3)}, w=${w.toFixed(3)})`; });
+        pattersonCanvas.addEventListener('mouseleave',()=>coordsDisplay.textContent='');
+
+        let resizeTimeout; window.addEventListener('resize',()=>{ clearTimeout(resizeTimeout); resizeTimeout = setTimeout(resizeCanvas, 150); });
+        const resizer=document.getElementById('drag-handle'); const cp = document.getElementById('controls-panel'); resizer.addEventListener('mousedown',e=>{ e.preventDefault(); document.body.classList.add('resizing'); const sx = e.clientX; const sw = cp.offsetWidth; const minW=400; const maxW=Math.min(800, window.innerWidth-200); const move=(ev)=>{ let nw = sw+(ev.clientX-sx); nw=Math.max(minW,Math.min(nw,maxW)); cp.style.width=`${nw}px`; resizeCanvas(); }; const up=()=>{document.body.classList.remove('resizing'); window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up); }; window.addEventListener('mousemove',move); window.addEventListener('mouseup',up); });
+        leftTabButtons.forEach(b=>b.addEventListener('click',()=>{if(!b.disabled)showLeftTab(b.dataset.tab);}));
+        generateReportBtn.addEventListener('click', generatePdfReport);
+
+         sliceTitle.textContent = `Slice ⊥ ${state.activeSlicingAxis.toUpperCase()} at ${state[`slice${state.activeSlicingAxis.toUpperCase()}`].toFixed(3)}`;
+         updateUIStates();
+
+    });
+</script>
+
+
+</body>
+</html>
+
