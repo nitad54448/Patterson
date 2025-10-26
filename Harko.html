@@ -316,50 +316,79 @@
              pattersonWorker = new Worker('harko_worker.js');
              
              // --- WORKER MESSAGE HANDLER ---
-             pattersonWorker.onmessage = (e) => {
-                const { type, payload } = e.data;
+// --- WORKER MESSAGE HANDLER ---
+         pattersonWorker.onmessage = (e) => {
+            const { type, payload } = e.data;
 
-                if (type === 'status') {
-                    // Update status message as worker progresses
-                    statusMessage.textContent = payload;
-                    statusMessage.classList.remove('text-red-500', 'text-green-500');
+            if (type === 'status') {
+                // Update status message as worker progresses
+                statusMessage.textContent = payload;
+                statusMessage.classList.remove('text-red-500', 'text-green-500');
+                statusMessage.classList.add('text-amber-400');
+            }
+            else if (type === 'analysis_complete') {
+                // --- FULL RESULTS ARE IN ---
+                console.log("Analysis complete. Receiving ALL results from worker.");
+
+                // Store ALL results in state
+                state.pattersonMap3D = payload.pattersonMap3D;
+                state.foundPeaks = payload.foundPeaks;
+                state.harkerAnalysisResults = payload.harkerAnalysisResults;
+                state.consolidatedSites = payload.consolidatedSites;
+
+                // Update UI
+                updateAllTables();
+                resizeCanvas(); 
+                drawPattersonSlice();
+
+                // Update status and cursor
+                document.body.style.cursor = 'default';
+                statusMessage.textContent = payload.finalMessage;
+                if (payload.consolidatedSites.length > 0) {
+                    statusMessage.classList.add('text-green-500');
+                    statusMessage.classList.remove('text-amber-400');
+                } else { // Ensure amber for other cases
+                    statusMessage.classList.remove('text-green-500');
                     statusMessage.classList.add('text-amber-400');
                 }
-                else if (type === 'analysis_complete') {
-                    // --- FINAL RESULTS ARE IN ---
-                    console.log("Analysis complete. Receiving results from worker.");
-                    
-                    // Store all results in state
-                    state.pattersonMap3D = payload.pattersonMap3D;
-                    state.foundPeaks = payload.foundPeaks;
-                    state.harkerAnalysisResults = payload.harkerAnalysisResults;
-                    state.consolidatedSites = payload.consolidatedSites;
 
-                    // Update UI
-                    updateAllTables();
-                    resizeCanvas(); // Resize canvas now that we have a map
-                    drawPattersonSlice();
+                // Re-enable all UI elements
+                updateUIStates();
+            }
+            // --- NEW: HANDLE COMBINE_COMPLETE ---
+            else if (type === 'combine_complete') {
+                console.log("Re-combine complete. Receiving updated sites from worker.");
 
-                    // Update status and cursor
-                    document.body.style.cursor = 'default';
-                    statusMessage.textContent = payload.finalMessage;
-                    if (payload.consolidatedSites.length > 0) {
-                        statusMessage.classList.add('text-green-500');
-                        statusMessage.classList.remove('text-amber-400');
-                    }
-                    
-                    // Re-enable all UI elements
-                    updateUIStates();
+                // Store ONLY the updated consolidated sites
+                state.consolidatedSites = payload.consolidatedSites;
+
+                // Update UI (just tables and status)
+                updateAllTables(); // Update peaks, partial sites (no change), and consolidated sites
+
+                // Update status and cursor
+                document.body.style.cursor = 'default';
+                statusMessage.textContent = payload.finalMessage;
+                 if (payload.consolidatedSites.length > 0) {
+                    statusMessage.classList.add('text-green-500');
+                    statusMessage.classList.remove('text-amber-400');
+                } else { // Ensure amber if no sites combined
+                    statusMessage.classList.remove('text-green-500');
+                    statusMessage.classList.add('text-amber-400');
                 }
-                else if (type === 'error') {
-                    // Handle errors from the worker
-                    console.error("Worker Error:", payload);
-                    statusMessage.textContent = `Error: ${payload}`;
-                    statusMessage.classList.add('text-red-500');
-                    document.body.style.cursor = 'default';
-                    updateUIStates();
-                }
-             };
+
+                // Re-enable UI
+                updateUIStates();
+            }
+            // --- END NEW ---
+            else if (type === 'error') {
+                // Handle errors from the worker
+                console.error("Worker Error:", payload);
+                statusMessage.textContent = `Error: ${payload}`;
+                statusMessage.classList.add('text-red-500');
+                document.body.style.cursor = 'default'; // Reset cursor on error
+                updateUIStates(); // Re-enable UI on error
+            }
+         };
 
              pattersonWorker.onerror = (error) => {
                 console.error("Worker failed to load or threw an unhandled error:", error);
@@ -559,6 +588,39 @@
             try { consolidatedSitesTableBody.innerHTML = state.consolidatedSites.length === 0 ? '<tr><td class="text-center py-8">No sites combined.</td></tr>' : state.consolidatedSites.map(s => `<tr><td>(${s.x.toFixed(3)}, ${s.y.toFixed(3)}, ${s.z.toFixed(3)}) [${s.count}]</td></tr>`).join(''); } catch (e) { console.error("Err combined table:", e); }
         }
 
+
+    function recombineSitesAndUpdateUI() {
+        console.log("--- Re-combining Sites Only ---");
+        if (!pattersonWorker || !state.harkerAnalysisResults || state.harkerAnalysisResults.length === 0) {
+             console.log("Skipping re-combine: No worker or no partial sites.");
+             state.consolidatedSites = []; // Clear old results
+             updateAllTables();
+             updateUIStates();
+             statusMessage.textContent = "No partial sites to combine.";
+             return;
+        }
+
+        // Set busy state temporarily
+        document.body.style.cursor = 'wait';
+        statusMessage.textContent = 'Re-combining sites...';
+        statusMessage.classList.remove('text-red-500', 'text-green-500');
+        statusMessage.classList.add('text-amber-400');
+        updateUIStates(); // Disable controls
+
+        // --- Send partial sites and new tolerance to worker for combining ---
+        pattersonWorker.postMessage({
+            type: 'COMBINE_ONLY', // New message type for the worker
+            payload: {
+                harkerAnalysisResults: state.harkerAnalysisResults,
+                harkerTolerance: state.harkerTolerance
+            }
+        });
+        // The worker will send back an 'analysis_complete' or 'error' message
+        // which the existing pattersonWorker.onmessage handler will process.
+    }
+
+
+
         function resizeCanvas() { 
             try { 
                 const p = pattersonCanvas.parentElement; 
@@ -747,19 +809,21 @@
              r.readAsText(f);
         });
 
+
+
         toleranceSlider.addEventListener('change', () => {
-            state.harkerTolerance = parseFloat(toleranceSlider.value); toleranceValue.textContent = state.harkerTolerance.toFixed(3);
-            if (state.harkerAnalysisResults.length > 0) {
-                 statusMessage.textContent = 'Re-combining...'; 
-                 console.log(`Tol changed to ${state.harkerTolerance.toFixed(3)}. Recombining.`); 
-                 // Re-combining is fast, just do it on the main thread
-                 // We need to re-run *only* combineSites
-                 // But combineSites is in the worker...
-                 // FOR SIMPLICITY: just re-run the whole worker calc
-                 runMapCalculationAndAnalysis();
-            }
-            else { console.log("Tol changed, no results to combine."); }
-        });
+        state.harkerTolerance = parseFloat(toleranceSlider.value); 
+        toleranceValue.textContent = state.harkerTolerance.toFixed(3);
+        console.log(`Tolerance changed to ${state.harkerTolerance.toFixed(3)}. Triggering re-combine.`);
+
+        // --- CALL THE NEW FUNCTION ---
+        recombineSitesAndUpdateUI(); // <-- CORRECT: Only combines
+    });
+
+
+
+
+
         toleranceSlider.addEventListener('input', () => { toleranceValue.textContent = parseFloat(toleranceSlider.value).toFixed(3); });
 
 

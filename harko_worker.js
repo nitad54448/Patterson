@@ -242,4 +242,33 @@ self.onmessage = (e) => {
             postMessage({ type: 'error', payload: error.message || "An unknown worker error occurred." });
         }
     }
+
+else if (type === 'COMBINE_ONLY') {
+        try {
+            const { harkerAnalysisResults, harkerTolerance } = payload;
+
+            postMessage({ type: 'status', payload: 'Re-consolidating sites...' });
+            const consolidatedSites = combineSites(harkerAnalysisResults, harkerTolerance);
+
+            let finalMessage = "Re-combine complete.";
+             if (consolidatedSites.length > 0) { finalMessage = `Re-combine complete. Found ${consolidatedSites.length} site(s).`; }
+             else { finalMessage = `Re-combine complete. No sites combined with this tolerance.`; }
+
+            // --- Send back ONLY the updated consolidated sites ---
+            // The main thread still *has* the map, peaks, and partial sites.
+            postMessage({
+                type: 'combine_complete', // Use a distinct type
+                payload: {
+                    consolidatedSites: consolidatedSites,
+                    finalMessage: finalMessage
+                }
+            });
+
+        } catch (error) {
+             console.error("[Worker] Pipeline Error (COMBINE_ONLY):", error);
+            postMessage({ type: 'error', payload: error.message || "An unknown worker error occurred during combine." });
+        }
+    }
+
+
 };
