@@ -14,24 +14,25 @@
     <style>
         body { font-family: 'Inter', sans-serif; margin: 0; background-color: #f1f5f9; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         #app-container { display: flex; width: 100%; flex-grow: 1; min-height: 0; }
-#controls-panel {
-    width: 450px;
-    min-width: 400px;
-    max-width: 600px;
-    flex-shrink: 0;
-    padding: 24px;
-    background-color: #111827;
-    border-right: 1px solid #374151;
-    overflow-y: auto;
-    color: #d1d5db;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    z-index: 20;
-}
+        #controls-panel {
+            width: 450px;
+            min-width: 400px;
+            max-width: 600px;
+            flex-shrink: 0;
+            padding: 24px;
+            background-color: #111827;
+            border-right: 1px solid #374151;
+            overflow-y: auto;
+            color: #d1d5db;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            z-index: 20;
+        }
         #drag-handle { width: 6px; cursor: col-resize; background-color: #374151; flex-shrink: 0; transition: background-color 0.2s; }
         #drag-handle:hover { background-color: #3b82f6; }
-        #results-area { flex-grow: 1; background-color: #f1f5f9; min-width: 0; padding: 1.5rem; color: #1f2937; overflow-y: auto; }
+        /* #results-area fills the remaining height */
+        #results-area { flex-grow: 1; background-color: #f1f5f9; min-width: 0; padding: 1.5rem; color: #1f2937; }
 
         .control-group { margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid #374151;}
         .control-group:last-of-type { border-bottom: none; padding-bottom: 0; margin-bottom: 0;}
@@ -44,8 +45,11 @@
         .btn:disabled { background-color: #4b5563; color: #9ca3af; cursor: not-allowed; }
 
         .info-box { background-color: #1f2937; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 0.8rem; line-height: 1.6; }
-        .canvas-wrapper { background-color: #1e2937; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.2); width: 100%; overflow: hidden; aspect-ratio: 1 / 1; border-radius: 8px; }
-        canvas { display: block; width: 100%; height: 100%; }
+        
+        /* Canvas wrapper: remove fixed width/aspect. Will be sized by flexbox in HTML. */
+        .canvas-wrapper { background-color: #1e2937; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.2); overflow: hidden; border-radius: 8px; }
+        /* Canvas: remove fixed width/height. JS will set it. */
+        canvas { display: block; }
 
         /* Styled Tables */
         .styled-table { width: 100%; font-size: 0.8rem; border-collapse: collapse; }
@@ -54,7 +58,8 @@
         .styled-table tbody tr { border-bottom: 1px solid #e5e7eb; }
         .styled-table tbody tr:nth-of-type(even) { background-color: #f9fafb; }
         .styled-table tbody tr:hover { background-color: #eff6ff; }
-        .table-container { flex-grow: 1; overflow-y: auto; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.5rem; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); }
+        /* table-container gets height from flex parent */
+        .table-container { overflow-y: auto; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.5rem; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); }
 
         .dark-table { width: 100%; }
         .dark-table th, .dark-table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #374151; font-family: monospace;}
@@ -125,9 +130,6 @@
             visibility: visible;
             opacity: 1;
         }
-
-
-
     </style>
 </head>
 <body>
@@ -170,28 +172,19 @@
                         <div id="crystal-info-box" class="info-box min-h-[120px]">Upload a file to see data.</div>
                     </div>
                    
-
-
-
-
-
-                    
-                </div>
-
-                <div id="slices-controls-tab" class="left-tab-content">
-
-
-                    
                     <div class="control-group">
                         <label class="control-label">Patterson Map Calculation</label>
                         <div>
                             <label for="resolution-slider" class="block mb-2 text-sm font-medium">Map Resolution: <span id="resolution-value" class="font-bold">50</span></label>
                             <input type="range" id="resolution-slider" min="20" max="100" value="50" step="2" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" disabled>
                         </div>
+                        
+                        <!-- *** Cosine Taper Checkbox Removed *** -->
+
                     </div>
+                </div>
 
-
-
+                <div id="slices-controls-tab" class="left-tab-content">
                      <div class="control-group">
                         <label class="control-label">Slice Controls</label>
                         <div class="space-y-4">
@@ -236,25 +229,37 @@
 
         <div id="drag-handle"></div>
 
-        <div id="results-area" class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="md:col-span-2">
-                 <h2 id="slice-title" class="text-lg font-semibold text-center mb-3">Patterson Map Slice</h2>
-                 <div class="canvas-wrapper"><canvas id="patterson-canvas"></canvas></div>
-                 <div id="coords-display" class="font-mono text-sm text-center mt-2 h-5 text-slate-600"></div>
+        <!-- This grid now fills the height of the parent container -->
+        <div id="results-area" class="grid grid-cols-1 md:grid-cols-3 gap-6 h-full">
+            
+            <!-- Left column (canvas) is a flex column that can shrink -->
+            <div class="md:col-span-2 flex flex-col min-h-0">
+                 <h2 id="slice-title" class="text-lg font-semibold text-center mb-3 flex-shrink-0">Patterson Map Slice</h2>
+                 <!-- Canvas wrapper grows/shrinks and centers the canvas -->
+                 <div class="canvas-wrapper flex-grow min-h-0 flex items-center justify-center">
+                    <canvas id="patterson-canvas"></canvas>
+                 </div>
+                 <div id="coords-display" class="font-mono text-sm text-center mt-2 h-5 text-slate-600 flex-shrink-0"></div>
             </div>
+
+            <!-- Right column (tables) fills height and splits internally -->
             <div class="flex flex-col min-h-0 gap-6">
-                 <div class="flex flex-col flex-1">
+                 <!-- Wrapper 1: 2/3 height (flex-[2]) -->
+                 <div class="flex flex-col flex-[2] min-h-0">
                     <h2 class="text-lg font-semibold text-center mb-3 flex-shrink-0">Patterson Peaks</h2>
-                    <div class="table-container max-h-full">
+                    <!-- table-container scrolls -->
+                    <div class="table-container flex-1 min-h-0">
                         <table id="peaks-table" class="styled-table">
                             <thead><tr><th>Height</th><th>(u, v, w)</th></tr></thead>
                             <tbody id="peaks-table-body"></tbody>
                         </table>
                     </div>
                  </div>
-                 <div class="flex flex-col flex-1">
+                 <!-- Wrapper 2: 1/3 height (flex-1) -->
+                 <div class="flex flex-col flex-1 min-h-0">
                     <h2 class="text-lg font-semibold text-center mb-3 flex-shrink-0">Consolidated Atom Sites</h2>
-                    <div class="table-container max-h-full">
+                    <!-- table-container scrolls -->
+                    <div class="table-container flex-1 min-h-0">
                         <table id="consolidated-sites-table" class="styled-table">
                             <thead><tr><th>(x, y, z)</th></tr></thead>
                             <tbody id="consolidated-sites-table-body"></tbody>
@@ -277,9 +282,9 @@
         const tooltipText = document.getElementById('tooltip-text');
         const statusMessage = document.getElementById('status-message');
         const crystalInfoBox = document.getElementById('crystal-info-box');
-        // calculateBtn is removed
         const resolutionSlider = document.getElementById('resolution-slider');
         const resolutionValue = document.getElementById('resolution-value');
+        // const windowCheckbox = document.getElementById('window-function-checkbox'); // *** REMOVED ***
         const sliceSliderU = document.getElementById('slice-slider-u'), sliceValueU = document.getElementById('slice-value-u');
         const sliceSliderV = document.getElementById('slice-slider-v'), sliceValueV = document.getElementById('slice-value-v');
         const sliceSliderW = document.getElementById('slice-slider-w'), sliceValueW = document.getElementById('slice-value-w');
@@ -303,6 +308,7 @@
             foundPeaks: [], harkerAnalysisResults: [], consolidatedSites: [],
             sliceU: 0.5, sliceV: 0.5, sliceW: 0.5,
             activeSlicingAxis: 'w',
+            // *** REMOVED maxTwoTheta and applyWindow ***
         };
 
         // --- INITIALIZATION ---
@@ -348,14 +354,16 @@
 
             // Resolution slider is enabled as long as crystal data is loaded
             resolutionSlider.disabled = !hasCrystalData;
-            // calculateBtn is removed
+            // windowCheckbox.disabled = !hasCrystalData; // *** REMOVED ***
 
             [sliceSliderU, sliceSliderV, sliceSliderW].forEach(s => s.disabled = !hasMap);
             toleranceSlider.disabled = state.harkerAnalysisResults.length < 2;
 
             leftTabButtons.forEach(btn => {
                 const tab = btn.dataset.tab;
-                if (tab.includes('slices')) { btn.disabled = !hasMap; }
+                // *** FIX: Explicitly set disabled state for ALL tabs ***
+                if (tab.includes('map')) { btn.disabled = !hasCrystalData; } 
+                else if (tab.includes('slices')) { btn.disabled = !hasMap; }
                 else if (tab.includes('peaks')) { btn.disabled = !hasMap || !hasHarkerData; }
             });
 
@@ -388,9 +396,11 @@
             const data = { cell: {}, reflections: [], spaceGroup: null };
             const cellRegex = /^\s*([a-zA-Z]+)\s*\(.*\)\s+([\d.eE+-]+)/;
             const spaceGroupRegex = /Space Group:\s+(\d+)\s*[-–]\s*(.+)/;
+            // *** REVERTED REGEX to skip 2-theta (group 4) and capture intensity (group 5) ***
             const reflectionRegex = /^\(\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*\)\s+[\d.]+\s+([\d.]+)/;
             let inReflectionsSection = false;
             const lines = text.split('\n');
+            // let max2T = 0; // *** REMOVED ***
 
             for (let i = 0; i < lines.length; i++) {
                 const originalLine = lines[i]; const line = originalLine.trim();
@@ -407,9 +417,18 @@
                     const reflectionMatch = line.match(reflectionRegex);
                     if (reflectionMatch) {
                         try {
-                            const h = parseInt(reflectionMatch[1].trim()); const k = parseInt(reflectionMatch[2].trim()); const l = parseInt(reflectionMatch[3].trim()); const intensity = parseFloat(reflectionMatch[4]);
-                            const reflection = { h, k, l, intensity };
-                            if (!isNaN(h) && !isNaN(k) && !isNaN(l) && !isNaN(intensity)) { data.reflections.push(reflection); }
+                            // *** REVERTED to original parsing ***
+                            const h = parseInt(reflectionMatch[1].trim()); 
+                            const k = parseInt(reflectionMatch[2].trim()); 
+                            const l = parseInt(reflectionMatch[3].trim()); 
+                            const intensity = parseFloat(reflectionMatch[4]); // *** REVERTED ***
+                            
+                            const reflection = { h, k, l, intensity }; // *** REVERTED ***
+                            
+                            if (!isNaN(h) && !isNaN(k) && !isNaN(l) && !isNaN(intensity)) { // *** REVERTED ***
+                                data.reflections.push(reflection); 
+                                // if (twoTheta > max2T) max2T = twoTheta; // *** REMOVED ***
+                            }
                             else { console.warn(`Skipped reflection (NaN):`, originalLine); }
                         } catch (parseError) { console.error(`Error parsing reflection: "${originalLine}"`, parseError); }
                     }
@@ -427,8 +446,9 @@
             if (!data.spaceGroup) { throw new Error("Could not parse Space Group."); }
             if (!data.cell.a || isNaN(data.cell.a) || !data.cell.b || isNaN(data.cell.b) || !data.cell.c || isNaN(data.cell.c)) { throw new Error("Could not determine cell parameters (a, b, c)."); }
             if (data.reflections.length === 0 && inReflectionsSection) { console.warn("No reflections parsed."); }
-
-            console.log(`Parsed ${data.reflections.length} reflections.`);
+            
+            // state.maxTwoTheta = max2T; // *** REMOVED ***
+            console.log(`Parsed ${data.reflections.length} reflections.`); // *** REVERTED ***
             return data;
         }
 
@@ -453,9 +473,16 @@
                         state.pattersonMap3D = null; 
                         state.pattersonMap3D = new Float32Array(res * res * res);
                         
+                        // *** REMOVED windowing state ***
+
                         for (let iw=0; iw<res; iw++) for (let iv=0; iv<res; iv++) for (let iu=0; iu<res; iu++) {
                             const u=iu/res, v=iv/res, w=iw/res; let p=0;
-                            for (const r of reflections) { if (isNaN(r.intensity) || isNaN(r.h) || isNaN(r.k) || isNaN(r.l)) continue; p += r.intensity * Math.cos(2*Math.PI*(r.h*u + r.k*v + r.l*w)); }
+                            for (const r of reflections) { 
+                                if (isNaN(r.intensity) || isNaN(r.h) || isNaN(r.k) || isNaN(r.l)) continue; 
+                                
+                                // *** REVERTED to simple summation ***
+                                p += r.intensity * Math.cos(2*Math.PI*(r.h*u + r.k*v + r.l*w)); 
+                            }
                             if (!isFinite(p)) { p = 0; } state.pattersonMap3D[iw*res*res + iv*res + iu] = p/V;
                         }
                         let mapMin = Infinity, mapMax = -Infinity;
@@ -627,15 +654,45 @@
             try { consolidatedSitesTableBody.innerHTML = state.consolidatedSites.length === 0 ? '<tr><td class="text-center py-8">No sites combined.</td></tr>' : state.consolidatedSites.map(s => `<tr><td>(${s.x.toFixed(3)}, ${s.y.toFixed(3)}, ${s.z.toFixed(3)}) [${s.count}]</td></tr>`).join(''); } catch (e) { console.error("Err combined table:", e); }
         }
 
-
-        function resizeCanvas() { try { const p = pattersonCanvas.parentElement; if (!p) return; const s=p.clientWidth; if(s<=0) return; pattersonCanvas.width=s; pattersonCanvas.height=s; drawPattersonSlice(); } catch(e) { console.error("Resize err:", e); } }
+        // *** THIS IS THE KEY FIX ***
+        function resizeCanvas() { 
+            try { 
+                const p = pattersonCanvas.parentElement; 
+                if (!p) return; 
+                // Find smallest dimension of parent wrapper
+                const s = Math.min(p.clientWidth, p.clientHeight) - 4; // -4 for a small margin
+                if (s <= 0) return; 
+                
+                // Set drawing surface size (attributes)
+                pattersonCanvas.width = s; 
+                pattersonCanvas.height = s; 
+                
+                // Set CSS display size (style)
+                pattersonCanvas.style.width = `${s}px`;
+                pattersonCanvas.style.height = `${s}px`;
+                
+                drawPattersonSlice(); 
+            } catch(e) { 
+                console.error("Resize err:", e); 
+            } 
+        }
 
 
         function resetAnalysis(isNewFile = false) {
              console.log(`Resetting. New file: ${isNewFile}`);
             if(isNewFile) { state.crystalData = null; updateCrystalInfo(); }
             state.pattersonMap3D=null; state.foundPeaks=[]; state.harkerAnalysisResults=[]; state.consolidatedSites=[];
-            updateAllTables(); drawPattersonSlice(); showLeftTab('map-controls-tab');
+            // state.maxTwoTheta = 0; // *** REMOVED ***
+            
+            updateAllTables(); 
+            
+            // Clear canvas manually on reset
+            try {
+                pattersonCtx.fillStyle='#1e2937'; 
+                pattersonCtx.fillRect(0,0,pattersonCanvas.width,pattersonCanvas.height);
+            } catch (e) {}
+
+            showLeftTab('map-controls-tab');
             statusMessage.textContent = isNewFile ? '' : (statusMessage.textContent.startsWith("Error:") ? statusMessage.textContent : '');
              sliceSliderU.value = 0.5; sliceValueU.textContent = (0.5).toFixed(3); state.sliceU = 0.5;
              sliceSliderV.value = 0.5; sliceValueV.textContent = (0.5).toFixed(3); state.sliceV = 0.5;
@@ -646,9 +703,11 @@
              // Only reset resolution if it's a new file
              if (isNewFile) {
                 resolutionSlider.value = 50; resolutionValue.textContent = 50; state.mapResolution = 50;
+                // windowCheckbox.checked = false; state.applyWindow = false; // *** REMOVED ***
              }
              
              updateUIStates();
+             resizeCanvas(); // Resize canvas to fit new (empty) state
         }
 
 
@@ -661,7 +720,15 @@
                 doc.setFontSize(9); doc.text(`Date: ${now.toLocaleString()} | File: ${state.fileName||'N/A'}`, m, y); y+=lh*2;
                  const {cell,spaceGroup,reflections}=state.crystalData; const sgInfo = spaceGroup ? `${spaceGroup.number} (${spaceGroup.name})` : 'N/A';
                  doc.autoTable({ startY: y, theme: 'striped', headStyles: { fillColor: [75, 85, 99], fontSize: 8 }, bodyStyles: { fontSize: 7 }, columnStyles: { 0: { cellWidth: 40 }, 1: { cellWidth: 'auto'} }, head: [['Parameter', 'Value']],
-                    body: [ ['SG', sgInfo], ['Cell (Å)', `${cell.a?.toFixed(4)}, ${cell.b?.toFixed(4)}, ${cell.c?.toFixed(4)}`], ['Ang (°)', `${cell.alpha?.toFixed(1)}, ${cell.beta?.toFixed(1)}, ${cell.gamma?.toFixed(1)}`], ['Refls', reflections?.length||0], ['Res', state.mapResolution], ['Tol', state.harkerTolerance.toFixed(3)] ] });
+                    body: [ 
+                        ['SG', sgInfo], 
+                        ['Cell (Å)', `${cell.a?.toFixed(4)}, ${cell.b?.toFixed(4)}, ${cell.c?.toFixed(4)}`], 
+                        ['Ang (°)', `${cell.alpha?.toFixed(1)}, ${cell.beta?.toFixed(1)}, ${cell.gamma?.toFixed(1)}`], 
+                        ['Refls', reflections?.length||0], 
+                        ['Res', state.mapResolution], 
+                        ['Tol', state.harkerTolerance.toFixed(3)],
+                        // ['Window', state.applyWindow ? 'Cosine Taper' : 'None'] // *** REMOVED ***
+                    ] });
                  y=doc.autoTable.previous.finalY+lh*2;
                 doc.setFontSize(11); doc.text("Active Patterson Map Slice", m, y); y+=lh; const canvas=pattersonCanvas; const canvasDU = await html2canvas(canvas).then(can => can.toDataURL('image/png')); const imgW = contentW * 0.6; const imgH = (canvas.height * imgW) / canvas.width;
                  if (y + imgH > pageH - m) { doc.addPage(); y = m + lh; } doc.addImage(canvasDU, 'PNG', m, y, imgW, imgH); y += imgH + lh; doc.setFontSize(8); doc.text(`Slice ⊥ ${state.activeSlicingAxis.toUpperCase()} at ${state[`slice${state.activeSlicingAxis.toUpperCase()}`].toFixed(3)}`, m, y); y += lh * 2;
@@ -678,9 +745,11 @@
             if (!state.crystalData) { console.error("Run Skip: No data."); statusMessage.textContent = "Error: Load data."; return; }
             if (!state.spaceGroups) { console.error("Run Skip: No Harker defs."); statusMessage.textContent = "Error: Harker defs missing."; return; }
              console.log("=== Starting Full Analysis ===");
+             document.body.style.cursor = 'wait'; // Set busy cursor
              
             // Disable controls during calculation
             resolutionSlider.disabled = true; 
+            // windowCheckbox.disabled = true; // *** REMOVED ***
             leftTabButtons.forEach(b => b.disabled = true); 
             statusMessage.textContent = `Calculating ${state.mapResolution}^3 map...`; 
             statusMessage.classList.remove('text-red-500', 'text-green-500'); 
@@ -696,6 +765,7 @@
                 analyzeHarkerPeaks(); 
                 combineSites(); 
                 updateAllTables(); 
+                resizeCanvas(); // Resize canvas *after* map is calculated
                 drawPattersonSlice();
 
                 const numCombined = state.consolidatedSites.length; const numPartial = state.harkerAnalysisResults.length; const numPeaks = state.foundPeaks.length;
@@ -704,16 +774,18 @@
                  else if (numPeaks > 0) { statusMessage.textContent = `Done. Found peaks, but no Harker matches.`; statusMessage.classList.add('text-amber-400'); }
                  else { statusMessage.textContent = `Done. No significant peaks found.`; statusMessage.classList.add('text-amber-400'); }
 
-                const mapTabBtn = document.querySelector('.left-tab-button[data-tab="map-controls-tab"]'); 
-                if (mapTabBtn.classList.contains('left-tab-active') && state.pattersonMap3D) { 
-                    showLeftTab('slices-controls-tab'); 
-                }
+                // *** REMOVED: Auto-switching to slices tab ***
+                // const mapTabBtn = document.querySelector('.left-tab-button[data-tab="map-controls-tab"]'); 
+                // if (mapTabBtn.classList.contains('left-tab-active') && state.pattersonMap3D) { 
+                //     showLeftTab('slices-controls-tab'); 
+                // }
              } catch (error) { 
                  console.error("Analysis Pipeline Error:", error); 
                  statusMessage.textContent = `Error: ${error.message}`; 
                  resetAnalysis(false); // Reset map data, but keep crystal data
             }
              finally { 
+                document.body.style.cursor = 'default'; // Reset cursor
                 updateUIStates(); // Re-enables sliders based on new state
                 console.log("=== Finished Analysis Attempt ==="); 
             }
@@ -757,6 +829,8 @@
                      state.mapResolution = 50; // Set default resolution
                      resolutionSlider.value = 50;
                      resolutionValue.textContent = '50';
+                     // windowCheckbox.checked = false; // *** REMOVED ***
+                     // state.applyWindow = false; // *** REMOVED ***
                      
                      // Run initial calculation and wait for it
                      await runMapCalculationAndAnalysis(); 
@@ -808,6 +882,7 @@
             resolutionValue.textContent = newRes;
             
             if (state.crystalData) {
+                document.body.style.cursor = 'wait'; // *** ADDED CURSOR WAIT ***
                 console.log(`Resolution changed to ${newRes}. Recalculating...`);
                 // Clear old map-dependent data before recalculating
                 state.pattersonMap3D = null;
@@ -820,6 +895,8 @@
                 runMapCalculationAndAnalysis(); // Run full analysis
             }
         });
+        
+        // *** REMOVED: Checkbox handler ***
 
 
         function setupSliceSlider(slider, valueEl, axis) {
@@ -831,7 +908,7 @@
         setupSliceSlider(sliceSliderV, sliceValueV, 'v');
         setupSliceSlider(sliceSliderW, sliceValueW, 'w');
 
-        pattersonCanvas.addEventListener('mousemove', e => { if(!state.pattersonMap3D) return; const r=pattersonCanvas.getBoundingClientRect(); if (r.width===0||r.height===0) return; const px=(e.clientX-r.left); const py=(e.clientY-r.top); const xf=Math.max(0,Math.min(1,px/r.width)); const yf=Math.max(0,Math.min(1,1-(py/r.height))); let u,v,w; const {sliceU,sliceV,sliceW,activeSlicingAxis}=state; if(activeSlicingAxis==='w'){u=xf;v=yf;w=sliceW;}else if(activeSlicingAxis==='v'){u=xf;v=sliceV;w=yf;}else{u=sliceU;v=xf;w=yf;} coordsDisplay.textContent=`(u=${u.toFixed(3)}, v=${v.toFixed(3)}, w=${w.toFixed(3)})`; });
+        pattersonCanvas.addEventListener('mousemove', e => { if(!state.pattersonMap3D) return; const r=pattersonCanvas.getBoundingClientRect(); if (r.width===0||r.height===0) return; const px=(e.clientX-r.left); const py=(e.clientY-r.top); const xf=Math.max(0,Math.min(1,px/r.width)); const yf=Math.max(0,Math.min(1,1-(py/r.height))); let u,v,w; const {sliceU,sliceV,sliceW,activeSlicingAxis,mapResolution,pattersonMap3D:map}=state; const res=mapResolution; const map_x = Math.floor(xf * (res > 0 ? res - 1 : 0)); const map_y = Math.floor(yf * (res > 0 ? res - 1 : 0)); const u_idx = Math.round(sliceU * (res > 0 ? res - 1 : 0)); const v_idx = Math.round(sliceV * (res > 0 ? res - 1 : 0)); const w_idx = Math.round(sliceW * (res > 0 ? res - 1 : 0)); let idx; if(activeSlicingAxis==='w'){u=xf;v=yf;w=sliceW; idx = w_idx*res*res + map_y*res + map_x;} else if(activeSlicingAxis==='v'){u=xf;v=sliceV;w=yf; idx = map_y*res*res + v_idx*res + map_x;} else{u=sliceU;v=xf;w=yf; idx = map_y*res*res + map_x*res + u_idx;} const mapValue = (map && idx >= 0 && idx < map.length && isFinite(map[idx])) ? map[idx] : NaN; coordsDisplay.textContent = `(u=${u.toFixed(3)}, v=${v.toFixed(3)}, w=${w.toFixed(3)}) | Val: ${isNaN(mapValue) ? 'N/A' : mapValue.toFixed(3)}`; });
         pattersonCanvas.addEventListener('mouseleave',()=>coordsDisplay.textContent='');
 
         let resizeTimeout; window.addEventListener('resize',()=>{ clearTimeout(resizeTimeout); resizeTimeout = setTimeout(resizeCanvas, 150); });
