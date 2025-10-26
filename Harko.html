@@ -272,8 +272,7 @@
 
     <footer class="fixed bottom-0 right-0 p-2 text-xs text-slate-400">Harker sections in Patterson maps. v 26 oct 2025. NitaD, Univ Paris-Saclay.</footer> <!-- Version bump -->
 
-
-    <script>
+<script>
     document.addEventListener('DOMContentLoaded', () => {
         // --- DOM ELEMENTS ---
         const openFileBtn = document.getElementById('open-file-btn');
@@ -284,7 +283,6 @@
         const crystalInfoBox = document.getElementById('crystal-info-box');
         const resolutionSlider = document.getElementById('resolution-slider');
         const resolutionValue = document.getElementById('resolution-value');
-        // const windowCheckbox = document.getElementById('window-function-checkbox'); // *** REMOVED ***
         const sliceSliderU = document.getElementById('slice-slider-u'), sliceValueU = document.getElementById('slice-value-u');
         const sliceSliderV = document.getElementById('slice-slider-v'), sliceValueV = document.getElementById('slice-value-v');
         const sliceSliderW = document.getElementById('slice-slider-w'), sliceValueW = document.getElementById('slice-value-w');
@@ -301,17 +299,85 @@
         const leftTabButtons = document.querySelectorAll('.left-tab-button');
         const leftTabContents = document.querySelectorAll('.left-tab-content');
 
-        // --- STATE ---
+        // --- STATE (Main Thread) ---
         let state = {
             crystalData: null, spaceGroups: null, pattersonMap3D: null, fileName: null,
             mapResolution: 50, harkerTolerance: 0.03,
             foundPeaks: [], harkerAnalysisResults: [], consolidatedSites: [],
             sliceU: 0.5, sliceV: 0.5, sliceW: 0.5,
             activeSlicingAxis: 'w',
-            // *** REMOVED maxTwoTheta and applyWindow ***
         };
 
+        // --- WEB WORKER ---
+        let pattersonWorker;
+
         // --- INITIALIZATION ---
+        try {
+             pattersonWorker = new Worker('harko_worker.js');
+             
+             // --- WORKER MESSAGE HANDLER ---
+             pattersonWorker.onmessage = (e) => {
+                const { type, payload } = e.data;
+
+                if (type === 'status') {
+                    // Update status message as worker progresses
+                    statusMessage.textContent = payload;
+                    statusMessage.classList.remove('text-red-500', 'text-green-500');
+                    statusMessage.classList.add('text-amber-400');
+                }
+                else if (type === 'analysis_complete') {
+                    // --- FINAL RESULTS ARE IN ---
+                    console.log("Analysis complete. Receiving results from worker.");
+                    
+                    // Store all results in state
+                    state.pattersonMap3D = payload.pattersonMap3D;
+                    state.foundPeaks = payload.foundPeaks;
+                    state.harkerAnalysisResults = payload.harkerAnalysisResults;
+                    state.consolidatedSites = payload.consolidatedSites;
+
+                    // Update UI
+                    updateAllTables();
+                    resizeCanvas(); // Resize canvas now that we have a map
+                    drawPattersonSlice();
+
+                    // Update status and cursor
+                    document.body.style.cursor = 'default';
+                    statusMessage.textContent = payload.finalMessage;
+                    if (payload.consolidatedSites.length > 0) {
+                        statusMessage.classList.add('text-green-500');
+                        statusMessage.classList.remove('text-amber-400');
+                    }
+                    
+                    // Re-enable all UI elements
+                    updateUIStates();
+                }
+                else if (type === 'error') {
+                    // Handle errors from the worker
+                    console.error("Worker Error:", payload);
+                    statusMessage.textContent = `Error: ${payload}`;
+                    statusMessage.classList.add('text-red-500');
+                    document.body.style.cursor = 'default';
+                    updateUIStates();
+                }
+             };
+
+             pattersonWorker.onerror = (error) => {
+                console.error("Worker failed to load or threw an unhandled error:", error);
+                statusMessage.textContent = `Critical Worker Error: ${error.message}. Try reloading.`;
+                statusMessage.classList.add('text-red-500');
+                document.body.style.cursor = 'default';
+                // Disable everything
+                resolutionSlider.disabled = true;
+                leftTabButtons.forEach(b => b.disabled = true);
+             };
+
+        } catch (err) {
+            console.error("Failed to initialize Web Worker:", err);
+            statusMessage.textContent = "Error: Could not initialize analysis engine (Worker).";
+            statusMessage.classList.add('text-red-500');
+        }
+
+        // --- Fetch Harker data (main thread) ---
         fetch('space_groups_harker.json')
             .then(response => {
                 if (!response.ok) {
@@ -345,29 +411,33 @@
         updateUIStates();
         updateAllTables();
 
-        // --- UI UTILS ---
+        // --- UI UTILS (Main Thread) ---
         function updateUIStates() {
             const hasHarkerData = !!state.spaceGroups;
             const hasCrystalData = !!state.crystalData;
             const hasMap = !!state.pattersonMap3D;
             const hasConsolidatedSites = state.consolidatedSites.length > 0;
 
-            // Resolution slider is enabled as long as crystal data is loaded
-            resolutionSlider.disabled = !hasCrystalData;
-            // windowCheckbox.disabled = !hasCrystalData; // *** REMOVED ***
+            // Check if worker is busy (by checking if cursor is 'wait')
+            const isBusy = document.body.style.cursor === 'wait';
 
-            [sliceSliderU, sliceSliderV, sliceSliderW].forEach(s => s.disabled = !hasMap);
-            toleranceSlider.disabled = state.harkerAnalysisResults.length < 2;
+            resolutionSlider.disabled = !hasCrystalData || isBusy;
+            [sliceSliderU, sliceSliderV, sliceSliderW].forEach(s => s.disabled = !hasMap || isBusy);
+            toleranceSlider.disabled = state.harkerAnalysisResults.length < 2 || isBusy;
 
             leftTabButtons.forEach(btn => {
                 const tab = btn.dataset.tab;
-                // *** FIX: Explicitly set disabled state for ALL tabs ***
-                if (tab.includes('map')) { btn.disabled = !hasCrystalData; } 
-                else if (tab.includes('slices')) { btn.disabled = !hasMap; }
-                else if (tab.includes('peaks')) { btn.disabled = !hasMap || !hasHarkerData; }
+                if (isBusy) {
+                    btn.disabled = true; // Disable all tabs while busy
+                } else {
+                    // Enable/disable based on state
+                    if (tab.includes('map')) { btn.disabled = !hasCrystalData; } 
+                    else if (tab.includes('slices')) { btn.disabled = !hasMap; }
+                    else if (tab.includes('peaks')) { btn.disabled = !hasMap || !hasHarkerData; }
+                }
             });
 
-            generateReportBtn.disabled = !hasConsolidatedSites;
+            generateReportBtn.disabled = !hasConsolidatedSites || isBusy;
         }
 
 
@@ -378,29 +448,15 @@
             document.querySelector(`.left-tab-button[data-tab="${tabId}"]`).classList.add('left-tab-active');
         }
 
-        // --- PARSING & CALCULATION ---
-        function solveCoordinate(solverString, peak) {
-            if (solverString === '?') return '?';
-            try {
-                const sanitizedExpression = solverString.replace(/[^uvw\d\+\-\*\/\%\.\(\)\s]/g, '');
-                const solverFunc = new Function('u', 'v', 'w', `return ${sanitizedExpression}`);
-                const result = solverFunc(peak.u, peak.v, peak.w);
-                 if (typeof result !== 'number' || isNaN(result) || !isFinite(result)) { throw new Error(`Solver returned non-finite: ${result}`); }
-                return (((result % 1) + 1) % 1).toFixed(3);
-            } catch (e) { console.error(`Error solving: "${solverString}" for peak (${peak.u.toFixed(3)}, ${peak.v.toFixed(3)}, ${peak.w.toFixed(3)}):`, e); return 'err'; }
-        }
-
-
+        // --- PARSING (Main Thread) ---
         function parsePawleyFile(text) {
             console.log("Parsing file...");
             const data = { cell: {}, reflections: [], spaceGroup: null };
             const cellRegex = /^\s*([a-zA-Z]+)\s*\(.*\)\s+([\d.eE+-]+)/;
             const spaceGroupRegex = /Space Group:\s+(\d+)\s*[-–]\s*(.+)/;
-            // *** REVERTED REGEX to skip 2-theta (group 4) and capture intensity (group 5) ***
             const reflectionRegex = /^\(\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*\)\s+[\d.]+\s+([\d.]+)/;
             let inReflectionsSection = false;
             const lines = text.split('\n');
-            // let max2T = 0; // *** REMOVED ***
 
             for (let i = 0; i < lines.length; i++) {
                 const originalLine = lines[i]; const line = originalLine.trim();
@@ -417,17 +473,13 @@
                     const reflectionMatch = line.match(reflectionRegex);
                     if (reflectionMatch) {
                         try {
-                            // *** REVERTED to original parsing ***
                             const h = parseInt(reflectionMatch[1].trim()); 
                             const k = parseInt(reflectionMatch[2].trim()); 
                             const l = parseInt(reflectionMatch[3].trim()); 
-                            const intensity = parseFloat(reflectionMatch[4]); // *** REVERTED ***
-                            
-                            const reflection = { h, k, l, intensity }; // *** REVERTED ***
-                            
-                            if (!isNaN(h) && !isNaN(k) && !isNaN(l) && !isNaN(intensity)) { // *** REVERTED ***
+                            const intensity = parseFloat(reflectionMatch[4]);
+                            const reflection = { h, k, l, intensity };
+                            if (!isNaN(h) && !isNaN(k) && !isNaN(l) && !isNaN(intensity)) {
                                 data.reflections.push(reflection); 
-                                // if (twoTheta > max2T) max2T = twoTheta; // *** REMOVED ***
                             }
                             else { console.warn(`Skipped reflection (NaN):`, originalLine); }
                         } catch (parseError) { console.error(`Error parsing reflection: "${originalLine}"`, parseError); }
@@ -447,163 +499,16 @@
             if (!data.cell.a || isNaN(data.cell.a) || !data.cell.b || isNaN(data.cell.b) || !data.cell.c || isNaN(data.cell.c)) { throw new Error("Could not determine cell parameters (a, b, c)."); }
             if (data.reflections.length === 0 && inReflectionsSection) { console.warn("No reflections parsed."); }
             
-            // state.maxTwoTheta = max2T; // *** REMOVED ***
-            console.log(`Parsed ${data.reflections.length} reflections.`); // *** REVERTED ***
+            console.log(`Parsed ${data.reflections.length} reflections.`);
             return data;
         }
 
-
-        async function calculatePattersonMap() {
-            return new Promise((resolve, reject) => {
-                statusMessage.textContent = `Calculating ${state.mapResolution}^3 map...`;
-                setTimeout(() => { // Use timeout to allow UI update
-                   try {
-                        const { cell, reflections } = state.crystalData;
-                        if (!reflections || reflections.length === 0) { throw new Error("No reflection data."); }
-                        if (!cell || !cell.a || !cell.b || !cell.c || isNaN(cell.a) || isNaN(cell.b) || isNaN(cell.c)) { throw new Error("Invalid cell data."); }
-                        
-                        // Read resolution from state
-                        const res = state.mapResolution; 
-                        console.log(`Calculating with resolution: ${res}`);
-                        
-                        const V = cell.a * cell.b * cell.c;
-                        if (!V || !isFinite(V) || V <= 0) { throw new Error(`Invalid volume: ${V}`); }
-                        
-                        // Clear old map before allocating new one
-                        state.pattersonMap3D = null; 
-                        state.pattersonMap3D = new Float32Array(res * res * res);
-                        
-                        // *** REMOVED windowing state ***
-
-                        for (let iw=0; iw<res; iw++) for (let iv=0; iv<res; iv++) for (let iu=0; iu<res; iu++) {
-                            const u=iu/res, v=iv/res, w=iw/res; let p=0;
-                            for (const r of reflections) { 
-                                if (isNaN(r.intensity) || isNaN(r.h) || isNaN(r.k) || isNaN(r.l)) continue; 
-                                
-                                // *** REVERTED to simple summation ***
-                                p += r.intensity * Math.cos(2*Math.PI*(r.h*u + r.k*v + r.l*w)); 
-                            }
-                            if (!isFinite(p)) { p = 0; } state.pattersonMap3D[iw*res*res + iv*res + iu] = p/V;
-                        }
-                        let mapMin = Infinity, mapMax = -Infinity;
-                        if (state.pattersonMap3D.length > 0) { mapMin = state.pattersonMap3D[0]; mapMax = state.pattersonMap3D[0]; for (let i = 1; i < state.pattersonMap3D.length; i++) { const v = state.pattersonMap3D[i]; if (isFinite(v)) { if (v < mapMin) mapMin = v; if (v > mapMax) mapMax = v; } } } else { mapMin = 0; mapMax = 0; }
-                        if (!isFinite(mapMin) || !isFinite(mapMax)) { throw new Error("Map has non-finite values."); }
-                        console.log(`Map calculated. Min: ${mapMin.toFixed(2)}, Max: ${mapMax.toFixed(2)}`);
-                        resolve();
-                   } catch (error) { console.error("Map calc error:", error); statusMessage.textContent = `Map Error: ${error.message}`; statusMessage.classList.add('text-red-500'); state.pattersonMap3D = null; reject(error); }
-                }, 10); // Short delay
-            });
-        }
-
-
-        function findPeaks() {
-            const res=state.mapResolution, map=state.pattersonMap3D; if(!map) { state.foundPeaks = []; return; }
-            let peaks=[], maxVal=-Infinity, minVal = Infinity;
-            for (let i = 0; i < map.length; i++) { const v = map[i]; if (isFinite(v)) { if (v > maxVal) maxVal = v; if (v < minVal) minVal = v; } }
-            if (!isFinite(maxVal) || maxVal === minVal) { console.warn(`Map flat/invalid. Skipping peaks.`); state.foundPeaks = []; return; }
-            const threshold = minVal + (maxVal - minVal) * 0.15;
-            for(let iw=1; iw<res-1; iw++) for(let iv=1; iv<res-1; iv++) for(let iu=1; iu<res-1; iu++) {
-                const idx=iw*res*res+iv*res+iu, val=map[idx]; if(val < threshold || !isFinite(val)) continue;
-                let isMax=true;
-                for(let dw=-1; dw<=1 && isMax; dw++) for(let dv=-1; dv<=1 && isMax; dv++) for(let du=-1; du<=1 && isMax; du++) { if(du===0 && dv===0 && dw===0) continue; const nv = map[(iw+dw)*res*res+(iv+dv)*res+(iu+du)]; if(isFinite(nv) && nv > val) { isMax=false; break; } }
-                if(isMax) { const normH = (maxVal > minVal) ? (val - minVal) / (maxVal - minVal) : 0; peaks.push({u:iu/res, v:iv/res, w:iw/res, height: normH }); }
-            }
-            peaks.sort((a,b)=>b.height-a.height); state.foundPeaks=peaks.slice(0,50);
-            console.log(`Found ${peaks.length} peaks. Kept ${state.foundPeaks.length}.`);
-        }
-
-
-        function analyzeHarkerPeaks() {
-            state.harkerAnalysisResults = [];
-            if (!state.crystalData?.spaceGroup || state.foundPeaks.length === 0 || !state.spaceGroups) { console.log("Skipping Harker."); return; }
-            const sgNumber = state.crystalData.spaceGroup.number; const sgData = state.spaceGroups[sgNumber];
-            const gridSpacing = 1.0 / state.mapResolution; const tol = 1.5 * gridSpacing;
-            console.log(`Analyzing SG: ${sgNumber}. Tol: ${tol.toFixed(3)}`);
-            if (!sgData?.harker_sections) { console.warn(`No Harker data for SG ${sgNumber}.`); statusMessage.textContent = `Warn: No Harker data for SG ${sgNumber}.`; return; }
-            if (sgData.harker_sections.length === 0) { console.log(`No Harker sections for SG ${sgNumber}.`); statusMessage.textContent = `Info: No Harker sections for SG ${sgNumber}.`; return; }
-            console.log(`Found ${sgData.harker_sections.length} Harker sections.`);
-            sgData.harker_sections.forEach((section, si) => {
-                 if (!section.coordinate || !['u', 'v', 'w'].includes(section.coordinate) || typeof section.value !== 'number' || !section.solver) { console.warn(`Skip invalid section ${si + 1}`); return; }
-                state.foundPeaks.forEach((peak, pi) => {
-                    const pc = peak[section.coordinate]; const diff = Math.abs(pc - section.value); const pDiff = Math.min(diff, 1.0 - diff);
-                    if (pDiff < tol) {
-                        const site = { source: `${section.type?.charAt(0).toUpperCase() + section.type?.slice(1)||'Unk'} (${section.coordinate}=${section.value.toFixed(3)})`, peakCoords: `(${peak.u.toFixed(3)}, ${peak.v.toFixed(3)}, ${peak.w.toFixed(3)})`, x: solveCoordinate(section.solver.x, peak), y: solveCoordinate(section.solver.y, peak), z: solveCoordinate(section.solver.z, peak) };
-                        if (site.x === 'err' || site.y === 'err' || site.z === 'err') { console.error(`   Solver error. Peak ${pi}, Sec ${si+1}. Discarded.`); }
-                        else { state.harkerAnalysisResults.push(site); }
-                    }
-                });
-            });
-            const numFound = state.harkerAnalysisResults.length;
-            if (numFound > 0) { const msg = `Harker found ${numFound} partial site(s).`; console.log(msg); statusMessage.textContent = msg; }
-            else { const msg = `No matching Harker peaks found.`; console.log(msg); statusMessage.textContent = msg; }
-        }
-
-        function combineSites() {
-            console.log("--- Starting Site Combination ---");
-            state.consolidatedSites = [];
-            const results = state.harkerAnalysisResults.filter(site => site.x !== 'err' && site.y !== 'err' && site.z !== 'err');
-            const tol = state.harkerTolerance;
-            console.log(`Attempting to combine ${results.length} valid partial sites. Tolerance: ${tol.toFixed(3)}`);
-
-            if (results.length < 2) {
-                 const message = `Site Combination: Found 0 sites (Need >= 2 partial sites).`;
-                 console.log(message); statusMessage.textContent = message; updateAllTables();
-                 console.log("--- Finished Site Combination (Not enough sites) ---"); return;
-            }
-
-            const areClose = (c1, c2) => { if (c1 === '?' || c2 === '?') return false; const v1 = parseFloat(c1); const v2 = parseFloat(c2); if (isNaN(v1) || isNaN(v2)) return false; const diff = Math.abs(v1 - v2); return Math.min(diff, 1 - diff) < tol; };
-            const isNum = (c) => c !== '?' && !isNaN(parseFloat(c));
-
-            const potentialSites = [];
-            for (let i = 0; i < results.length; i++) {
-                for (let j = i + 1; j < results.length; j++) {
-                    const r1 = results[i], r2 = results[j]; let combinedSite = null;
-                    try {
-                        if (areClose(r1.z, r2.z) && isNum(r1.x) && isNum(r2.y)) { const avgZ = averagePeriodic(parseFloat(r1.z), parseFloat(r2.z)); combinedSite = { x: parseFloat(r1.x), y: parseFloat(r2.y), z: avgZ }; }
-                        else if (areClose(r1.z, r2.z) && isNum(r2.x) && isNum(r1.y)) { const avgZ = averagePeriodic(parseFloat(r1.z), parseFloat(r2.z)); combinedSite = { x: parseFloat(r2.x), y: parseFloat(r1.y), z: avgZ }; }
-                        else if (areClose(r1.y, r2.y) && isNum(r1.x) && isNum(r2.z)) { const avgY = averagePeriodic(parseFloat(r1.y), parseFloat(r2.y)); combinedSite = { x: parseFloat(r1.x), y: avgY, z: parseFloat(r2.z) }; }
-                        else if (areClose(r1.y, r2.y) && isNum(r2.x) && isNum(r1.z)) { const avgY = averagePeriodic(parseFloat(r1.y), parseFloat(r2.y)); combinedSite = { x: parseFloat(r2.x), y: avgY, z: parseFloat(r1.z) }; }
-                        else if (areClose(r1.x, r2.x) && isNum(r1.y) && isNum(r2.z)) { const avgX = averagePeriodic(parseFloat(r1.x), parseFloat(r2.x)); combinedSite = { x: avgX, y: parseFloat(r1.y), z: parseFloat(r2.z) }; }
-                        else if (areClose(r1.x, r2.x) && isNum(r2.y) && isNum(r1.z)) { const avgX = averagePeriodic(parseFloat(r1.x), parseFloat(r2.x)); combinedSite = { x: avgX, y: parseFloat(r2.y), z: parseFloat(r1.z) }; }
-                        if (combinedSite) { const norm = val => (((val % 1) + 1) % 1); combinedSite.x = norm(combinedSite.x); combinedSite.y = norm(combinedSite.y); combinedSite.z = norm(combinedSite.z); potentialSites.push(combinedSite); }
-                    } catch (error) { console.error(`Error combining pair (${i+1}, ${j+1}):`, error, r1, r2); }
-                }
-            }
-            console.log(`Generated ${potentialSites.length} potential combined sites.`);
-
-            if (potentialSites.length === 0) {
-                 const message = `Site Combination: Found 0 sites (Partial sites found, but no pairs combined).`;
-                 console.log(message); statusMessage.textContent = message; updateAllTables();
-                 console.log("--- Finished Site Combination (No pairs combined) ---"); return;
-            }
-
-            console.log(" Clustering potential sites...");
-            const finalSites = []; let unassignedSites = [...potentialSites];
-            while (unassignedSites.length > 0) {
-                let currentGroup = [unassignedSites.shift()]; let remainingSites = [];
-                for (const site of unassignedSites) { if (currentGroup.some(member => areClose(site.x, member.x) && areClose(site.y, member.y) && areClose(site.z, member.z))) { currentGroup.push(site); } else { remainingSites.push(site); } }
-                unassignedSites = remainingSites;
-                let sumX = 0, sumY = 0, sumZ = 0; const refX = currentGroup[0].x, refY = currentGroup[0].y, refZ = currentGroup[0].z;
-                for (const site of currentGroup) { sumX += adjustPeriodic(site.x, refX); sumY += adjustPeriodic(site.y, refY); sumZ += adjustPeriodic(site.z, refZ); }
-                const avgSite = { x: sumX / currentGroup.length, y: sumY / currentGroup.length, z: sumZ / currentGroup.length };
-                const norm = val => (((val % 1) + 1) % 1);
-                finalSites.push({ x: norm(avgSite.x), y: norm(avgSite.y), z: norm(avgSite.z), count: currentGroup.length });
-                 console.log(`  Cluster (Size ${currentGroup.length}): Avg=(${finalSites[finalSites.length-1].x.toFixed(3)}, ${finalSites[finalSites.length-1].y.toFixed(3)}, ${finalSites[finalSites.length-1].z.toFixed(3)})`);
-            }
-
-            state.consolidatedSites = finalSites;
-            const message = `Site Combination: Found ${finalSites.length} unique site(s).`;
-            console.log(message); console.log("Final Sites:", finalSites.map(s => `(${s.x.toFixed(3)}, ${s.y.toFixed(3)}, ${s.z.toFixed(3)}) [${s.count}]`));
-            statusMessage.textContent = message;
-            console.log("--- Finished Site Combination ---");
-        }
-
-
-        function averagePeriodic(v1, v2) { const diff = v1 - v2; if (Math.abs(diff) > 0.5) { if (v1 < v2) v1 += 1.0; else v2 += 1.0; } return ((( (v1 + v2) / 2.0 ) % 1) + 1) % 1; }
-        function adjustPeriodic(value, ref) { if (value - ref > 0.5) return value - 1.0; if (ref - value > 0.5) return value + 1.0; return value; }
-
-
-        // --- UI & DRAWING ---
+        // --- HEAVY CALCULATION FUNCTIONS (REMOVED) ---
+        // calculatePattersonMap, findPeaks, analyzeHarkerPeaks, combineSites,
+        // solveCoordinate, averagePeriodic, adjustPeriodic are all GONE from here.
+        // They now live in harko_worker.js.
+        
+        // --- UI & DRAWING (Main Thread) ---
         function updateCrystalInfo() {
             if (!state.crystalData) { crystalInfoBox.innerHTML = 'Upload file.'; return; }
             const { cell, spaceGroup, reflections } = state.crystalData;
@@ -654,39 +559,29 @@
             try { consolidatedSitesTableBody.innerHTML = state.consolidatedSites.length === 0 ? '<tr><td class="text-center py-8">No sites combined.</td></tr>' : state.consolidatedSites.map(s => `<tr><td>(${s.x.toFixed(3)}, ${s.y.toFixed(3)}, ${s.z.toFixed(3)}) [${s.count}]</td></tr>`).join(''); } catch (e) { console.error("Err combined table:", e); }
         }
 
-        // *** THIS IS THE KEY FIX ***
         function resizeCanvas() { 
             try { 
                 const p = pattersonCanvas.parentElement; 
                 if (!p) return; 
-                // Find smallest dimension of parent wrapper
-                const s = Math.min(p.clientWidth, p.clientHeight) - 4; // -4 for a small margin
+                const s = Math.min(p.clientWidth, p.clientHeight) - 4; 
                 if (s <= 0) return; 
-                
-                // Set drawing surface size (attributes)
                 pattersonCanvas.width = s; 
                 pattersonCanvas.height = s; 
-                
-                // Set CSS display size (style)
                 pattersonCanvas.style.width = `${s}px`;
                 pattersonCanvas.style.height = `${s}px`;
-                
                 drawPattersonSlice(); 
             } catch(e) { 
                 console.error("Resize err:", e); 
             } 
         }
 
-
         function resetAnalysis(isNewFile = false) {
              console.log(`Resetting. New file: ${isNewFile}`);
             if(isNewFile) { state.crystalData = null; updateCrystalInfo(); }
             state.pattersonMap3D=null; state.foundPeaks=[]; state.harkerAnalysisResults=[]; state.consolidatedSites=[];
-            // state.maxTwoTheta = 0; // *** REMOVED ***
             
             updateAllTables(); 
             
-            // Clear canvas manually on reset
             try {
                 pattersonCtx.fillStyle='#1e2937'; 
                 pattersonCtx.fillRect(0,0,pattersonCanvas.width,pattersonCanvas.height);
@@ -697,19 +592,16 @@
              sliceSliderU.value = 0.5; sliceValueU.textContent = (0.5).toFixed(3); state.sliceU = 0.5;
              sliceSliderV.value = 0.5; sliceValueV.textContent = (0.5).toFixed(3); state.sliceV = 0.5;
              sliceSliderW.value = 0.5; sliceValueW.textContent = (0.5).toFixed(3); state.sliceW = 0.5;
-             state.activeSlicingAxis = 'w'; sliceTitle.textContent = `Slice ⊥ W at 0.500`;
+             state.activeSlicingAxis = 'w'; sliceTitle.textContent = `Slice \u22a5 W at 0.500`; // Unicode fix
              toleranceSlider.value = 0.03; toleranceValue.textContent = (0.03).toFixed(3); state.harkerTolerance = 0.03;
              
-             // Only reset resolution if it's a new file
              if (isNewFile) {
                 resolutionSlider.value = 50; resolutionValue.textContent = 50; state.mapResolution = 50;
-                // windowCheckbox.checked = false; state.applyWindow = false; // *** REMOVED ***
              }
              
              updateUIStates();
-             resizeCanvas(); // Resize canvas to fit new (empty) state
+             resizeCanvas(); 
         }
-
 
         async function generatePdfReport() {
             if(!state.crystalData || state.consolidatedSites.length===0) { console.warn("PDF Skip: No data/sites."); statusMessage.textContent = "Cannot gen report: No consolidated sites."; setTimeout(() => { if(statusMessage.textContent.includes("Cannot gen report")) statusMessage.textContent = '';}, 3000); return; }
@@ -727,82 +619,80 @@
                         ['Refls', reflections?.length||0], 
                         ['Res', state.mapResolution], 
                         ['Tol', state.harkerTolerance.toFixed(3)],
-                        // ['Window', state.applyWindow ? 'Cosine Taper' : 'None'] // *** REMOVED ***
                     ] });
                  y=doc.autoTable.previous.finalY+lh*2;
                 doc.setFontSize(11); doc.text("Active Patterson Map Slice", m, y); y+=lh; const canvas=pattersonCanvas; const canvasDU = await html2canvas(canvas).then(can => can.toDataURL('image/png')); const imgW = contentW * 0.6; const imgH = (canvas.height * imgW) / canvas.width;
-                 if (y + imgH > pageH - m) { doc.addPage(); y = m + lh; } doc.addImage(canvasDU, 'PNG', m, y, imgW, imgH); y += imgH + lh; doc.setFontSize(8); doc.text(`Slice ⊥ ${state.activeSlicingAxis.toUpperCase()} at ${state[`slice${state.activeSlicingAxis.toUpperCase()}`].toFixed(3)}`, m, y); y += lh * 2;
+                 if (y + imgH > pageH - m) { doc.addPage(); y = m + lh; } doc.addImage(canvasDU, 'PNG', m, y, imgW, imgH); y += imgH + lh; doc.setFontSize(8); doc.text(`Slice \u22a5 ${state.activeSlicingAxis.toUpperCase()} at ${state[`slice${state.activeSlicingAxis.toUpperCase()}`].toFixed(3)}`, m, y); y += lh * 2; // Unicode fix
                  if (state.foundPeaks.length > 0) { if (y + 30 > pageH - m) { doc.addPage(); y = m + lh; } doc.setFontSize(11); doc.text("Found Patterson Peaks", m, y); y += lh; doc.autoTable({ html: '#peaks-table', startY: y, theme: 'grid', headStyles: { fillColor: [75, 85, 99], fontSize: 8 }, bodyStyles: { fontSize: 7, cellPadding: 1.5 }, tableWidth: 'wrap' }); y = doc.autoTable.previous.finalY + lh * 2; }
                  if(state.consolidatedSites.length > 0) { if (y + 30 > pageH - m) { doc.addPage(); y = m + lh; } doc.setFontSize(11); doc.text("Consolidated Sites", m, y); y += lh; const tc = document.getElementById('consolidated-sites-table').cloneNode(true); const pb = tc.querySelector('tbody'); pb.innerHTML = state.consolidatedSites.map(s => `<tr><td>(${s.x.toFixed(3)}, ${s.y.toFixed(3)}, ${s.z.toFixed(3)})</td></tr>`).join(''); doc.autoTable({ html: tc, startY: y, theme: 'grid', headStyles: { fillColor: [22, 163, 74], fontSize: 8 }, bodyStyles: { fontSize: 7, cellPadding: 1.5 }, tableWidth: 'wrap' }); y = doc.autoTable.previous.finalY + lh * 2; }
-                 if (state.harkerAnalysisResults.length > 0) { if (y + 30 > pageH - m) { doc.addPage(); y = m + lh; } doc.setFontSize(11); doc.text("Partial Sites (Harker)", m, y); y += lh; if (y + 40 > pageH - m) { doc.addPage(); y = m + lh; } doc.autoTable({ html: '#sites-table', startY: y, theme: 'grid', headStyles: { fillColor: [100, 116, 139], fontSize: 8 }, bodyStyles: { fontSize: 6, cellPadding: 1 }, tableWidth: 'auto' }); }
+                 
+                 // --- PDF PARTIAL SITES FIX ---
+                 if (state.harkerAnalysisResults.length > 0) { 
+                    if (y + 30 > pageH - m) { doc.addPage(); y = m + lh; } 
+                    doc.setFontSize(11); doc.text("Partial Sites (Harker)", m, y); y += lh; 
+                    const tc_partial = document.getElementById('sites-table-container').querySelector('table').cloneNode(true);
+                    const pb_partial = tc_partial.querySelector('tbody');
+                    pb_partial.innerHTML = state.harkerAnalysisResults.map(s => {
+                        return `<tr><td style="font-size: 7pt;">${s.source}</td><td style="font-size: 7pt;">(${s.x}, ${s.y}, ${s.z})</td></tr>`;
+                    }).join('');
+                    if (y + 40 > pageH - m) { doc.addPage(); y = m + lh; } 
+                    doc.autoTable({ html: tc_partial, startY: y, theme: 'grid', headStyles: { fillColor: [100, 116, 139], fontSize: 8 }, bodyStyles: { fontSize: 6, cellPadding: 1 }, tableWidth: 'auto' }); 
+                 }
+                 // --- END FIX ---
+
                 doc.save(`Patterson_Report_${ts}.pdf`); console.log("PDF generated.");
             } catch (error) { console.error("PDF Error:", error); statusMessage.textContent = "Error generating PDF."; setTimeout(() => { if(statusMessage.textContent.includes("Error generating PDF")) statusMessage.textContent = '';}, 3000); }
         }
 
 
-        // --- MAIN ANALYSIS FUNCTION ---
-        async function runMapCalculationAndAnalysis() {
+        // --- MAIN ANALYSIS FUNCTION (NOW SENDS TO WORKER) ---
+        function runMapCalculationAndAnalysis() {
             if (!state.crystalData) { console.error("Run Skip: No data."); statusMessage.textContent = "Error: Load data."; return; }
             if (!state.spaceGroups) { console.error("Run Skip: No Harker defs."); statusMessage.textContent = "Error: Harker defs missing."; return; }
-             console.log("=== Starting Full Analysis ===");
-             document.body.style.cursor = 'wait'; // Set busy cursor
+             if (!pattersonWorker) { console.error("Run Skip: Worker not initialized."); statusMessage.textContent = "Error: Worker not ready."; return; }
+            
+             console.log("=== Starting Full Analysis (Posting to Worker) ===");
              
-            // Disable controls during calculation
-            resolutionSlider.disabled = true; 
-            // windowCheckbox.disabled = true; // *** REMOVED ***
-            leftTabButtons.forEach(b => b.disabled = true); 
-            statusMessage.textContent = `Calculating ${state.mapResolution}^3 map...`; 
-            statusMessage.classList.remove('text-red-500', 'text-green-500'); 
-            statusMessage.classList.add('text-amber-400');
+             // Set busy state ON THE MAIN THREAD
+             document.body.style.cursor = 'wait'; 
+             statusMessage.textContent = `Calculating ${state.mapResolution}^3 map...`; 
+             statusMessage.classList.remove('text-red-500', 'text-green-500'); 
+             statusMessage.classList.add('text-amber-400');
              
-             try {
-                // Update slice slider step *before* calculation
-                const step = 1 / state.mapResolution;
-                [sliceSliderU, sliceSliderV, sliceSliderW].forEach(s => s.step = Math.max(0.001, step).toFixed(4));
-
-                await calculatePattersonMap(); 
-                findPeaks(); 
-                analyzeHarkerPeaks(); 
-                combineSites(); 
-                updateAllTables(); 
-                resizeCanvas(); // Resize canvas *after* map is calculated
-                drawPattersonSlice();
-
-                const numCombined = state.consolidatedSites.length; const numPartial = state.harkerAnalysisResults.length; const numPeaks = state.foundPeaks.length;
-                if (numCombined > 0) { statusMessage.textContent = `Done. Found ${numCombined} site(s).`; statusMessage.classList.add('text-green-500'); statusMessage.classList.remove('text-amber-400'); }
-                 else if (numPartial > 0) { statusMessage.textContent = `Done. Found ${numPartial} partial sites, but none combined.`; statusMessage.classList.add('text-amber-400'); }
-                 else if (numPeaks > 0) { statusMessage.textContent = `Done. Found peaks, but no Harker matches.`; statusMessage.classList.add('text-amber-400'); }
-                 else { statusMessage.textContent = `Done. No significant peaks found.`; statusMessage.classList.add('text-amber-400'); }
-
-                // *** REMOVED: Auto-switching to slices tab ***
-                // const mapTabBtn = document.querySelector('.left-tab-button[data-tab="map-controls-tab"]'); 
-                // if (mapTabBtn.classList.contains('left-tab-active') && state.pattersonMap3D) { 
-                //     showLeftTab('slices-controls-tab'); 
-                // }
-             } catch (error) { 
-                 console.error("Analysis Pipeline Error:", error); 
-                 statusMessage.textContent = `Error: ${error.message}`; 
-                 resetAnalysis(false); // Reset map data, but keep crystal data
-            }
-             finally { 
-                document.body.style.cursor = 'default'; // Reset cursor
-                updateUIStates(); // Re-enables sliders based on new state
-                console.log("=== Finished Analysis Attempt ==="); 
-            }
+             // Disable UI
+             updateUIStates();
+             
+             // Clear old map-dependent data
+             resetAnalysis(false); 
+             
+             // Update slice slider step *before* calculation
+             const step = 1 / state.mapResolution;
+             [sliceSliderU, sliceSliderV, sliceSliderW].forEach(s => s.step = Math.max(0.001, step).toFixed(4));
+             
+             // --- SEND DATA TO WORKER ---
+             pattersonWorker.postMessage({
+                type: 'CALCULATE',
+                payload: {
+                    crystalData: state.crystalData,
+                    spaceGroups: state.spaceGroups,
+                    mapResolution: state.mapResolution,
+                    harkerTolerance: state.harkerTolerance
+                }
+             });
         }
 
 
         // --- EVENT HANDLERS ---
         openFileBtn.addEventListener('click',()=>fileInput.click());
         
-        fileInput.addEventListener('change', async e => { // Made async
+        fileInput.addEventListener('change', async e => {
              const f = e.target.files[0]; if(!f) return; 
              console.clear(); 
              console.log(`Loading: ${f.name}`); 
              state.fileName=f.name; 
              const r=new FileReader();
              
-             r.onload = async ev => { // Made async
+             r.onload = ev => {
                  try{ 
                      resetAnalysis(true); // Full reset for new file
                      state.crystalData = parsePawleyFile(ev.target.result);
@@ -825,16 +715,13 @@
                      
                      updateCrystalInfo();
                      
-                     // --- NEW AUTO-CALCULATE LOGIC ---
+                     // --- AUTO-CALCULATE LOGIC ---
                      state.mapResolution = 50; // Set default resolution
                      resolutionSlider.value = 50;
                      resolutionValue.textContent = '50';
-                     // windowCheckbox.checked = false; // *** REMOVED ***
-                     // state.applyWindow = false; // *** REMOVED ***
                      
-                     // Run initial calculation and wait for it
-                     await runMapCalculationAndAnalysis(); 
-                     // --- END NEW LOGIC ---
+                     // Run initial calculation
+                     runMapCalculationAndAnalysis(); 
 
                  } catch(err) { 
                      console.error("File processing error:", err); 
@@ -842,6 +729,7 @@
                      statusMessage.classList.remove('text-amber-400', 'text-green-500'); 
                      statusMessage.classList.add('text-red-500'); 
                      resetAnalysis(true); // Full reset on error
+                     document.body.style.cursor = 'default';
                  }
                  finally { 
                      updateUIStates(); // Update UI after everything is done
@@ -859,17 +747,22 @@
              r.readAsText(f);
         });
 
-        // Removed: calculateBtn.addEventListener('click', runFullAnalysis);
-
         toleranceSlider.addEventListener('change', () => {
             state.harkerTolerance = parseFloat(toleranceSlider.value); toleranceValue.textContent = state.harkerTolerance.toFixed(3);
-            if (state.harkerAnalysisResults.length > 0) { statusMessage.textContent = 'Re-combining...'; console.log(`Tol changed to ${state.harkerTolerance.toFixed(3)}. Recombining.`); setTimeout(() => { combineSites(); updateAllTables(); updateUIStates(); }, 10); }
+            if (state.harkerAnalysisResults.length > 0) {
+                 statusMessage.textContent = 'Re-combining...'; 
+                 console.log(`Tol changed to ${state.harkerTolerance.toFixed(3)}. Recombining.`); 
+                 // Re-combining is fast, just do it on the main thread
+                 // We need to re-run *only* combineSites
+                 // But combineSites is in the worker...
+                 // FOR SIMPLICITY: just re-run the whole worker calc
+                 runMapCalculationAndAnalysis();
+            }
             else { console.log("Tol changed, no results to combine."); }
         });
         toleranceSlider.addEventListener('input', () => { toleranceValue.textContent = parseFloat(toleranceSlider.value).toFixed(3); });
 
 
-        // --- NEW RESOLUTION SLIDER LOGIC ---
         // 'input' event updates the text label continuously
         resolutionSlider.addEventListener('input', e => {
             resolutionValue.textContent = e.target.value;
@@ -882,25 +775,14 @@
             resolutionValue.textContent = newRes;
             
             if (state.crystalData) {
-                document.body.style.cursor = 'wait'; // *** ADDED CURSOR WAIT ***
                 console.log(`Resolution changed to ${newRes}. Recalculating...`);
-                // Clear old map-dependent data before recalculating
-                state.pattersonMap3D = null;
-                state.foundPeaks = [];
-                state.harkerAnalysisResults = [];
-                state.consolidatedSites = [];
-                updateAllTables();
-                drawPattersonSlice();
-                
-                runMapCalculationAndAnalysis(); // Run full analysis
+                // Just run the analysis. It will set the cursor and status.
+                runMapCalculationAndAnalysis();
             }
         });
         
-        // *** REMOVED: Checkbox handler ***
-
-
         function setupSliceSlider(slider, valueEl, axis) {
-            slider.addEventListener('input', e => { const v = parseFloat(e.target.value); state[`slice${axis.toUpperCase()}`] = v; state.activeSlicingAxis = axis; valueEl.textContent = v.toFixed(3); sliceTitle.textContent = `Slice ⊥ ${axis.toUpperCase()} at ${v.toFixed(3)}`; drawPattersonSlice(); sliceValueU.textContent = state.sliceU.toFixed(3); sliceValueV.textContent = state.sliceV.toFixed(3); sliceValueW.textContent = state.sliceW.toFixed(3); });
+            slider.addEventListener('input', e => { const v = parseFloat(e.target.value); state[`slice${axis.toUpperCase()}`] = v; state.activeSlicingAxis = axis; valueEl.textContent = v.toFixed(3); sliceTitle.textContent = `Slice \u22a5 ${axis.toUpperCase()} at ${v.toFixed(3)}`; drawPattersonSlice(); sliceValueU.textContent = state.sliceU.toFixed(3); sliceValueV.textContent = state.sliceV.toFixed(3); sliceValueW.textContent = state.sliceW.toFixed(3); });
              // Set initial step based on default resolution
              slider.step = Math.max(0.001, (1 / state.mapResolution)).toFixed(4);
         }
@@ -916,7 +798,7 @@
         leftTabButtons.forEach(b=>b.addEventListener('click',()=>{if(!b.disabled)showLeftTab(b.dataset.tab);}));
         generateReportBtn.addEventListener('click', generatePdfReport);
 
-         sliceTitle.textContent = `Slice ⊥ ${state.activeSlicingAxis.toUpperCase()} at ${state[`slice${state.activeSlicingAxis.toUpperCase()}`].toFixed(3)}`;
+         sliceTitle.textContent = `Slice \u22a5 ${state.activeSlicingAxis.toUpperCase()} at ${state[`slice${state.activeSlicingAxis.toUpperCase()}`].toFixed(3)}`; // Unicode fix
          updateUIStates();
 
         // --- TOOLTIP CLICK TOGGLE ---
@@ -926,7 +808,6 @@
         });
 
         document.addEventListener('click', (e) => {
-            // Hide tooltip if it's visible and the click is NOT on the icon or the tooltip box
             if (tooltipText.classList.contains('visible') && 
                 !tooltipIcon.contains(e.target) && 
                 !tooltipText.contains(e.target)) 
