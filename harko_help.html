@@ -296,15 +296,31 @@ gamma (deg) 90.0
             
             <h4>3. Reflection List</h4>
             <p>
-                This is the most critical part. The program needs a list of reflections with their corresponding intensities. The parser looks for a section of text containing lines like:
+                This is the most critical part. The program needs a list of reflections with their corresponding intensities ($I_{hkl}$), which are used as the $|F_{hkl}|^2$ values for the Patterson calculation.
             </p>
-            <pre><code>(   0,   0,   1)     20.450      1500.00
-(   1,   0,  -1)     22.120      10000.00
-(   1,   0,   0)     23.500      5432.10
-...
+            <p>
+                The parser expects a list where each line contains the $(h, k, l)$ index, a 2-theta value, and then the intensity. The parser is <strong>very specific</strong> about the format.
+            </p>
+            <p>
+                For example, given a Pawley refinement output that looks like this:
+            </p>
+            <pre><code>--- Reflections List (Integrated Intensities) ---
+h,k,l           2th_corr (°)      I_extracted       ESD(I)           I_obs (Area)
+-------------------------------------------------------------------------------------------
+(1,0,1)       16.4493           57.9                           57.1
+(0,1,1)       20.7851           1874.8                         2122.3
+(2,0,0)       20.9150           859.0                          610.5
 </code></pre>
             <p>
-                The program specifically reads the $(h, k, l)$ values and the <strong>last</strong> number in the line, which it assumes is the intensity ($I_{hkl}$) to be used as $|F_{hkl}|^2$.
+                The program's parser is built to:
+            </p>
+            <ol style="margin-bottom: 1rem;">
+                <li>Read the <code>(h,k,l)</code> values (e.g., <code>(1,0,1)</code>).</li>
+                <li>Match and <strong>skip</strong> the next column of numbers (the <code>2th_corr</code>, e.g., <code>16.4493</code>).</li>
+                <li>Read and <strong>use</strong> the column immediately following it as the intensity (the <code>I_extracted</code>, e.g., <code>57.9</code>).</li>
+            </ol>
+            <p>
+                It ignores all subsequent columns on the line. Therefore, it is the <strong><code>I_extracted</code></strong> (refined) intensity that is used for the Patterson map, not <code>I_obs</code>.
             </p>
 
             <hr style="margin: 2rem 0;">
