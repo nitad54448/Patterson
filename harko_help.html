@@ -165,64 +165,111 @@
             </ul>
         </section>
 
-        <section id="harker-sections">
-            <h2>Harker Sections Explained</h2>
-            <p>
-                If a unit cell contains only one heavy atom in the asymmetric unit, the space group's symmetry operations will generate a set of equivalent atoms. The vectors <em>between</em> these symmetrically-related atoms are special.
-            </p>
-            <p>
-                These "Harker vectors" are not randomly distributed throughout the 3D Patterson map. They are constrained to lie on specific <strong>planes</strong> or <strong>lines</strong>, which are known as <strong>Harker sections</strong>.
-            </p>
-            <p>
-                Finding strong peaks on these known sections allows us to solve for the coordinates of the original heavy atom.
-            </p>
 
-            <h3>Example: A 2-fold screw axis ($2_1$)</h3>
-            <p>
-                A $2_1$ axis parallel to $c$ has the symmetry operation: $(x, y, z) \rightarrow (-x, -y, z + 1/2)$.
-            </p>
-            <p>
-                The interatomic vector (Harker vector) between the original atom and its symmetric equivalent is:
-            </p>
+        <section id="harker-sections">
+    <h2>Harker Sections Explained</h2>
+    <p>
+        If a unit cell contains only one heavy atom in the asymmetric unit, the space group's symmetry operations will generate a set of equivalent atoms. The vectors <em>between</em> these symmetrically-related atoms are special.
+    </p>
+    <p>
+        These "Harker vectors" are not randomly distributed throughout the 3D Patterson map. They are constrained to lie on specific <strong>planes</strong> or <strong>lines</strong>, which are known as <strong>Harker sections</strong>.
+    </p>
+    <p>
+        Finding strong peaks on these known sections allows us to solve for the coordinates of the original heavy atom.
+    </p>
+
+    <h3>Example: A 2-fold screw axis ($2_1$)</h3>
+    <p>
+        A $2_1$ axis parallel to $c$ has the symmetry operation: $(x, y, z) \rightarrow (-x, -y, z + 1/2)$.
+    </p>
+    <p>
+        The interatomic vector (Harker vector) between the original atom and its symmetric equivalent is:
+    </p>
+    <ul>
+        <li>$u = x - (-x) = 2x$</li>
+        <li>$v = y - (-y) = 2y$</li>
+        <li>$w = z - (z + 1/2) = -1/2 \equiv 1/2$ (in fractional coordinates)</li>
+    </ul>
+    <p>
+        This vector is $(2x, 2y, 1/2)$. Notice that the $w$ coordinate is <strong>fixed at 1/2</strong>, regardless of the original atom's coordinates. This means all such vectors will lie on the <strong>Harker plane at $w=1/2$</strong>.
+    </p>
+    <p>
+        If we find a strong peak on this plane at $(u=0.6, v=0.4, w=0.5)$, we can solve for the atom's $x$ and $y$ coordinates:
+    </p>
+    <ul>
+        <li>$2x = 0.6 \implies x = 0.3$</li>
+        <li>$2y = 0.4 \implies y = 0.2$</li>
+    </ul>
+    <p>
+        Just by finding this one peak, we have determined $(x=0.3, y=0.2, z=?)$. The $z$ coordinate is unknown.
+    </p>
+    
+    <h3>Example: A glide plane ($c$)</h3>
+    <p>
+        A $c$-glide plane perpendicular to $b$ has the operation: $(x, y, z) \rightarrow (x, -y, z + 1/2)$.
+    </p>
+    <p>
+        The Harker vector is: $(x-x, \;\; y-(-y), \;\; z-(z+1/2)) = (0, 2y, -1/2) \equiv (0, 2y, 1/2)$.
+    </p>
+    <p>
+        These vectors lie on the <strong>Harker line at $u=0, w=1/2$</strong>. If we find a peak at $(0, 0.4, 0.5)$, we can solve for $y$:
+    </p>
+    <ul>
+        <li>$2y = 0.4 \implies y = 0.2$</li>
+    </ul>
+    <p>
+        This gives us the partial coordinates $(x=?, y=0.2, z=?)$.
+    </p>
+
+    <h3>Real-World Example: Interpreting the PbSO<sub>4</sub> (Pnma) Report</h3>
+    <p>
+        This is a classic real-world example. The compound Lead(II) Sulfate (PbSO<sub>4</sub>) crystallizes in space group <strong>Pnma (No. 62)</strong>. The heavy Lead (Pb) atom is on a special Wyckoff position (4c), which fixes its $y$-coordinate at 0.250.
+    </p>
+    <p>
+        The specific symmetry operations for the setting of Pnma defined in the program's <code>space_groups_harker.json</code> file create Harker sections on specific planes. An analysis report for this compound shows the program found partial solutions on two key planes:
+    </p>
+    <ol>
+        <li>From <strong><code>Plane (v=0.000)</code></strong>: A peak was found that, via its solver, gave the partial site <strong><code>(x=0.420, y=?, z=0.960)</code></strong>.</li>
+        <li>From <strong><code>Plane (w=0.500)</code></strong>: Another peak was found that gave the partial site <strong><code>(x=0.440, y=0.250, z=?)</code></strong>.</li>
+    </ol>
+
+    <p>
+        This is a perfect example of the <a href="#analysis-workflow">Site Consolidation</a> algorithm in action. The program compares these two partial sites with the tolerance set to <strong>0.030</strong>:
+    </p>
+    <ul>
+        <li><strong>Are $x$ values close?</strong>
             <ul>
-                <li>$u = x - (-x) = 2x$</li>
-                <li>$v = y - (-y) = 2y$</li>
-                <li>$w = z - (z + 1/2) = -1/2 \equiv 1/2$ (in fractional coordinates)</li>
+                <li>$|0.420 - 0.440| = 0.020$.</li>
+                <li>$0.020$ is less than the $0.030$ tolerance, so this is a <strong>match</strong>.</li>
             </ul>
-            <p>
-                This vector is $(2x, 2y, 1/2)$. Notice that the $w$ coordinate is <strong>fixed at 1/2</strong>, regardless of the original atom's coordinates. This means all such vectors will lie on the <strong>Harker plane at $w=1/2$</strong>.
-            </p>
-            <p>
-                If we find a strong peak on this plane at $(u=0.6, v=0.4, w=0.5)$, we can solve for the atom's $x$ and $y$ coordinates:
-            </p>
-            <ul>
-                <li>$2x = 0.6 \implies x = 0.3$</li>
-                <li>$2y = 0.4 \implies y = 0.2$</li>
-            </ul>
-            <p>
-                Just by finding this one peak, we have determined $(x=0.3, y=0.2, z=?)$. The $z$ coordinate is unknown.
-            </p>
-            
-            <h3>Example: A glide plane ($c$)</h3>
-            <p>
-                A $c$-glide plane perpendicular to $b$ has the operation: $(x, y, z) \rightarrow (x, -y, z + 1/2)$.
-            </p>
-            <p>
-                The Harker vector is: $(x-x, \;\; y-(-y), \;\; z-(z+1/2)) = (0, 2y, -1/2) \equiv (0, 2y, 1/2)$.
-            </p>
-            <p>
-                These vectors lie on the <strong>Harker line at $u=0, w=1/2$</strong>. If we find a peak at $(0, 0.4, 0.5)$, we can solve for $y$:
-            </p>
-            <ul>
-                <li>$2y = 0.4 \implies y = 0.2$</li>
-            </ul>
-            <p>
-                This gives us the partial coordinates $(x=?, y=0.2, z=?)$.
-            </p>
-            <p>
-                By combining information from multiple Harker sections (e.g., from a $2_1$ axis <em>and</em> a $c$-glide), we can find all three coordinates $(x, y, z)$. This is the primary goal of the <strong>Harko</strong> program.
-            </p>
-        </section>
+        </li>
+        <li><strong>Are $y$ values close?</strong>
+            <ul><li>Site 1 is undefined (?), Site 2 is 0.250. This is a <strong>match</strong>.</li></ul>
+        </li>
+        <li><strong>Are $z$ values close?</strong>
+            <ul><li>Site 1 is 0.960, Site 2 is undefined (?). This is a <strong>match</strong>.</li></ul>
+        </li>
+    </ul>
+    <p>
+        The program then "merges" them into one complete site:
+    </p>
+    <ul>
+        <li><strong>$x$</strong> = $(0.420 + 0.440) / 2 = 0.430$ (it averages the matching values)</li>
+        <li><strong>$y$</strong> = $0.250$ (from Site 2)</li>
+        <li><strong>$z$</strong> = $0.960$ (from Site 1)</li>
+    </ul>
+    <p>
+        The final result is the single, complete site <strong><code>(x=0.430, y=0.250, z=0.960)</code></strong>, which is exactly what appears in the <code>Consolidated Sites</code> table.
+    </p>
+    
+    <blockquote>
+        <strong>Note:</strong> The report  may show *other* partial sites, like <code>(x=0.060, y=0.250, ?)</code>. These are not "wrong"—they are often related to the correct site by a symmetry operation (e.g., $x \approx 0.5 - 0.440$). The consolidation algorithm is designed to find the correct *pair* that combines to form a single, consistent solution.
+    </blockquote>
+
+    <p>
+        By combining information from multiple Harker sections, the program can find all three coordinates $(x, y, z)$. This is the primary goal of the <strong>Harko</strong> program.
+    </p>
+    </section>
 
         <section id="program-overview">
             <h2>Program Overview & UI</h2>
