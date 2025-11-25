@@ -46,9 +46,7 @@
 
         .info-box { background-color: #1f2937; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 0.8rem; line-height: 1.6; }
         
-        /* Canvas wrapper: remove fixed width/aspect. Will be sized by flexbox in HTML. */
         .canvas-wrapper { background-color: #1e2937; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.2); overflow: hidden; border-radius: 8px; }
-        /* Canvas: remove fixed width/height. JS will set it. */
         canvas { display: block; }
 
         /* Styled Tables */
@@ -153,10 +151,6 @@
 
     <input type="file" id="data-file-input" class="hidden"/>
 </div>
-
-
-
-
             <div id="status-message" class="text-sm text-amber-400 -mt-4 mb-4 h-4"></div>
 
             <div class="flex-grow flex flex-col">
@@ -179,7 +173,6 @@
                             <input type="range" id="resolution-slider" min="20" max="100" value="50" step="2" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" disabled>
                         </div>
                         
-                        <!-- *** Cosine Taper Checkbox Removed *** -->
 
                     </div>
                 </div>
@@ -229,10 +222,8 @@
 
         <div id="drag-handle"></div>
 
-        <!-- This grid now fills the height of the parent container -->
         <div id="results-area" class="grid grid-cols-1 md:grid-cols-3 gap-6 h-full">
             
-            <!-- Left column (canvas) is a flex column that can shrink -->
             <div class="md:col-span-2 flex flex-col min-h-0">
                  <h2 id="slice-title" class="text-lg font-semibold text-center mb-3 flex-shrink-0">Patterson Map Slice</h2>
                  <!-- Canvas wrapper grows/shrinks and centers the canvas -->
@@ -316,7 +307,6 @@
              pattersonWorker = new Worker('harko_worker.js');
              
              // --- WORKER MESSAGE HANDLER ---
-// --- WORKER MESSAGE HANDLER ---
          pattersonWorker.onmessage = (e) => {
             const { type, payload } = e.data;
 
@@ -327,7 +317,6 @@
                 statusMessage.classList.add('text-amber-400');
             }
             else if (type === 'analysis_complete') {
-                // --- FULL RESULTS ARE IN ---
                 console.log("Analysis complete. Receiving ALL results from worker.");
 
                 // Store ALL results in state
@@ -355,7 +344,6 @@
                 // Re-enable all UI elements
                 updateUIStates();
             }
-            // --- NEW: HANDLE COMBINE_COMPLETE ---
             else if (type === 'combine_complete') {
                 console.log("Re-combine complete. Receiving updated sites from worker.");
 
@@ -379,7 +367,6 @@
                 // Re-enable UI
                 updateUIStates();
             }
-            // --- END NEW ---
             else if (type === 'error') {
                 // Handle errors from the worker
                 console.error("Worker Error:", payload);
@@ -531,11 +518,6 @@
             console.log(`Parsed ${data.reflections.length} reflections.`);
             return data;
         }
-
-        // --- HEAVY CALCULATION FUNCTIONS (REMOVED) ---
-        // calculatePattersonMap, findPeaks, analyzeHarkerPeaks, combineSites,
-        // solveCoordinate, averagePeriodic, adjustPeriodic are all GONE from here.
-        // They now live in harko_worker.js.
         
         // --- UI & DRAWING (Main Thread) ---
         function updateCrystalInfo() {
@@ -619,8 +601,6 @@
         // which the existing pattersonWorker.onmessage handler will process.
     }
 
-
-
         function resizeCanvas() { 
             try { 
                 const p = pattersonCanvas.parentElement; 
@@ -688,7 +668,6 @@
                  if (state.foundPeaks.length > 0) { if (y + 30 > pageH - m) { doc.addPage(); y = m + lh; } doc.setFontSize(11); doc.text("Found Patterson Peaks", m, y); y += lh; doc.autoTable({ html: '#peaks-table', startY: y, theme: 'grid', headStyles: { fillColor: [75, 85, 99], fontSize: 8 }, bodyStyles: { fontSize: 7, cellPadding: 1.5 }, tableWidth: 'wrap' }); y = doc.autoTable.previous.finalY + lh * 2; }
                  if(state.consolidatedSites.length > 0) { if (y + 30 > pageH - m) { doc.addPage(); y = m + lh; } doc.setFontSize(11); doc.text("Consolidated Sites", m, y); y += lh; const tc = document.getElementById('consolidated-sites-table').cloneNode(true); const pb = tc.querySelector('tbody'); pb.innerHTML = state.consolidatedSites.map(s => `<tr><td>(${s.x.toFixed(3)}, ${s.y.toFixed(3)}, ${s.z.toFixed(3)})</td></tr>`).join(''); doc.autoTable({ html: tc, startY: y, theme: 'grid', headStyles: { fillColor: [22, 163, 74], fontSize: 8 }, bodyStyles: { fontSize: 7, cellPadding: 1.5 }, tableWidth: 'wrap' }); y = doc.autoTable.previous.finalY + lh * 2; }
                  
-                 // --- PDF PARTIAL SITES FIX ---
                  if (state.harkerAnalysisResults.length > 0) { 
                     if (y + 30 > pageH - m) { doc.addPage(); y = m + lh; } 
                     doc.setFontSize(11); doc.text("Partial Sites (Harker)", m, y); y += lh; 
@@ -700,7 +679,6 @@
                     if (y + 40 > pageH - m) { doc.addPage(); y = m + lh; } 
                     doc.autoTable({ html: tc_partial, startY: y, theme: 'grid', headStyles: { fillColor: [100, 116, 139], fontSize: 8 }, bodyStyles: { fontSize: 6, cellPadding: 1 }, tableWidth: 'auto' }); 
                  }
-                 // --- END FIX ---
 
                 doc.save(`Patterson_Report_${ts}.pdf`); console.log("PDF generated.");
             } catch (error) { console.error("PDF Error:", error); statusMessage.textContent = "Error generating PDF."; setTimeout(() => { if(statusMessage.textContent.includes("Error generating PDF")) statusMessage.textContent = '';}, 3000); }
@@ -715,7 +693,6 @@
             
              console.log("=== Starting Full Analysis (Posting to Worker) ===");
              
-             // Set busy state ON THE MAIN THREAD
              document.body.style.cursor = 'wait'; 
              statusMessage.textContent = `Calculating ${state.mapResolution}^3 map...`; 
              statusMessage.classList.remove('text-red-500', 'text-green-500'); 
