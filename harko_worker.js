@@ -1,4 +1,3 @@
-// --- HEAVY CALCULATION FUNCTIONS (MOVED FROM MAIN SCRIPT) ---
 
 /**
  * Solves a coordinate string like "u/2" based on a peak's (u,v,w).
@@ -195,8 +194,6 @@ self.onmessage = (e) => {
     if (type === 'CALCULATE') {
         try {
             const { crystalData, spaceGroups, mapResolution, harkerTolerance } = payload;
-            
-            // --- Run the full pipeline, step by step ---
             
             // Step 1: Calculate Map
             postMessage({ type: 'status', payload: `Calculating ${mapResolution}^3 map...` });
