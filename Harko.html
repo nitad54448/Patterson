@@ -470,8 +470,7 @@
             const data = { cell: {}, reflections: [], spaceGroup: null };
             const cellRegex = /^\s*([a-zA-Z]+)\s*\(.*\)\s+([\d.eE+-]+)/;
             const spaceGroupRegex = /Space Group:\s+(\d+)\s*[-–]\s*(.+)/;
-            const reflectionRegex = /^\(\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*\)\s+[\d.]+\s+([\d.]+)/;
-            let inReflectionsSection = false;
+const reflectionRegex = /^\(\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*\)\s+[\d.eE+-]+\s+([\d.eE+-]+)/;            let inReflectionsSection = false;
             const lines = text.split('\n');
 
             for (let i = 0; i < lines.length; i++) {
@@ -548,9 +547,9 @@
             const size=pattersonCanvas.width, img=pattersonCtx.createImageData(size,size), data=img.data; const range = sliceMax - sliceMin;
             for(let py=0; py<size; py++) for(let px=0; px<size; px++) {
                 let map_x, map_y, fixed_idx, idx;
-                if (axis === 'u') { map_x = Math.floor(px / size * res); map_y = Math.floor((1 - py / size) * res); fixed_idx = u_idx; idx = map_y * res * res + map_x * res + fixed_idx; }
-                else if (axis === 'v') { map_x = Math.floor(px / size * res); map_y = Math.floor((1 - py / size) * res); fixed_idx = v_idx; idx = map_y * res * res + fixed_idx * res + map_x; }
-                else { map_x = Math.floor(px / size * res); map_y = Math.floor((1 - py / size) * res); fixed_idx = w_idx; idx = fixed_idx*res*res + map_y*res + map_x; }
+                if (axis === 'u') { map_x = Math.floor(px / size * res); map_y = Math.min(res - 1, Math.floor((1 - py / size) * res)); fixed_idx = u_idx; idx = map_y * res * res + map_x * res + fixed_idx; }
+                else if (axis === 'v') { map_x = Math.floor(px / size * res); map_y = Math.min(res - 1, Math.floor((1 - py / size) * res)); fixed_idx = v_idx; idx = map_y * res * res + fixed_idx * res + map_x; }
+                else { map_x = Math.floor(px / size * res); map_y = Math.min(res - 1, Math.floor((1 - py / size) * res)); fixed_idx = w_idx; idx = fixed_idx*res*res + map_y*res + map_x; }
                 const d_idx=(py*size+px)*4;
                 if (idx < 0 || idx >= map.length || !isFinite(map[idx])) { data[d_idx]=30; data[d_idx+1]=41; data[d_idx+2]=59; data[d_idx+3]=255; continue; };
                 const val = range > 1e-9 ? (map[idx]-sliceMin)/range : 0.5; let r=0, g=0, b=0;
