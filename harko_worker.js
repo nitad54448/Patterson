@@ -1,3 +1,33 @@
+function expandReflections(uniqueReflections, sgNumber, spaceGroups) {
+    if (!spaceGroups || !spaceGroups[sgNumber]) return uniqueReflections;
+    
+    // Fallback to defaults if the specific setting isn't matched
+    const settings = spaceGroups[sgNumber].settings || [spaceGroups[sgNumber]];
+    const rotations = settings[0].rotations || [ [1,0,0, 0,1,0, 0,0,1] ];
+    const fullSphere = new Map();
+    
+    uniqueReflections.forEach(ref => {
+        const h = ref.h, k = ref.k, l = ref.l, I = ref.intensity;
+        
+        rotations.forEach(R => {
+            // Apply rotation matrix: h' = hR
+            const hp = Math.round(h * R[0] + k * R[3] + l * R[6]);
+            const kp = Math.round(h * R[1] + k * R[4] + l * R[7]);
+            const lp = Math.round(h * R[2] + k * R[5] + l * R[8]);
+            
+            // Add positive Friedel
+            const keyPos = `${hp},${kp},${lp}`;
+            if (!fullSphere.has(keyPos)) fullSphere.set(keyPos, { h: hp, k: kp, l: lp, intensity: I });
+            
+            // Add negative Friedel
+            const keyNeg = `${-hp},${-kp},${-lp}`;
+            if (!fullSphere.has(keyNeg)) fullSphere.set(keyNeg, { h: -hp, k: -kp, l: -lp, intensity: I });
+        });
+    });
+    
+    return Array.from(fullSphere.values());
+}
+
 
 /**
  * Solves a coordinate string like "u/2" based on a peak's (u,v,w).
@@ -16,15 +46,16 @@ function solveCoordinate(solverString, peak) {
 /**
  * Calculates the 3D Patterson map. This is the main blocking function.
  */
-function calculatePattersonMap(crystalData, mapResolution) {
+function calculatePattersonMap(crystalData, spaceGroups, mapResolution) {
     try {
-        const { cell, reflections } = crystalData;
+        const { cell, reflections, spaceGroup } = crystalData;
         if (!reflections || reflections.length === 0) { throw new Error("No reflection data."); }
         if (!cell || !cell.a || !cell.b || !cell.c || isNaN(cell.a) || isNaN(cell.b) || isNaN(cell.c)) { throw new Error("Invalid cell data."); }
 
-        const res = mapResolution;
-        console.log(`[Worker] Calculating with resolution: ${res}`);
+        // Expand unique reflections to the full sphere
+        const fullReflections = expandReflections(reflections, spaceGroup.number, spaceGroups);
 
+        const res = mapResolution;
         const V = cell.a * cell.b * cell.c;
         if (!V || !isFinite(V) || V <= 0) { throw new Error(`Invalid volume: ${V}`); }
 
@@ -36,7 +67,7 @@ function calculatePattersonMap(crystalData, mapResolution) {
                 for (let iu = 0; iu < res; iu++) {
                     const u = iu / res, v = iv / res, w = iw / res;
                     let p = 0;
-                    for (const r of reflections) {
+                    for (const r of fullReflections) { // <-- LOOP OVER FULL LIST
                         if (isNaN(r.intensity) || isNaN(r.h) || isNaN(r.k) || isNaN(r.l)) continue;
                         p += r.intensity * Math.cos(PI2 * (r.h * u + r.k * v + r.l * w));
                     }
@@ -45,9 +76,8 @@ function calculatePattersonMap(crystalData, mapResolution) {
                 }
             }
         }
-        
-        console.log(`[Worker] Map calculated.`);
-        return pattersonMap3D; // Return the result
+        return pattersonMap3D;
+// ...
     } catch (error) {
         console.error("[Worker] Map calc error:", error);
         throw error; // Re-throw to be caught by the main handler
@@ -99,15 +129,26 @@ function findPeaks(pattersonMap3D, mapResolution) {
  */
 function analyzeHarkerPeaks(foundPeaks, crystalData, spaceGroups, mapResolution) {
     let harkerAnalysisResults = [];
-    if (!crystalData?.spaceGroup || foundPeaks.length === 0 || !spaceGroups) { console.log("[Worker] Skipping Harker."); return []; }
-    const sgNumber = crystalData.spaceGroup.number; const sgData = spaceGroups[sgNumber];
+    if (!crystalData?.spaceGroup || foundPeaks.length === 0) { console.log("[Worker] Skipping Harker."); return []; }
+    const sgNumber = crystalData.spaceGroup.number; 
+    
+    // Prioritize embedded sections from the Pawley file
+    let sections = [];
+    if (crystalData.harkerSections && crystalData.harkerSections.length > 0) {
+        sections = crystalData.harkerSections;
+        console.log(`[Worker] Using ${sections.length} embedded Harker sections.`);
+    } else if (spaceGroups && spaceGroups[sgNumber] && spaceGroups[sgNumber].harker_sections) {
+        sections = spaceGroups[sgNumber].harker_sections;
+        console.log(`[Worker] Using JSON Harker sections for SG ${sgNumber}.`);
+    } else {
+        console.warn(`[Worker] No Harker data available.`);
+        return [];
+    }
+    
     const gridSpacing = 1.0 / mapResolution; const tol = 1.5 * gridSpacing;
     console.log(`[Worker] Analyzing SG: ${sgNumber}. Tol: ${tol.toFixed(3)}`);
-    if (!sgData?.harker_sections) { console.warn(`[Worker] No Harker data for SG ${sgNumber}.`); return []; }
-    if (sgData.harker_sections.length === 0) { console.log(`[Worker] No Harker sections for SG ${sgNumber}.`); return []; }
     
-    console.log(`[Worker] Found ${sgData.harker_sections.length} Harker sections.`);
-    sgData.harker_sections.forEach((section, si) => {
+    sections.forEach((section, si) => {
         if (!section.coordinate || !['u', 'v', 'w'].includes(section.coordinate) || typeof section.value !== 'number' || !section.solver) { console.warn(`[Worker] Skip invalid section ${si + 1}`); return; }
         foundPeaks.forEach((peak, pi) => {
             const pc = peak[section.coordinate]; const diff = Math.abs(pc - section.value); const pDiff = Math.min(diff, 1.0 - diff);
@@ -197,7 +238,7 @@ self.onmessage = (e) => {
             
             // Step 1: Calculate Map
             postMessage({ type: 'status', payload: `Calculating ${mapResolution}^3 map...` });
-            const pattersonMap3D = calculatePattersonMap(crystalData, mapResolution);
+            const pattersonMap3D = calculatePattersonMap(crystalData, spaceGroups, mapResolution);
             
             // Step 2: Find Peaks
             postMessage({ type: 'status', payload: 'Finding peaks...' });

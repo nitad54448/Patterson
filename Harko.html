@@ -394,19 +394,19 @@
         }
 
         // --- Fetch Harker data (main thread) ---
-        fetch('space_groups_harker.json')
-            .then(response => {
+        fetch('cctbx_space_groups_all_settings_v5.json')
+                    .then(response => {
                 if (!response.ok) {
                     if (response.status === 404) {
-                         throw new Error("space_groups_harker.json not found. Place it in the same directory.");
+                         throw new Error("cctbx_space_groups_all_settings_v5.json not found. Place it in the same directory.");
                     }
                     throw new Error(`HTTP error ${response.status} loading space_groups_harker.json`);
                 }
                 return response.json();
             })
             .then(data => {
-                state.spaceGroups = data;
-                console.log("Harker data loaded.");
+                state.spaceGroups = data.space_groups || data;
+                console.log("Harker data v5 loaded.");
                  statusMessage.textContent = "Harker definitions loaded.";
                  statusMessage.classList.remove('text-red-500');
                  statusMessage.classList.add('text-green-500');
@@ -465,19 +465,38 @@
         }
 
         // --- PARSING (Main Thread) ---
+     
         function parsePawleyFile(text) {
             console.log("Parsing file...");
-            const data = { cell: {}, reflections: [], spaceGroup: null };
+            const data = { cell: {}, reflections: [], spaceGroup: null, harkerSections: [] };
             const cellRegex = /^\s*([a-zA-Z]+)\s*\(.*\)\s+([\d.eE+-]+)/;
             const spaceGroupRegex = /Space Group:\s+(\d+)\s*[-–]\s*(.+)/;
-const reflectionRegex = /^\(\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*\)\s+[\d.eE+-]+\s+([\d.eE+-]+)/;            let inReflectionsSection = false;
+            const reflectionRegex = /^\(\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*\)\s+[\d.eE+-]+\s+([\d.eE+-]+)/;
+            const harkerRegex = /^(plane|line)\s+([uvw])\s+([0-9.-]+)\s+(\S+)\s+(\S+)\s+(\S+)/;
+
+            let inReflectionsSection = false;
+            let inHarkerSection = false;
             const lines = text.split('\n');
 
             for (let i = 0; i < lines.length; i++) {
                 const originalLine = lines[i]; const line = originalLine.trim();
-                if (line.includes('--- Reflections List')) { inReflectionsSection = true; continue; }
+                
+                if (line.includes('--- Harker Sections ---')) { inHarkerSection = true; inReflectionsSection = false; continue; }
+                if (line.includes('--- Reflections List')) { inReflectionsSection = true; inHarkerSection = false; continue; }
                 if (line.includes('--- Point-by-Point Intensity Data')) { break; }
-                if (!inReflectionsSection) {
+                
+                if (inHarkerSection) {
+                    if (line.startsWith('---') || line.startsWith('Type') || line === '') continue;
+                    const hMatch = line.match(harkerRegex);
+                    if (hMatch) {
+                        data.harkerSections.push({
+                            type: hMatch[1],
+                            coordinate: hMatch[2],
+                            value: parseFloat(hMatch[3]),
+                            solver: { x: hMatch[4], y: hMatch[5], z: hMatch[6] }
+                        });
+                    }
+                } else if (!inReflectionsSection) {
                     let cellMatch = line.match(cellRegex);
                     if (cellMatch) { data.cell[cellMatch[1]] = parseFloat(cellMatch[2]); continue; }
                     if (!data.spaceGroup) {
@@ -492,11 +511,9 @@ const reflectionRegex = /^\(\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*\)\s+[\d.eE
                             const k = parseInt(reflectionMatch[2].trim()); 
                             const l = parseInt(reflectionMatch[3].trim()); 
                             const intensity = parseFloat(reflectionMatch[4]);
-                            const reflection = { h, k, l, intensity };
                             if (!isNaN(h) && !isNaN(k) && !isNaN(l) && !isNaN(intensity)) {
-                                data.reflections.push(reflection); 
+                                data.reflections.push({ h, k, l, intensity }); 
                             }
-                            else { console.warn(`Skipped reflection (NaN):`, originalLine); }
                         } catch (parseError) { console.error(`Error parsing reflection: "${originalLine}"`, parseError); }
                     }
                 }
@@ -512,11 +529,11 @@ const reflectionRegex = /^\(\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*\)\s+[\d.eE
 
             if (!data.spaceGroup) { throw new Error("Could not parse Space Group."); }
             if (!data.cell.a || isNaN(data.cell.a) || !data.cell.b || isNaN(data.cell.b) || !data.cell.c || isNaN(data.cell.c)) { throw new Error("Could not determine cell parameters (a, b, c)."); }
-            if (data.reflections.length === 0 && inReflectionsSection) { console.warn("No reflections parsed."); }
             
-            console.log(`Parsed ${data.reflections.length} reflections.`);
+            console.log(`Parsed ${data.reflections.length} reflections and ${data.harkerSections.length} Harker sections.`);
             return data;
         }
+
         
         // --- UI & DRAWING (Main Thread) ---
         function updateCrystalInfo() {
