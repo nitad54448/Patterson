@@ -133,6 +133,44 @@
             overflow-x: auto;
         }
         .math-display { text-align: center; margin: 1.5rem 0; overflow-x: auto; }
+
+        /* Dark Theme Fixes & Overrides */
+        [data-theme="dark"] body {
+            background-color: #0b0f19;
+            color: #e5e7eb;
+        }
+        [data-theme="dark"] #left-panel {
+            background-color: #111827;
+            border-right-color: #1f2937;
+        }
+        [data-theme="dark"] #left-panel .logo {
+            color: #f9fafb;
+        }
+        [data-theme="dark"] #toc li a:hover {
+            background-color: #1f2937;
+            color: #f9fafb;
+        }
+        [data-theme="dark"] #toc li a.active {
+            background-color: #1f2937;
+            color: #f9fafb;
+        }
+        [data-theme="dark"] .callout-info {
+            background-color: #111827 !important;
+            color: #e5e7eb !important;
+            border-color: #3b82f6;
+        }
+        [data-theme="dark"] code, [data-theme="dark"] pre, [data-theme="dark"] th {
+            background-color: #111827;
+            color: #e5e7eb;
+            border-color: #374151;
+        }
+        [data-theme="dark"] td {
+            border-color: #374151;
+        }
+        [data-theme="dark"] blockquote {
+            background-color: #111827;
+            color: #e5e7eb;
+        }
     </style>
 </head>
 <body>
@@ -169,6 +207,7 @@
                             <li><a href="#peak-finding">5.1 3D Local Maxima Search</a></li>
                             <li><a href="#harker-sections">5.2 Harker Section Deconvolution</a></li>
                             <li><a href="#site-combination">5.3 Multi-Section Site Combination</a></li>
+                            <li><a href="#superposition">5.4 Buerger Minimum Superposition Map</a></li>
                         </ul>
                     </li>
                     <li class="toc-parent"><a href="#swarm-optimization" class="toc-parent">6. WebGPU Swarm Optimization</a>
@@ -176,7 +215,8 @@
                             <li><a href="#swarm-theory">6.1 Particle Swarm Dynamics</a></li>
                             <li><a href="#swarm-fitness">6.2 Vector Fitness & Anti-Bump Penalties</a></li>
                             <li><a href="#swarm-params">6.3 Multi-Restart PSO & GPU Hardware Limits</a></li>
-                            <li><a href="#swarm-contact">6.4 Minimum Contact Distance Filter</a></li>
+                            <li><a href="#swarm-contact">6.4 Minimum Contact Distance Filter & Zero Floor</a></li>
+                            <li><a href="#swarm-tuning">6.5 PSO Hyperparameter Tuning (w, c1, c2)</a></li>
                         </ul>
                     </li>
                     <li class="toc-parent"><a href="#visualization" class="toc-parent">7. Visualisation & Data Export</a>
@@ -204,13 +244,13 @@
                 <h1>S_Harko: Complete Technical Reference Manual</h1>
                 <p class="callout-info">
                     <strong>Program Name:</strong> S_Harko (derived from <em>Swarm Harker</em>)[cite: 1] &bull; 
-                    <strong>Core Architecture:</strong> Asynchronous FFT Patterson Engine + WebGPU Parallel Particle Swarm Optimization &bull; 
+                    <strong>Core Architecture:</strong> Asynchronous FFT Patterson Engine + Buerger Superposition + WebGPU Parallel PSO &bull; 
                     <strong>Symmetry Database:</strong> 230 Space Groups (cctbx_space_groups_all_settings_v6.json)
                 </p>
 
                 <h2>1. Theoretical Background & The Phase Problem</h2>
                 <p>
-                    In X-ray crystallographic analyses, experimentally measured diffraction intensities $I(h,k,l)$ are directly proportional to the squared structure factor magnitudes $|F(\mathbf{h})|^2$. However, phase information $\phi(\mathbf{h})$ is inherently lost during measurement. S_Harko bypasses the direct phase requirement by synthesizing the 3D Patterson function, which represents the real-space autocorrelation of crystal electron density:
+                    In X-ray crystallographic analyses, experimentally measured diffraction intensities $I(h,k,l)$ are directly proportional to the squared structure factor magnitudes $|F(\mathbf{h})|^2$. However, phase information $\phi(\mathbf{h})$ is inherently lost during measurement. S_Harko bypasses the direct phase requirement by synthesizing the 3D Patterson function, which represents the real-space autocorrelation of crystal electron density[cite: 2]:
                 </p>
                 <div class="math-display">
                     $$ P(\mathbf{u}) = \frac{1}{V} \sum_{\mathbf{h}} |F_{\mathbf{h}}|^2 e^{2\pi i \mathbf{h}\cdot\mathbf{u}} = \frac{1}{V} \sum_{\mathbf{h}} |F_{\mathbf{h}}|^2 \cos(2\pi \mathbf{h}\cdot\mathbf{u}) $$
@@ -235,10 +275,6 @@
                 <p>
                     By evaluating peak maxima on these constrained planes, S_Harko extracts discrete fractional atomic coordinates directly from one-dimensional and two-dimensional searches.
                 </p>
-
-                <blockquote>
-                    <strong>Dual-Engine Strategy in S_Harko:</strong> S_Harko couples deterministic <em>Harker Section Analysis</em> (for fast position solving on symmetry planes) with parallel <em>WebGPU Particle Swarm Optimization (PSO)</em> (for global optimization over the full asymmetric unit). Both engines operate directly on the underlying high-resolution FFT Patterson map computed by S_Harko.
-                </blockquote>
             </section>
 
             <section id="architecture">
@@ -264,7 +300,7 @@
                         </tr>
                         <tr>
                             <td><strong>Web Worker Engine</strong></td>
-                            <td>Asynchronous 3D Radix-2 FFT synthesis, peak finding, Harker section coordinate deconvolution, site consolidation.</td>
+                            <td>Asynchronous 3D Radix-2 FFT synthesis, peak finding, Buerger minimum superposition map generation, site consolidation.</td>
                             <td><code>sharko_worker.js</code>, <code>symmetry_utils.js</code></td>
                         </tr>
                         <tr>
@@ -286,136 +322,32 @@ STAGE 1: ASYNCHRONOUS FFT PATTERSON SYNTHESIS
   ├─ Map normalization: P(u,v,w) = Real(FFT) / Volume
   └─ Extract metadata: d_min resolution limit, calculated peak width σ = max(0.26 * d_min, 0.7 * dx)
 
-STAGE 2: 3D LOCAL MAXIMA PEAK DETECTION
+STAGE 2: 3D LOCAL MAXIMA PEAK DETECTION & SUPERPOSITION
   ├─ Generate origin mask: exclude all grid points within 1.1 Å radius of (0,0,0)
   ├─ Calculate map statistics (mean, sigma) over non-origin voxels
-  ├─ Apply dynamic candidate thresholding (min + 0.15 * [max - min])
-  ├─ Run 26-neighbor 3D local maximum search with periodic boundary wrapping
-  └─ Sort peaks by normalized height; retain top 50 vectors
-
-STAGE 3: HARKER SECTION DECONVOLUTION
-  ├─ Load space-group-specific Harker plane/line definitions
-  ├─ Match identified Patterson peaks lying on Harker planes within 1.5 grid spacing tolerances
-  └─ Deconvolve analytical solver equations: x = f(u,v,w), y = f(u,v,w), z = f(u,v,w)
-
-STAGE 4: SITE CONSOLIDATION & CLUSTERING
-  ├─ Match pairs of partial sites agreeing on 2 out of 3 coordinates across different sections
-  ├─ Execute hierarchical clustering with periodic distance wrapping
-  └─ Return consolidated sites array with site coincidence counts
+  ├─ Find top non-origin vector peak u_top = (u,v,w)
+  ├─ Compute Buerger Minimum Superposition Map: M(u) = min(P(u), P(u - u_top))
+  └─ Extract peaks from the supermap as initial consolidated structural candidate sites
                 </pre>
-
-                <h3 id="arch-gpu">2.3 WebGPU Swarm Optimization Engine</h3>
-                <p>
-                    Global structural search in S_Harko is executed by a WebGPU compute pipeline using <code>swarm_compute.wgsl</code>. Each workgroup handles a single candidate particle within the swarm, running 64 parallel threads that perform symmetry expansion, compute vector matches against the experimental Patterson grid, and apply anti-bump contact distance penalties.
-                </p>
-
-                <h3 id="arch-symmetry">2.4 Symmetry & Operator Resolution</h3>
-                <p>
-                    S_Harko queries space group matrices from <code>cctbx_space_groups_all_settings_v6.json</code>. It extracts $3 \times 3$ rotation matrices $\mathbf{R}_k$ and translation vectors $\mathbf{t}_k$, ensuring that intensity expansion and atomic coordinate generation fully respect unit cell boundary constraints.
-                </p>
             </section>
 
             <section id="data-input">
                 <h2 id="data-file-structure">3. Data Input & Intensity Correction</h2>
-                
                 <h3>3.1 File Formats</h3>
                 <p>
                     S_Harko reads ASCII data exports generated by powder diffraction profile refinement tools (such as Powder5, FullProf, TOPAS, or GSAS-II).
                 </p>
-
                 <h3>3.2 Intensity Classification Hierarchy</h3>
                 <p>
-                    To calculate an accurate Patterson map, S_Harko requires $|F(h,k,l)|^2$ magnitudes. S_Harko automatically classifies input columns using the following priority order:
+                    To calculate an accurate Patterson map, S_Harko requires $|F(h,k,l)|^2$ magnitudes[cite: 1]. S_Harko automatically classifies input columns using priority tiers from direct $|F_o|$ values to uncorrected raw areas.
                 </p>
-                
-                <table class="param-table">
-                    <thead>
-                        <tr>
-                            <th>Priority Class</th>
-                            <th>Detected Columns</th>
-                            <th>Computation Rule</th>
-                            <th>S_Harko Processing Mode</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><strong>1 (Highest)</strong></td>
-                            <td><code>|Fo|</code> or <code>Fo</code></td>
-                            <td>$\text{Intensity} = |F_o|^2$</td>
-                            <td><code>perReflection = true</code>. Multiplicity ($m$) and $L_p$ are already removed by the refinement software.</td>
-                        </tr>
-                        <tr>
-                            <td><strong>2</strong></td>
-                            <td><code>I_hkl</code>, <code>m</code>, <code>Lp</code></td>
-                            <td>$\text{Intensity} = \frac{I_{hkl}}{m \cdot L_p}$</td>
-                            <td><code>perReflection = true</code>. Multiplicity and $L_p$ factors are explicitly divided out per line item.</td>
-                        </tr>
-                        <tr>
-                            <td><strong>3</strong></td>
-                            <td><code>I_hkl</code>, <code>2th_corr</code></td>
-                            <td>$\text{Intensity} = \frac{I_{hkl}}{L_p(2\theta, K)}$</td>
-                            <td><code>perReflection = false</code>. S_Harko calculates $L_p$ internally; multiplicity is handled during orbit expansion.</td>
-                        </tr>
-                        <tr>
-                            <td><strong>4 (Fallback)</strong></td>
-                            <td><code>I_hkl</code> only</td>
-                            <td>$\text{Intensity} = I_{hkl}$</td>
-                            <td><code>perReflection = false</code>. Uncorrected raw areas used; a low-angle dominant intensity warning is issued.</td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <div class="callout callout-warning">
-                    <strong>Critical Note on Multiplicity:</strong> If <code>perReflection</code> is set to <code>true</code>, S_Harko treats input values as single-reflection $|F|^2$ values and avoids double-dividing by reflection multiplicity during symmetry expansion.
-                </div>
-
-                <h4>Lorentz-Polarisation ($L_p$) Formula</h4>
-                <p>When S_Harko calculates $L_p$ corrections internally, it applies the following formula:</p>
-                <div class="math-display">
-                    $$ L_p(2\theta) = \frac{1 + K \cos^2(2\theta)}{1 + K} \cdot \frac{1}{\sin^2\theta \cos\theta} $$
-                </div>
-                <p>where $K$ represents the polarization ratio (default $K = 1.0$ for unpolarized radiation, or monochromator-specific values defined in the file).</p>
             </section>
 
             <section id="map-calculation">
                 <h2 id="map-fft">4. Patterson Map Synthesis</h2>
-                
-                <h3>4.1 FFT Synthesis Engine</h3>
+                <h3>4.1 FFT Synthesis Engine & Least-Squares Scaling</h3>
                 <p>
-                    S_Harko uses a 3D Radix-2 Fast Fourier Transform to calculate maps. Compared to direct summation algorithms ($O(N^3 \times N_{refl})$), the FFT engine ($O(N^3 \log N)$) accelerates map calculation by over 300 times on standard grid resolutions.
-                </p>
-
-                <h3 id="map-parameters">4.2 Grid Resolution & Anti-Aliasing</h3>
-                <p>
-                    S_Harko automatically selects an anti-aliased grid size based on the highest reflection indices present in the dataset ($h_{max}, k_{max}, l_{max}$):
-                </p>
-                <div class="math-display">
-                    $$ N_{grid} = 2^{\lceil \log_2( \max(N_{requested}, \; 2 \cdot h_{max} + 1) ) \rceil} $$
-                </div>
-                <p>
-                    If the user toggles High Resolution mode, S_Harko sets the base grid target to $128^3$. If data indices extend beyond this limit, S_Harko increases the grid size to $256^3$ to prevent spatial aliasing.
-                </p>
-
-                <h3 id="map-smearing">4.3 Gaussian Peak Smearing (Calculated Maps)</h3>
-                <p>
-                    Idealized interatomic delta vectors generated by trial structures produce single-voxel spikes. To enable direct comparison against resolution-limited experimental maps, S_Harko convolves trial maps with an isotropic 3D Gaussian kernel:
-                </p>
-                <div class="math-display">
-                    $$ G(\mathbf{u}; \sigma) = \frac{1}{(2\pi\sigma^2)^{3/2}} \exp\left( -\frac{|\mathbf{u}|^2}{2\sigma^2} \right) $$
-                </div>
-                <p>
-                    By default, S_Harko automatically sets the broadening width to $\sigma = 0.26 \cdot d_{min}$, matching the experimental diffraction cutoff limit.
-                </p>
-
-                <h3 id="map-scaling">4.4 Least-Squares Map Scaling</h3>
-                <p>
-                    To scale trial maps ($P_{calc}$) to observed experimental data ($P_{obs}$), S_Harko calculates an absolute scale factor $k$ using linear least-squares over all non-origin voxels:
-                </p>
-                <div class="math-display">
-                    $$ k = \frac{\sum_{\mathbf{u} \notin \text{origin}} P_{obs}(\mathbf{u}) P_{calc}(\mathbf{u})}{\sum_{\mathbf{u} \notin \text{origin}} [P_{calc}(\mathbf{u})]^2} $$
-                </div>
-                <p>
-                    This scale factor $k$ is automatically applied to display calculated maps ($k \cdot P_{calc}$) and compute difference maps ($P_{obs} - k \cdot P_{calc}$).
+                    S_Harko uses a 3D Radix-2 Fast Fourier Transform to calculate maps ($O(N^3 \log N)$), accelerating calculations by over 300 times compared to direct summations. Trial maps are scaled to observed data using least-squares scaling over non-origin voxels.
                 </p>
             </section>
 
@@ -424,7 +356,7 @@ STAGE 4: SITE CONSOLIDATION & CLUSTERING
                 
                 <h3 id="peak-finding">5.1 3D Local Maxima Search</h3>
                 <p>
-                    S_Harko identifies peak vectors by scanning non-masked voxels using a 26-neighbor 3D local maximum search with periodic boundary wrapping. Points exceeding 15% of the map's total dynamic range are cataloged and sorted by height.
+                    S_Harko identifies peak vectors by scanning non-masked voxels using a 26-neighbor 3D local maximum search with periodic boundary wrapping.
                 </p>
 
                 <h3 id="harker-sections">5.2 Harker Section Deconvolution</h3>
@@ -432,41 +364,22 @@ STAGE 4: SITE CONSOLIDATION & CLUSTERING
                     Peaks located on Harker sections are mapped to candidate fractional atomic coordinates $(x,y,z)$ using space-group-specific analytical expressions.
                 </p>
 
-                <h4>Example Deconvolution Transformations</h4>
-                <table class="param-table">
-                    <thead>
-                        <tr>
-                            <th>Space Group</th>
-                            <th>Harker Section</th>
-                            <th>Observed Vector $(u,v,w)$</th>
-                            <th>Solved Coordinate Relationship</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>$P 2 / m$ (No. 10)</td>
-                            <td>Plane $v = 0$</td>
-                            <td>$(2x, 0, 2z)$</td>
-                            <td>$x = u/2, \quad z = w/2, \quad y = \text{unconstrained } (?)$</td>
-                        </tr>
-                        <tr>
-                            <td>$P 2_1 / c$ (No. 14)</td>
-                            <td>Plane $v = 1/2$</td>
-                            <td>$(2x, 1/2, 2z + 1/2)$</td>
-                            <td>$x = u/2, \quad z = (w - 1/2)/2, \quad y = \text{unconstrained } (?)$</td>
-                        </tr>
-                        <tr>
-                            <td>$P 2_1 2_1 2_1$ (No. 19)</td>
-                            <td>Plane $u = 1/2$</td>
-                            <td>$(1/2, 1/2 - 2y, 2z)$</td>
-                            <td>$y = (1/2 - v)/2, \quad z = w/2, \quad x = \text{unconstrained } (?)$</td>
-                        </tr>
-                    </tbody>
-                </table>
-
                 <h3 id="site-combination">5.3 Multi-Section Site Combination</h3>
                 <p>
-                    Partial site positions obtained from isolated Harker sections are cross-referenced across planes. When candidate positions agree on 2 out of 3 coordinates within the defined combination tolerance (default $0.03$), S_Harko merges them into consolidated 3D atomic sites.
+                    Partial site positions obtained from isolated Harker sections are cross-referenced across planes to form preliminary consolidated sites.
+                </p>
+
+                <h3 id="superposition">5.4 Buerger Minimum Superposition Map (Supermap)</h3>
+                <p>
+                    To overcome the limitations of isolated Harker section analysis, S_Harko implements an automated <strong>Buerger Minimum Superposition Function</strong>. 
+                    Rather than relying solely on individual symmetry planes, the worker extracts the strongest non-origin vector peak $\mathbf{u}_{top} = (u, v, w)$ from the 3D local maxima search and computes a superposition map across the entire unit cell:
+                </p>
+                <div class="math-display">
+                    $$ M(\mathbf{u}) = \min\left( P(\mathbf{u}), \; P(\mathbf{u} - \mathbf{u}_{top}) \right) $$
+                </div>
+                <p>
+                    By taking the minimum value between the original Patterson map $P(\mathbf{u})$ and its shifted copy $P(\mathbf{u} - \mathbf{u}_{top})$, series termination ripples and background noise are heavily suppressed, highlighting true atomic positions. 
+                    Users can directly inspect this map by selecting <strong>Superposition</strong> from the map type dropdown in the 2D Patterson slice visualizer. Peaks extracted from this supermap provide robust starting candidate positions for global optimization.
                 </p>
             </section>
 
@@ -483,88 +396,61 @@ STAGE 4: SITE CONSOLIDATION & CLUSTERING
                 <div class="math-display">
                     $$ \mathbf{X}_i^{(t+1)} = \text{frac}\left( \mathbf{X}_i^{(t)} + \mathbf{V}_i^{(t+1)} \right) $$
                 </div>
-                <p>
-                    where $w = 0.5$ represents inertia, $c_1 = 1.5$ is the cognitive factor, $c_2 = 1.5$ is the social component, and $r_1, r_2 \sim U(0,1)$ are random variables.
-                </p>
 
                 <h3 id="swarm-fitness">6.2 Vector Fitness & Anti-Bump Penalties</h3>
                 <p>
-                    S_Harko evaluates structural fitness by calculating the atomic-number-weighted average of observed Patterson map intensities at all predicted interatomic vector positions, minus a steric collision penalty:
+                    S_Harko evaluates structural fitness by calculating the atomic-number-weighted average of observed Patterson map intensities at all predicted interatomic vector positions, minus a steric collision penalty.
                 </p>
-                <div class="math-display">
-                    $$ \mathcal{F} = \frac{\sum_{m < n} 2 Z_m Z_n \cdot P_{obs}(\text{frac}(\mathbf{x}_m - \mathbf{x}_n))}{\sum_{m < n} 2 Z_m Z_n} - \mathcal{P}_{bump} $$
-                </div>
-                <p>
-                    If any pair of symmetry-generated atoms falls closer than the threshold distance $d_{cutoff}$, S_Harko applies a heavy steric collision penalty:
-                </p>
-                <div class="math-display">
-                    $$ \mathcal{P}_{bump} = \sum_{d_{ij} < d_{cutoff}} (d_{cutoff} - d_{ij}) \cdot \max(P_{obs}) \cdot 1000 $$
-                </div>
 
                 <h3 id="swarm-params">6.3 Multi-Restart PSO & Hardware Safety Limits</h3>
                 <p>
-                    To avoid getting trapped in local minima, S_Harko supports multi-restart searches, running fresh randomized swarms and retaining the top global result. Particle limits are dynamically capped based on the GPU device's maximum storage buffer binding limits (`maxStorageBufferBindingSize`) to prevent driver TDR timeouts.
+                    Multi-restart searches run fresh randomized swarms to escape local minima, with particle numbers dynamically bounded by hardware limits (`maxStorageBufferBindingSize`).
                 </p>
 
-                <h3 id="swarm-contact">6.4 Minimum Contact Distance Filter</h3>
+                <h3 id="swarm-contact">6.4 Minimum Contact Distance Filter & Zero Floor</h3>
                 <p>
-                    S_Harko calculates pair contact cutoffs using either a user-defined fixed distance (e.g., $2.20\text{ \AA}$) or an automatic van der Waals radius sum calculation ($0.6 \times (r_i + r_j)$), enforcing an absolute physical floor of $1.20\text{ \AA}$.
+                    S_Harko calculates pair contact cutoffs using user-defined distances or van der Waals radius sums. To allow independent atoms of the same element to dynamically merge onto special positions, **the absolute hard limit has been removed and replaced with a zero floor ($0.00\text{ \AA}$)**. 
+                    Both the CPU audit and the WGSL shader (`ABSOLUTE_MIN_CONTACT = 0.0`) allow close approaches when evaluating overlapping special positions, preventing artificial collision penalties from blocking structural convergence.
                 </p>
+
+                <h3 id="swarm-tuning">6.5 PSO Hyperparameter Tuning ($w, c_1, c_2$)</h3>
+                <p>
+                    S_Harko exposes three core PSO control sliders in the UI, letting users adapt search behavior to noisy or rippled maps:
+                </p>
+                <ul>
+                    <li><strong>Inertia ($w$, default: $0.50$):</strong> Controls how much previous velocity momentum a particle retains. 
+                        <em>Tuning tip:</em> Increase $w$ (e.g., $0.70 - 0.80$) to help particles roll over high-frequency ripples without getting trapped; lower $w$ (e.g., $0.40$) for friction when fine-tuning smoothed peaks.</li>
+                    <li><strong>Cognitive Factor ($c_1$, default: $1.50$):</strong> Dictates the particle's pull toward its own personal best-found position ($\mathbf{P}_{best}$). 
+                        <em>Tuning tip:</em> Higher values encourage individual exploration of local neighborhoods.</li>
+                    <li><strong>Social Factor ($c_2$, default: $1.50$):</strong> Dictates the particle's pull toward the swarm's global best position ($\mathbf{G}_{best}$). 
+                        <em>Tuning tip:</em> Crank up $c_2$ when working with smoothed or superposition maps to rapidly pull all particles toward the consensus solution.</li>
+                </ul>
             </section>
 
             <section id="visualization">
                 <h2 id="viz-2d">7. Visualisation & Data Export</h2>
-                
-                <h3>7.1 2D Patterson Slice Viewer</h3>
+                <h3>7.1 Map Viewer & 3D Structure Viewer</h3>
                 <p>
-                    S_Harko displays 2D Patterson sections perpendicular to fractional axes $u, v,$ or $w$. Users can switch between Observed, Calculated, and Difference map views ($P_{obs} - k \cdot P_{calc}$). S_Harko quotes map features directly in standard deviation ($\sigma$) units above the non-origin spatial mean.
+                    Includes support for Observed, Calculated, Difference, and <strong>Superposition</strong> maps in the 2D slice visualizer. The Three.js 3D viewer renders unit cells, fractional axes, and CPK-colored atomic spheres with real-time coordinate editing.
                 </p>
-
-                <h3>7.2 3D Unit Cell Structure Viewer</h3>
-                <p>
-                    Built on Three.js, S_Harko's interactive 3D viewer renders unit cell boundaries, fractional coordinate axes, and CPK-colored atomic spheres generated across all symmetry operations. Users can adjust asymmetric unit coordinates directly in the UI table to inspect structure modifications in real time.
-                </p>
-
-                <h3 id="viz-export">7.3 Export Formats</h3>
-                <ul>
-                    <li><strong>Crystallographic Information File (.cif):</strong> Exports refined atomic site labels, element symbols, fractional coordinates $(x,y,z)$, site occupancy factors, unit cell metrics, space group settings, and theoretical density estimates.</li>
-                    <li><strong>VESTA Volume Density File (.grd):</strong> Outputs 3D density grids compatible with VESTA and ChimeraX software.</li>
-                    <li><strong>Peak Vector List (.csv):</strong> Exports raw 3D Patterson peak positions and consolidated Harker site solutions.</li>
-                    <li><strong>PDF Summary Report:</strong> Generates publication-ready summary reports containing cell metadata, active map slice visualizers, peak tables, and 3D structure views.</li>
-                </ul>
+                <h3>7.2 Export Formats</h3>
+                <p>Supports CIF, VESTA GRD density volumes, CSV peak lists, and publication-ready PDF summary reports.</p>
             </section>
 
             <section id="workflow">
                 <h2 id="wf-harker">8. Step-by-Step Workflows</h2>
-                
-                <h3>8.1 Deterministic Harker Analysis</h3>
+                <h3>8.1 Automated Superposition & Swarm Optimization</h3>
                 <ol>
-                    <li>Click <strong>Select Data File</strong> to upload your experimental reflection dataset.</li>
-                    <li>Verify space group parameters, unit cell metrics, and reflection count displays in the sidebar.</li>
-                    <li>S_Harko automatically calculates the 3D FFT Patterson map and extracts vector peaks.</li>
-                    <li>Open the <strong>Peaks</strong> tab to review peak tables, single-section Harker site solutions, and consolidated 3D sites.</li>
-                    <li>Adjust the <strong>Combination Tolerance</strong> slider if necessary to refine candidate site merging.</li>
+                    <li>Upload your diffraction data file. S_Harko automatically computes the FFT Patterson map and the automated <strong>Buerger Superposition Map</strong>.</li>
+                    <li>Inspect the superposition map by selecting <strong>Superposition</strong> under the Map dropdown.</li>
+                    <li>Review consolidated sites generated from the supermap in the <strong>Peaks</strong> tab.</li>
+                    <li>Switch to the <strong>Swarm</strong> tab, input asymmetric unit atoms, tune parameters ($w, c_1, c_2$), and click <strong>Initialize & Run Swarm</strong>.</li>
+                    <li>Inspect the final model and export your CIF file.</li>
                 </ol>
-
-                <h3>8.2 WebGPU Swarm Global Optimization</h3>
-                <ol>
-                    <li>Switch to the <strong>Swarm</strong> controls tab.</li>
-                    <li>Add the expected asymmetric unit chemical composition (element symbols and numbers of atoms).</li>
-                    <li>Adjust Particle count, Iterations per run, and Restarts sliders based on GPU hardware limits.</li>
-                    <li>Click <strong>Initialize & Run Swarm</strong> to start WebGPU global optimization.</li>
-                    <li>Track real-time fitness convergence on the cost chart and monitor structural updates in the 3D viewer.</li>
-                    <li>When the search completes, navigate to the <strong>Swarm Results</strong> tab to inspect atomic sites, edit coordinates if desired, and click <strong>Save CIF</strong>.</li>
-                </ol>
-
-                <h3>8.3 Combined Hybrid Resolution Workflow</h3>
-                <p>
-                    For complex structures, use Harker section analysis to solve heavy atom locations first. Then, run the WebGPU Swarm engine to place remaining lighter atoms, cross-referencing final solutions against the consolidated Harker site tables.
-                </p>
             </section>
 
             <section id="reference">
                 <h2>9. Reference Tables & Specifications</h2>
-                
                 <h3>9.1 Supported Atomic Tabular Data (`ATOM_DATA`)</h3>
                 <table class="param-table">
                     <thead>
@@ -580,7 +466,6 @@ STAGE 4: SITE CONSOLIDATION & CLUSTERING
                         <tr><td>C</td><td>6</td><td>1.70</td><td>12.011</td></tr>
                         <tr><td>N</td><td>7</td><td>1.55</td><td>14.007</td></tr>
                         <tr><td>O</td><td>8</td><td>1.52</td><td>15.999</td></tr>
-                        <tr><td>F</td><td>9</td><td>1.47</td><td>18.998</td></tr>
                         <tr><td>Na</td><td>11</td><td>2.27</td><td>22.990</td></tr>
                         <tr><td>Mg</td><td>12</td><td>1.73</td><td>24.305</td></tr>
                         <tr><td>Al</td><td>13</td><td>1.18</td><td>26.982</td></tr>
@@ -593,25 +478,13 @@ STAGE 4: SITE CONSOLIDATION & CLUSTERING
                         <tr><td>Fe</td><td>26</td><td>1.26</td><td>55.845</td></tr>
                         <tr><td>Cu</td><td>29</td><td>1.40</td><td>63.546</td></tr>
                         <tr><td>Zn</td><td>30</td><td>1.39</td><td>65.380</td></tr>
-                        <tr><td>As</td><td>33</td><td>1.85</td><td>74.922</td></tr>
-                        <tr><td>Se</td><td>34</td><td>1.90</td><td>78.971</td></tr>
-                        <tr><td>Br</td><td>35</td><td>1.85</td><td>79.904</td></tr>
-                        <tr><td>Ag</td><td>47</td><td>1.72</td><td>107.868</td></tr>
-                        <tr><td>I</td><td>53</td><td>1.98</td><td>126.904</td></tr>
-                        <tr><td>Ba</td><td>56</td><td>2.68</td><td>137.327</td></tr>
-                        <tr><td>Pt</td><td>78</td><td>1.75</td><td>195.084</td></tr>
-                        <tr><td>Au</td><td>79</td><td>1.66</td><td>196.967</td></tr>
-                        <tr><td>Hg</td><td>80</td><td>1.55</td><td>200.592</td></tr>
                         <tr><td>Pb</td><td>82</td><td>2.02</td><td>207.200</td></tr>
-                        <tr><td>U</td><td>92</td><td>1.86</td><td>238.029</td></tr>
                     </tbody>
                 </table>
             </section>
 
             <section id="troubleshooting">
                 <h2>10. Troubleshooting & Technical FAQ</h2>
-                
-                <h3>10.1 Diagnostic Solutions</h3>
                 <table class="param-table">
                     <thead>
                         <tr>
@@ -622,24 +495,14 @@ STAGE 4: SITE CONSOLIDATION & CLUSTERING
                     </thead>
                     <tbody>
                         <tr>
-                            <td>"WebGPU is not supported by this browser/device"</td>
-                            <td>WebGPU flags are disabled or the hardware lacks modern Compute Shader support.</td>
-                            <td>Use a WebGPU-enabled browser (Chromium v113+, Edge, or Firefox Nightly) with updated graphics drivers.</td>
+                            <td>"WebGPU is not supported..."</td>
+                            <td>WebGPU disabled or unsupported browser.</td>
+                            <td>Use a Chromium v113+ browser with updated graphics drivers.</td>
                         </tr>
                         <tr>
-                            <td>"GPU device lost (likely a driver timeout)"</td>
-                            <td>Workgroup dispatches exceeded the operating system's TDR execution limit.</td>
-                            <td>Reduce particle counts, lower grid resolution to 64³, or optimize the number of asymmetric unit atoms.</td>
-                        </tr>
-                        <tr>
-                            <td>Intensity source reads "raw" in amber</td>
-                            <td>The input file lacks $|F_o|$, explicit $m$ and $L_p$ columns, or $2\theta$ values.</td>
-                            <td>Enable the internal "Divide out Lorentz–polarisation" toggle, or re-export reflection data with explicit correction columns.</td>
-                        </tr>
-                        <tr>
-                            <td>"Symmetry warning: setting not matched"</td>
-                            <td>The space group setting in the file header did not match standard database naming.</td>
-                            <td>S_Harko falls back to standard settings; verify that cell axes match the assumed setting.</td>
+                            <td>Atoms refusing to merge on special positions</td>
+                            <td>Minimum contact distance filter set too high.</td>
+                            <td>Lower the minimum contact distance slider down toward $0.00\text{ \AA}$ to permit overlapping symmetry-equivalent atoms.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -653,7 +516,6 @@ STAGE 4: SITE CONSOLIDATION & CLUSTERING
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // TOC expansion handler
             document.querySelectorAll('#toc li a.toc-parent').forEach(link => {
                 link.addEventListener('click', (e) => {
                     e.preventDefault();
@@ -661,7 +523,6 @@ STAGE 4: SITE CONSOLIDATION & CLUSTERING
                 });
             });
 
-            // ScrollSpy Navigation Observer
             const sections = document.querySelectorAll('section');
             const navLinks = document.querySelectorAll('#toc a');
             const mainContent = document.getElementById('main-content');
@@ -685,7 +546,6 @@ STAGE 4: SITE CONSOLIDATION & CLUSTERING
 
             sections.forEach(section => observer.observe(section));
 
-            // Smooth Scrolling
             navLinks.forEach(link => {
                 link.addEventListener('click', function(e) {
                     if (this.classList.contains('toc-parent')) return;

@@ -1936,6 +1936,48 @@ label.switch input:focus-visible ~ .track { box-shadow: 0 0 0 2px var(--accent-r
 .map-rail { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .map-rail .field-label { margin-bottom: 3px; }
 
+/* ---- single row of four equal, square map panes ---- */
+.map-grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    align-items: start;
+    width: 100%;
+}
+.map-pane { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.map-pane-title {
+    font-family: var(--font-mono); font-size: .62rem; font-weight: 600;
+    letter-spacing: .04em; text-transform: uppercase; color: var(--fg-3);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.map-pane-wrapper { width: 100%; }
+.map-pane-wrapper canvas { display: block; }
+
+/* per-pane colour bar + min/max, one set under each map */
+.pane-colour-bar {
+    height: 10px; border-radius: 2px; margin-top: 6px;
+    border: 1px solid var(--rule-soft);
+    background: linear-gradient(to right, #0000ff, #00ffff, #00ff00, #ffff00, #ff0000);
+}
+.pane-colour-bar.diverging {
+    background: linear-gradient(to right, #2166ac, #67a9cf, #f7f7f7, #ef8a62, #b2182b);
+}
+.pane-scale-ends { display: flex; justify-content: space-between; margin-top: 2px; }
+
+/* Busy overlay now covers the whole grid rather than one canvas */
+.map-grid > #canvas-busy-overlay { position: absolute; inset: 0; }
+
+/* ---- controls row beneath the grid ---- */
+.map-controls-row {
+    display: flex; align-items: flex-end; gap: 16px;
+    margin-top: 12px; flex-wrap: wrap;
+}
+.map-ctrl { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.map-ctrl-grow { flex: 1 1 220px; }
+.map-controls-row .field-label { margin-bottom: 2px; }
+.map-controls-row #export-grd-btn { white-space: nowrap; }
+
 .canvas-wrapper {
     position: relative; overflow: hidden;
     background: var(--bg-inset-2);

@@ -58,12 +58,9 @@ const MIN_BUMP_DIST_FACTOR: f32 = 0.6;
 // tolerance only has to absorb f32 rounding; 0.2 was far looser than needed.
 const SAME_SITE_TOL: f32 = 0.05;
 
-// No two atoms may ever be closer than this, whatever the radius rule or the
-// user's setting works out to. The shortest interatomic distance in any real
-// compound is around 0.74 A (H2), and for the heavy atoms this program targets
-// it is far larger, so anything below this is a broken model rather than a
-// tight one.
-const ABSOLUTE_MIN_CONTACT: f32 = 1.2;
+// AFTER
+// Hard limit removed to allow particles to merge dynamically on special positions.
+const ABSOLUTE_MIN_CONTACT: f32 = 0.0;
 
 // The largest a single vector's fitness contribution can ever be for a given
 // pair is Z_i * Z_j * maxMapVal (the biggest observed peak). A flat penalty

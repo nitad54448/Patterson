@@ -109,15 +109,37 @@ function calculatePattersonMap(crystalData, spaceGroups, mapResolution) {
         // no usable operators for this setting.
         const expansion = expandReflections(reflections, spaceGroup.number, spaceGroup.name, spaceGroups,
                                             { perReflection: !!crystalData.perReflection });
+  
+  
+  
+           
         const fullReflections = expansion.reflections;
         lastExpansionSymmetry = expansion.symmetry;
+
+        // Explicitly enforce Friedel's Law to guarantee a real, centrosymmetric map for the FFT
+        const centrosymmetricReflections = [];
+        const seen = new Set();
+        
+        fullReflections.forEach(r => {
+            const key1 = `${r.h},${r.k},${r.l}`;
+            if (!seen.has(key1)) { 
+                centrosymmetricReflections.push(r); 
+                seen.add(key1); 
+            }
+            
+            const key2 = `${-r.h},${-r.k},${-r.l}`;
+            if (!seen.has(key2)) { 
+                centrosymmetricReflections.push({ ...r, h: -r.h, k: -r.k, l: -r.l }); 
+                seen.add(key2); 
+            }
+        });
 
         // General triclinic volume, shared with the rest of the program. The
         // old a*b*c is only correct for orthogonal cells; it is a pure scale
         // factor on the map, but the swarm's anti-bump penalty is scaled by
         // the map's own value range, so getting it wrong desynchronises
         // fitness from penalty.
-        const result = sharkoPattersonFFT(fullReflections, cell, mapResolution);
+        const result = sharkoPattersonFFT(centrosymmetricReflections, cell, mapResolution);
 
         // Grid-size changes and dropped reflections are surfaced through the
         // same channel as the symmetry warnings so they cannot pass silently.
@@ -245,15 +267,46 @@ function analyzeHarkerPeaks(foundPeaks, crystalData, spaceGroups, mapResolution)
     return harkerAnalysisResults;
 }
 
-
 // --- Site Combination Helpers (for worker) ---
 function averagePeriodic(v1, v2) { const diff = v1 - v2; if (Math.abs(diff) > 0.5) { if (v1 < v2) v1 += 1.0; else v2 += 1.0; } return ((( (v1 + v2) / 2.0 ) % 1) + 1) % 1; }
 function adjustPeriodic(value, ref) { if (value - ref > 0.5) return value - 1.0; if (ref - value > 0.5) return value + 1.0; return value; }
 
 /**
+ * Buerger Minimum Superposition Function
+ * Shifts the map by vector (u,v,w) and takes the minimum at each voxel.
+ */
+function computeSuperposition(map, res, shiftU, shiftV, shiftW) {
+    const superMap = new Float32Array(map.length);
+    const su = Math.round(shiftU * res);
+    const sv = Math.round(shiftV * res);
+    const sw = Math.round(shiftW * res);
+
+    for (let w = 0; w < res; w++) {
+        for (let v = 0; v < res; v++) {
+            for (let u = 0; u < res; u++) {
+                const idx = w * res * res + v * res + u;
+                
+                // Wrapped shifted coordinates to prevent negative modulo bugs
+                const tu = (((u - su) % res) + res) % res;
+                const tv = (((v - sv) % res) + res) % res;
+                const tw = (((w - sw) % res) + res) % res;
+                const shiftIdx = tw * res * res + tv * res + tu;
+                
+                // Minimum function
+                superMap[idx] = Math.min(map[idx], map[shiftIdx]);
+            }
+        }
+    }
+    return superMap;
+}
+
+/**
  * Combines partial Harker sites into full 3D atom sites.
  */
 function combineSites(harkerAnalysisResults, harkerTolerance) {
+
+
+
     console.log("[Worker] --- Starting Site Combination ---");
     let consolidatedSites = [];
     const results = harkerAnalysisResults.filter(site => site.x !== 'err' && site.y !== 'err' && site.z !== 'err');
@@ -342,23 +395,31 @@ function runAnalysisSteps(pattersonMap3D, crystalData, spaceGroups, mapResolutio
 
     postMessage({ type: 'status', payload: 'Finding peaks...' });
     const foundPeaks = findPeaks(pattersonMap3D, mapResolution, crystalData?.cell);
-
     postMessage({ type: 'status', payload: 'Analyzing Harker sections...' });
     const harkerAnalysisResults = analyzeHarkerPeaks(foundPeaks, crystalData, spaceGroups, mapResolution);
 
-    postMessage({ type: 'status', payload: 'Consolidating sites...' });
-    const consolidatedSites = combineSites(harkerAnalysisResults, harkerTolerance);
+    postMessage({ type: 'status', payload: 'Computing superposition map...' });
+    let consolidatedSites = [];
+    let superMap = null; // Initialized here so it is always in scope
+    
+    // Auto-run Buerger Superposition on the strongest non-origin vector
+    if (foundPeaks.length > 0) {
+        const topVector = foundPeaks[0];
+        superMap = computeSuperposition(pattersonMap3D, mapResolution, topVector.u, topVector.v, topVector.w);
+        
+        // Find peaks in the superposition map to propose as full sites
+        const superPeaks = findPeaks(superMap, mapResolution, crystalData?.cell);
+        consolidatedSites = superPeaks.map((p) => ({
+            x: p.u, y: p.v, z: p.w, count: 'Super'
+        }));
+    }
 
+ 
     let finalMessage = "Done.";
-    const numCombined = consolidatedSites.length;
-    const numPartial = harkerAnalysisResults.length;
-    const numPeaks = foundPeaks.length;
-    if (numCombined > 0) { finalMessage = `Done. Found ${numCombined} site(s).`; }
-    else if (numPartial > 0) { finalMessage = `Done. Found ${numPartial} partial sites, but none combined.`; }
-    else if (numPeaks > 0) { finalMessage = `Done. Found peaks, but no Harker matches.`; }
-    else { finalMessage = `Done. No significant peaks found.`; }
+    if (consolidatedSites.length > 0) { finalMessage = `Done. Found ${consolidatedSites.length} superposition site(s).`; }
+    else { finalMessage = `Done. No significant peaks found for superposition.`; }
 
-    return { foundPeaks, harkerAnalysisResults, consolidatedSites, finalMessage };
+    return { foundPeaks, harkerAnalysisResults, consolidatedSites, finalMessage, superMap };
 }
 
 self.onmessage = (e) => {
@@ -383,15 +444,19 @@ self.onmessage = (e) => {
 
             // Everything downstream must use the grid the FFT actually chose,
             // not the one that was requested.
-            const { foundPeaks, harkerAnalysisResults, consolidatedSites, finalMessage } =
+
+            const { foundPeaks, harkerAnalysisResults, consolidatedSites, finalMessage, superMap } =
                 runAnalysisSteps(pattersonMap3D, crystalData, spaceGroups, actualRes, harkerTolerance);
+
+            const transferList = [pattersonMap3D.buffer];
+            if (superMap) transferList.push(superMap.buffer);
 
             postMessage({
                 type: 'analysis_complete',
                 payload: { pattersonMap3D, foundPeaks, harkerAnalysisResults, consolidatedSites, finalMessage,
                            mapResolution: actualRes, dMin, sigma,
-                           symmetry: lastExpansionSymmetry }
-            }, [pattersonMap3D.buffer]);   // transfer, don't clone: the map can be tens of MB
+                           symmetry: lastExpansionSymmetry, superMap }
+            }, transferList);
 
         } catch (error) {
             // Send errors back to the main thread

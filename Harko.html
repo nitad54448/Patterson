@@ -154,9 +154,9 @@
         <div class="control-group">
             <label class="control-label">Contact Filter</label>
             <label class="field-label" for="min-contact-input">Minimum contact distance (&#8491;):
-                <span id="min-contact-value" class="mono">1.40</span>
+                <span id="min-contact-value" class="mono">0.00</span>
             </label>
-            <input type="range" id="min-contact-input" min="1.2" max="3" value="1.40" step="0.05" disabled>
+            <input type="range" id="min-contact-input" min="0" max="3" value="0.00" step="0.05" disabled>
             <div id="contact-report" class="readout" style="margin-top:8px"></div>
         </div>
 
@@ -176,10 +176,24 @@
                     comfortable-but-wrong spot. Restarts run several independent searches from fresh random positions
                     and keep the best structure found across all of them.</span></span>
             </label>
+
+
+            
             <input type="range" id="swarm-restarts" min="1" max="20" value="4" step="1">
+
+            <label class="field-label" for="swarm-w" style="margin-top:9px">Inertia (w): <span id="swarm-w-value" class="mono">0.50</span></label>
+            <input type="range" id="swarm-w" min="0.1" max="1.5" value="0.5" step="0.05">
+            
+            <label class="field-label" for="swarm-c1" style="margin-top:9px">Cognitive (c1): <span id="swarm-c1-value" class="mono">1.50</span></label>
+            <input type="range" id="swarm-c1" min="0.1" max="3.0" value="1.5" step="0.05">
+            
+            <label class="field-label" for="swarm-c2" style="margin-top:9px">Social (c2): <span id="swarm-c2-value" class="mono">1.50</span></label>
+            <input type="range" id="swarm-c2" min="0.1" max="3.0" value="1.5" step="0.05">
 
             <div class="row" style="margin:12px 0 10px">
                 <button id="run-swarm-btn" class="btn btn-primary" style="flex:1 1 auto">Initialize &amp; Run Swarm</button>
+            
+                
                 <button id="stop-swarm-btn" class="btn btn-danger" disabled>Stop</button>
             </div>
 
@@ -230,48 +244,80 @@
 
                 <section class="map-section" id="map2d-section">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                        <h2 class="map-section-title" style="margin: 0;">Patterson map slice</h2>
+                        <h2 class="map-section-title" style="margin: 0;">Patterson map slices</h2>
                     </div>
-                    <div class="map-layout">
-                        <div class="map-canvas-container" style="margin: 0;">
-                            <div class="canvas-wrapper" id="map2d-wrapper" style="margin: 0;">
-                                <canvas id="patterson-canvas"></canvas>
-                                <div id="canvas-busy-overlay"><div class="spinner"></div></div>
-                            </div>
-                            <div class="scale-row">
-                                <div id="map-colour-bar" class="colour-bar"></div>
-                            </div>
-                            <div class="scale-ends">
-                                <span id="map-scale-min" class="scale-end">--</span>
-                                <span id="map-scale-max" class="scale-end right">--</span>
-                            </div>
-                            <div id="coords-display"></div>
-                        </div>
 
-                        <div class="map-rail">
-                            <div>
-                                <label class="field-label" for="map-type-select">Map</label>
-                                <select id="map-type-select" class="control-select" disabled>
-                                    <option value="obs" selected>Observed</option>
-                                    <option value="calc">Calculated</option>
-                                    <option value="diff">Difference (obs &minus; calc)</option>
-                                </select>
+                    <!-- Four maps, equal squares, in a 2x2 grid. Each pane draws
+                         one map type at the shared axis / section, with its own
+                         colour bar and min/max scale beneath it. -->
+                    <div class="map-grid" id="map-grid">
+                        <div class="map-pane" data-mode="obs">
+                            <div class="map-pane-title">Observed</div>
+                            <div class="canvas-wrapper map-pane-wrapper" data-mode="obs">
+                                <canvas class="patterson-canvas" data-mode="obs"></canvas>
                             </div>
-                            <div>
-                                <label class="field-label" for="axis-select">Axis</label>
-                                <select id="axis-select" class="control-select" disabled>
-                                    <option value="w" selected>&perp; c (a&ndash;b plane)</option>
-                                    <option value="v">&perp; b (a&ndash;c plane)</option>
-                                    <option value="u">&perp; a (b&ndash;c plane)</option>
-                                </select>
+                            <div class="pane-colour-bar" data-mode="obs"></div>
+                            <div class="pane-scale-ends">
+                                <span class="scale-end pane-scale-min" data-mode="obs">--</span>
+                                <span class="scale-end right pane-scale-max" data-mode="obs">--</span>
                             </div>
-                            <div>
-                                <label class="field-label" for="section-slider">Section</label>
-                                <input type="range" id="section-slider" min="0" max="1" value="0.5" step="0.02" disabled>
-                                <div id="section-readout" class="readout">&mdash;</div>
+                        </div>
+                        <div class="map-pane" data-mode="calc">
+                            <div class="map-pane-title">Calculated</div>
+                            <div class="canvas-wrapper map-pane-wrapper" data-mode="calc">
+                                <canvas class="patterson-canvas" data-mode="calc"></canvas>
                             </div>
+                            <div class="pane-colour-bar" data-mode="calc"></div>
+                            <div class="pane-scale-ends">
+                                <span class="scale-end pane-scale-min" data-mode="calc">--</span>
+                                <span class="scale-end right pane-scale-max" data-mode="calc">--</span>
+                            </div>
+                        </div>
+                        <div class="map-pane" data-mode="diff">
+                            <div class="map-pane-title">Difference (obs &minus; calc)</div>
+                            <div class="canvas-wrapper map-pane-wrapper" data-mode="diff">
+                                <canvas class="patterson-canvas" data-mode="diff"></canvas>
+                            </div>
+                            <div class="pane-colour-bar" data-mode="diff"></div>
+                            <div class="pane-scale-ends">
+                                <span class="scale-end pane-scale-min" data-mode="diff">--</span>
+                                <span class="scale-end right pane-scale-max" data-mode="diff">--</span>
+                            </div>
+                        </div>
+                        <div class="map-pane" data-mode="super">
+                            <div class="map-pane-title">Superposition</div>
+                            <div class="canvas-wrapper map-pane-wrapper" data-mode="super">
+                                <canvas class="patterson-canvas" data-mode="super"></canvas>
+                            </div>
+                            <div class="pane-colour-bar" data-mode="super"></div>
+                            <div class="pane-scale-ends">
+                                <span class="scale-end pane-scale-min" data-mode="super">--</span>
+                                <span class="scale-end right pane-scale-max" data-mode="super">--</span>
+                            </div>
+                        </div>
+                        <div id="canvas-busy-overlay"><div class="spinner"></div></div>
+                    </div>
+
+                    <div id="coords-display"></div>
+
+                    <!-- One controls row under the four maps -->
+                    <div class="map-controls-row">
+                        <div class="map-ctrl">
+                            <label class="field-label" for="axis-select">Axis</label>
+                            <select id="axis-select" class="control-select" disabled>
+                                <option value="w" selected>&perp; c (a&ndash;b plane)</option>
+                                <option value="v">&perp; b (a&ndash;c plane)</option>
+                                <option value="u">&perp; a (b&ndash;c plane)</option>
+                            </select>
+                        </div>
+                        <div class="map-ctrl map-ctrl-grow">
+                            <label class="field-label" for="section-slider">Section</label>
+                            <input type="range" id="section-slider" min="0" max="1" value="0.5" step="0.02" disabled>
+                            <div id="section-readout" class="readout">&mdash;</div>
+                        </div>
+                        <div class="map-ctrl">
                             <button id="export-grd-btn" class="btn btn-block-caps" disabled
-                                    title="Write the displayed map as a volume file VESTA can open">Density (.grd)</button>
+                                    title="Write all four maps as volume files VESTA can open">Density (.grd)</button>
                         </div>
                     </div>
                 </section>
@@ -484,15 +530,34 @@
         const axisSelect = document.getElementById('axis-select');
         const sectionSlider = document.getElementById('section-slider');
         const sectionReadout = document.getElementById('section-readout');
-        const mapColourBar = document.getElementById('map-colour-bar');
         const toleranceSlider = document.getElementById('tolerance-slider');
         const toleranceValue = document.getElementById('tolerance-value');
         const peaksTableBody = document.getElementById('peaks-table-body');
         const sitesTableBody = document.getElementById('sites-table-body');
         const consolidatedSitesTableBody = document.getElementById('consolidated-sites-table-body');
-        const pattersonCanvas = document.getElementById('patterson-canvas');
+        // The four map panes, keyed by mode. Replaces the single canvas +
+        // "which map" selector: all four are drawn at once.
+        const MAP_MODES = ['obs', 'calc', 'diff', 'super'];
+        const mapCanvases = {};   // mode -> canvas
+        const mapCtxs = {};       // mode -> 2d context
+        const mapWrappers = {};   // mode -> .canvas-wrapper
+        const mapBars = {};       // mode -> .pane-colour-bar
+        const mapMinEls = {};     // mode -> .pane-scale-min
+        const mapMaxEls = {};     // mode -> .pane-scale-max
+        MAP_MODES.forEach(m => {
+            const cv = document.querySelector(`canvas.patterson-canvas[data-mode="${m}"]`);
+            mapCanvases[m] = cv;
+            mapCtxs[m] = cv ? cv.getContext('2d') : null;
+            mapWrappers[m] = document.querySelector(`.map-pane-wrapper[data-mode="${m}"]`);
+            mapBars[m] = document.querySelector(`.pane-colour-bar[data-mode="${m}"]`);
+            mapMinEls[m] = document.querySelector(`.pane-scale-min[data-mode="${m}"]`);
+            mapMaxEls[m] = document.querySelector(`.pane-scale-max[data-mode="${m}"]`);
+        });
+        // A representative canvas for code that just needs *a* map surface
+        // (e.g. the PDF report snapshot uses the observed pane).
+        const pattersonCanvas = mapCanvases.obs;
+        const pattersonCtx = mapCtxs.obs;
         const coordsDisplay = document.getElementById('coords-display');
-        const pattersonCtx = pattersonCanvas.getContext('2d');
         const generateReportBtn = document.getElementById('generate-report-btn');
         const leftTabButtons = document.querySelectorAll('.left-tab-button');
         const leftTabContents = document.querySelectorAll('.left-tab-content');
@@ -525,11 +590,8 @@
             return sg ? `${(v / sg).toFixed(2)}\u03c3` : v.toPrecision(4);
         }
         const swarmDensityInfo = document.getElementById('swarm-density-info');
-        const mapScaleMin = document.getElementById('map-scale-min');
-        const mapScaleMax = document.getElementById('map-scale-max');
         const lpToggle = document.getElementById('lp-correction-toggle');
         const lpStatus = document.getElementById('lp-status');
-        const mapTypeSelect = document.getElementById('map-type-select');
         const exportGrdBtn = document.getElementById('export-grd-btn');
         const exportPeaksCsvBtn = document.getElementById('export-peaks-csv-btn');
         const minContactInput = document.getElementById('min-contact-input');
@@ -538,7 +600,6 @@
         const swarmParticlesLimit = document.getElementById('swarm-particles-limit');
         const pattersonPeakCount = document.getElementById('patterson-peak-count');
         const consolidatedPeakCount = document.getElementById('consolidated-peak-count');
-        const map2dWrapper = document.getElementById('map2d-wrapper');
         const structureCanvas = document.getElementById('structure-canvas');
         const structureWrapper = document.getElementById('structure-wrapper');
         const structureContacts = document.getElementById('structure-contacts');
@@ -546,7 +607,6 @@
         const swarmEditList = document.getElementById('swarm-edit-list');
         const revertStructureBtn = document.getElementById('revert-structure-btn');
         const harkerSiteCount = document.getElementById('harker-site-count');
-        const mapScaleCaption = document.getElementById('map-scale-caption');
         const exportCifBtn = document.getElementById('export-cif-btn');
         const themeToggle = document.getElementById('theme-toggle');
 
@@ -651,8 +711,13 @@
                 if (typeof updateTempFactorNote === 'function') updateTempFactorNote();
 
                 // Store ALL results in state
+ 
+                // AFTER
+                // Store ALL results in state
                 state.pattersonMap3D = payload.pattersonMap3D;
+                state.superpositionMap3D = payload.superMap || null;
                 state.foundPeaks = payload.foundPeaks;
+
                 state.harkerAnalysisResults = payload.harkerAnalysisResults;
                 state.consolidatedSites = payload.consolidatedSites;
                 state.calculatedMap3D = null;   // stale: it was built on the previous grid
@@ -775,7 +840,8 @@
         // the canvas at its non-square browser default (300x150) if an
         // earlier manual resizeCanvas() call ran before layout settled.
         if (window.ResizeObserver) {
-            new ResizeObserver(() => resizeCanvas()).observe(pattersonCanvas.parentElement);
+            const mg = document.getElementById('map-grid');
+            if (mg) new ResizeObserver(() => resizeCanvas()).observe(mg);
         }
 
 
@@ -1040,7 +1106,6 @@ function nearestSymmetryImage(gBest, pos, off, nAtoms, symOps, orth, out) {
             // the toggle is a standing intent - it can be armed before a run,
             // and the fit then happens when the swarm finishes.
             setCheckDisabled(tempFactorFit, !hasMap || isBusy);
-            mapTypeSelect.disabled = !hasMap || isBusy;
 
             exportCifBtn.disabled = !hasCrystalData || isBusy || !((state.swarmSites || []).length || state.consolidatedSites.length);
 
@@ -1141,9 +1206,22 @@ leftTabButtons.forEach(btn => {
             swarmIterationsValue.textContent = swarmIterationsSlider.value;
         });
 
+
         swarmRestartsSlider.addEventListener('input', () => {
             swarmRestartsValue.textContent = swarmRestartsSlider.value;
         });
+
+        const swarmWSlider = document.getElementById('swarm-w');
+        const swarmWValue = document.getElementById('swarm-w-value');
+        swarmWSlider.addEventListener('input', () => swarmWValue.textContent = parseFloat(swarmWSlider.value).toFixed(2));
+
+        const swarmC1Slider = document.getElementById('swarm-c1');
+        const swarmC1Value = document.getElementById('swarm-c1-value');
+        swarmC1Slider.addEventListener('input', () => swarmC1Value.textContent = parseFloat(swarmC1Slider.value).toFixed(2));
+
+        const swarmC2Slider = document.getElementById('swarm-c2');
+        const swarmC2Value = document.getElementById('swarm-c2-value');
+        swarmC2Slider.addEventListener('input', () => swarmC2Value.textContent = parseFloat(swarmC2Slider.value).toFixed(2));
 
         function logSwarm(msg, isError = false) {
             console[isError ? 'error' : 'log'](msg);
@@ -1223,11 +1301,16 @@ leftTabButtons.forEach(btn => {
             runSwarmBtn.disabled = true;
             stopSwarmBtn.disabled = false;
             stopSwarmBtn.textContent = "Stop";
+
             runSwarmBtn.textContent = "Loading Shader...";
             swarmIterationsSlider.disabled = true;
             swarmParticlesSlider.disabled = true;
             swarmRestartsSlider.disabled = true;
+            swarmWSlider.disabled = true;
+            swarmC1Slider.disabled = true;
+            swarmC2Slider.disabled = true;
             swarmLogEl.innerHTML = ''; swarmLogEl.classList.add('hidden');
+
             swarmStopRequested = false;
             swarmProgressBar.style.width = '0%';
             document.getElementById('swarm-gen').textContent = '0 / 0';
@@ -1455,9 +1538,12 @@ leftTabButtons.forEach(btn => {
                 // independent searches from fresh random positions and
                 // keeping the best structure found across all of them is
                 // the standard mitigation.
+ 
                 const maxGen = Math.max(1, parseInt(swarmIterationsSlider.value) || 100);
-                const numRestarts = Math.max(1, parseInt(swarmRestartsSlider.value) || 1);
-                const w = 0.5, c1 = 1.5, c2 = 1.5;
+            const numRestarts = Math.max(1, parseInt(swarmRestartsSlider.value) || 1);
+            const w = parseFloat(swarmWSlider.value) || 0.5;
+            const c1 = parseFloat(swarmC1Slider.value) || 1.5;
+            const c2 = parseFloat(swarmC2Slider.value) || 1.5;
 
                 // One workgroup per particle now: the shader's 64 threads
                 // cooperate on a single particle's O(n^2) pair sum rather than
@@ -1590,13 +1676,12 @@ leftTabButtons.forEach(btn => {
                         costHistory.push({ gen: overallGenCount, fitness: overallBestFitness });
                         drawCostChart();
 
-                        // Rebuilding the model map now costs a full separable
-                        // convolution over the grid, which at 128^3 is not
-                        // something to do every fifth generation for a pane
-                        // nobody is looking at. It is built only while the
-                        // calc or diff view is actually on screen, and once
-                        // unconditionally when the run finishes.
-                        if (state.mapViewMode !== 'obs' && overallGenCount % 10 === 0) {
+                        // The calc and diff panes are now always on screen, so
+                        // refresh the model map periodically to animate them as
+                        // the swarm converges. Rebuilding is a full separable
+                        // convolution over the grid, so it is throttled to every
+                        // tenth generation rather than run every frame.
+                        if (overallGenCount % 10 === 0) {
                             state.swarmBest = { coords: overallBestPosition.slice(), zArray: buffers.zArray, rArray: buffers.rArray, symOps };
                             state.calculatedMap3D = buildCalcMap(overallBestPosition, buffers.zArray, symOps,
                                                                  state.mapResolution, effectiveSigma());
@@ -1674,6 +1759,7 @@ leftTabButtons.forEach(btn => {
                 for (const res of gpuResources) {
                     try { res.destroy(); } catch (e) { /* already destroyed / device lost */ }
                 }
+                
                 runSwarmBtn.disabled = false;
                 stopSwarmBtn.disabled = true;
                 stopSwarmBtn.textContent = "Stop";
@@ -1681,6 +1767,9 @@ leftTabButtons.forEach(btn => {
                 swarmIterationsSlider.disabled = false;
                 swarmParticlesSlider.disabled = false;
                 swarmRestartsSlider.disabled = false;
+                swarmWSlider.disabled = false;
+                swarmC1Slider.disabled = false;
+                swarmC2Slider.disabled = false;
                 // Everything else that depends on there now being a model -
                 // the B fit checkbox above all - is gated in updateUIStates().
                 // Re-enabling only the swarm's own controls here left it
@@ -2164,12 +2253,32 @@ leftTabButtons.forEach(btn => {
                 refl.forEach(r => { r.intensity = r.Ihkl; });
                 crystalData.intensitySource = 'raw';
                 crystalData.perReflection = false;
+
+
+
                 if (!haveTth) {
                     crystalData.parseWarnings.push('The reflection list carries neither |Fo| nor 2theta, ' +
                         'so the Lorentz-polarisation factor cannot be removed. The map will be dominated ' +
                         'by the low-angle reflections.');
                 }
             }
+
+            /* Apply Lorch modification to suppress series termination ripples
+            this seems to flatten out the peaks though 
+            let dMin = Infinity;
+            refl.forEach(r => { if (Number.isFinite(r.d) && r.d > 0 && r.d < dMin) dMin = r.d; });
+            
+            if (dMin < Infinity) {
+                refl.forEach(r => {
+                    if (Number.isFinite(r.d) && r.d > 0) {
+                        const x = Math.PI * dMin / r.d;
+                        const lorch = x === 0 ? 1 : Math.sin(x) / x;
+                        r.intensity *= lorch;
+                    }
+                });
+            }
+            */
+
 
             // Sanity check on route 1: |Fo|^2 . m . Lp should reproduce I_hkl
             // up to the constant Ka1+Ka2 doublet factor. A drift here means the
@@ -2274,10 +2383,10 @@ leftTabButtons.forEach(btn => {
          * navigation redraws constantly but the whole-grid extent only
          * changes when the map itself does.
          */
-        let mapExtentCache = null; // { mode, obsRef, calcRef, kCalc, ext }
-        function getMapExtent(mode, obsMap, calcMap, kCalc, originMask) {
+        let mapExtentCache = null; // { mode, obsRef, calcRef, kCalc, superRef, ext }
+        function getMapExtent(mode, obsMap, calcMap, kCalc, originMask, superMap) {
             if (mapExtentCache && mapExtentCache.mode === mode && mapExtentCache.obsRef === obsMap &&
-                mapExtentCache.calcRef === calcMap && mapExtentCache.kCalc === kCalc) {
+                mapExtentCache.calcRef === calcMap && mapExtentCache.kCalc === kCalc && mapExtentCache.superRef === superMap) {
                 return mapExtentCache.ext;
             }
             let min = Infinity, max = -Infinity;
@@ -2286,12 +2395,13 @@ leftTabButtons.forEach(btn => {
                 let v;
                 if (mode === 'obs') v = obsMap[i];
                 else if (mode === 'calc') v = kCalc * calcMap[i];
-                else v = obsMap[i] - kCalc * calcMap[i];
+                else if (mode === 'diff') v = obsMap[i] - kCalc * calcMap[i];
+                else if (mode === 'super') v = superMap[i];
                 if (v < min) min = v;
                 if (v > max) max = v;
             }
             const ext = { min, max };
-            mapExtentCache = { mode, obsRef: obsMap, calcRef: calcMap, kCalc, ext };
+            mapExtentCache = { mode, obsRef: obsMap, calcRef: calcMap, kCalc, superRef: superMap, ext };
             return ext;
         }
 
@@ -2332,16 +2442,47 @@ leftTabButtons.forEach(btn => {
             return stats;
         }
 
+  
+        /**
+         * Draws all four map panes at the shared axis / section. Each pane
+         * carries its own colour bar and min/max labels, set from that pane's
+         * own map extent inside drawOneMap().
+         */
         function drawPattersonSlice() {
-            const mode = state.mapViewMode || 'obs';
+            MAP_MODES.forEach(m => drawOneMap(m));
+        }
+
+        /** Blank one pane to the inset background and clear its scale labels. */
+        function blankMapPane(mode) {
+            const ctx = mapCtxs[mode], cv = mapCanvases[mode];
+            if (ctx && cv) {
+                ctx.fillStyle = getComputedStyle(document.documentElement)
+                    .getPropertyValue('--bg-inset-2').trim() || '#1e2937';
+                ctx.fillRect(0, 0, cv.width, cv.height);
+            }
+            if (mapMinEls[mode]) mapMinEls[mode].textContent = '--';
+            if (mapMaxEls[mode]) mapMaxEls[mode].textContent = '--';
+        }
+
+        /** Set one pane's colour bar style and min/max labels. */
+        function setPaneScale(mode, lo, hi) {
+            if (mapBars[mode]) mapBars[mode].classList.toggle('diverging', mode === 'diff');
+            if (mapMinEls[mode]) mapMinEls[mode].textContent = fmtScale(lo);
+            if (mapMaxEls[mode]) mapMaxEls[mode].textContent = fmtScale(hi);
+        }
+
+        /** Draw a single map pane. `mode` is one of MAP_MODES. */
+        function drawOneMap(mode) {
+            const ctx = mapCtxs[mode], canvas = mapCanvases[mode];
+            if (!ctx || !canvas) return;
+
             const obsMap = state.pattersonMap3D;
             const calcMap = state.calculatedMap3D; // Will be populated by the swarm
+            const superMap = state.superpositionMap3D;
 
-            if (!obsMap) { pattersonCtx.fillStyle='#1e2937'; pattersonCtx.fillRect(0,0,pattersonCanvas.width,pattersonCanvas.height); if (mapScaleMin) mapScaleMin.textContent = '--'; if (mapScaleMax) mapScaleMax.textContent = '--'; return; }
-            if ((mode === 'calc' || mode === 'diff') && !calcMap) {
-                // If Swarm hasn't produced a calculated map yet, draw blank
-                pattersonCtx.fillStyle='#1e2937'; pattersonCtx.fillRect(0,0,pattersonCanvas.width,pattersonCanvas.height); if (mapScaleMin) mapScaleMin.textContent = '--'; if (mapScaleMax) mapScaleMax.textContent = '--'; return; 
-            }
+            if (!obsMap) { blankMapPane(mode); return; }
+            if ((mode === 'calc' || mode === 'diff') && !calcMap) { blankMapPane(mode); return; }
+            if (mode === 'super' && !superMap) { blankMapPane(mode); return; }
 
             const res = state.mapResolution, axis = state.activeSlicingAxis;
             const u_idx = Math.round(state.sliceU*(res-1)), v_idx = Math.round(state.sliceV*(res-1)), w_idx = Math.round(state.sliceW*(res-1));
@@ -2353,11 +2494,7 @@ leftTabButtons.forEach(btn => {
 
             // A calculated map left over from a previous grid cannot be
             // indexed with the current one.
-            if (calcMap && calcMap.length !== obsMap.length && mode !== 'obs') {
-                pattersonCtx.fillStyle='#1e2937'; pattersonCtx.fillRect(0,0,pattersonCanvas.width,pattersonCanvas.height);
-                if (mapScaleMin) mapScaleMin.textContent = '--'; if (mapScaleMax) mapScaleMax.textContent = '--';
-                return;
-            }
+            if (calcMap && calcMap.length !== obsMap.length && mode !== 'obs') { blankMapPane(mode); return; }
 
             let sliceMin = Infinity, sliceMax = -Infinity; let isValidSlice = false;
 
@@ -2375,10 +2512,11 @@ leftTabButtons.forEach(btn => {
 
                 if (idx >= 0 && idx < obsMap.length) {
                     if (originMask && originMask[idx] && mode !== 'calc') continue;
-                    let val = 0;
+                        let val = 0;
                     if (mode === 'obs') val = obsMap[idx];
                     else if (mode === 'calc') val = kCalc * calcMap[idx];
                     else if (mode === 'diff') val = obsMap[idx] - kCalc * calcMap[idx]; // DIFFERENCE MAP
+                    else if (mode === 'super') val = superMap[idx];
 
                     if (isFinite(val)) { 
                         isValidSlice = true; 
@@ -2387,60 +2525,26 @@ leftTabButtons.forEach(btn => {
                     }
                 }
             }
-            if (!isValidSlice || sliceMax === sliceMin) {
-                pattersonCtx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--bg-inset-2').trim() || '#1e2937';
-                pattersonCtx.fillRect(0, 0, pattersonCanvas.width, pattersonCanvas.height);
-                if (mapScaleMin) mapScaleMin.textContent = '--';
-                if (mapScaleMax) mapScaleMax.textContent = '--';
-                if (mapScaleCaption) mapScaleCaption.textContent = '';
-                return;
-            }
+            if (!isValidSlice || sliceMax === sliceMin) { blankMapPane(mode); return; }
 
             // Absolute scale: the actual min/max of this mode's map over the
             // whole grid, origin excluded - one range so every slice and
             // section is comparable, rather than each one rescaling to its
             // own extremes (which makes an empty slice full of noise look
             // exactly as vivid as a slice containing a real peak).
-            const stats = (mode === 'diff' && calcMap)
-                ? getDiffMapStats(obsMap, calcMap, kCalc, originMask)
-                : state.mapStats;
-            const ext = getMapExtent(mode, obsMap, calcMap, kCalc, originMask);
+            const ext = getMapExtent(mode, obsMap, calcMap, kCalc, originMask, superMap);
             let lo = ext.min, hi = ext.max;
             if (!isFinite(lo) || !isFinite(hi)) { lo = sliceMin; hi = sliceMax; }
-            const sliceMaxSigma = stats && stats.sigma > 0 ? (sliceMax - stats.mean) / stats.sigma : NaN;
+            if (mode === 'obs' || mode === 'calc' || mode === 'super') { lo = Math.max(0, lo); } // 0 -> white; ramp upward
 
-            if (mapScaleMin) mapScaleMin.textContent = fmtScale(lo);
-            if (mapScaleMax) mapScaleMax.textContent = fmtScale(hi);
-            if (mapColourBar) mapColourBar.classList.toggle('diverging', mode === 'diff');
-
-            // What the numbers on the bar actually are.
-            //
-            // The map is (1/V) * sum I(hkl) cos(2*pi*(hu+kv+lw)). If the input
-            // intensities were on an absolute scale the units would be
-            // electrons^2 per A^3, but powder intensities almost never are, so
-            // the values are proportional to that and nothing more - which is
-            // why everything is also quoted in sigma, the only figure that
-            // means the same thing from one dataset to the next.
-            if (mapScaleCaption) {
-                const parts = [];
-                parts.push(`<em>Absolute scale</em>, ${fmtScale(lo)} to ${fmtScale(hi)} over the whole map`);
-                if (stats && stats.sigma > 0) {
-                    parts.push(`\u03c3 = ${fmtScale(stats.sigma)} (origin excluded)`);
-                    if (isFinite(sliceMaxSigma)) {
-                        const verdict = sliceMaxSigma >= 3
-                            ? 'at or above the ~3\u03c3 level of a real atomic peak'
-                            : 'below the ~3\u03c3 level of a real atomic peak';
-                        parts.push(`this slice reaches ${sliceMaxSigma.toFixed(1)}\u03c3 \u2014 ${verdict}`);
-                    }
-                }
-                if (mode === 'calc') parts.push(`model scaled by ${fmtScale(kCalc)} onto the observed map`);
-                if (mode === 'diff') parts.push(`observed \u2212 ${fmtScale(kCalc)} \u00d7 calculated`);
-                mapScaleCaption.innerHTML = parts.join('. ') + '.';
-            }
+            // For the difference pane the bar is symmetric about zero, so the
+            // labels read as the true signed extent. The colour bar element
+            // itself already shows white in the middle via the CSS gradient.
+            setPaneScale(mode, lo, hi);
 
             // 2. Draw the pixels
-            const cw = pattersonCanvas.width, ch = pattersonCanvas.height;
-            const img = pattersonCtx.createImageData(cw, ch), data = img.data;
+            const cw = canvas.width, ch = canvas.height;
+            const img = ctx.createImageData(cw, ch), data = img.data;
             const range = hi - lo;
             const bgRGB = [30, 41, 55];
 
@@ -2463,8 +2567,10 @@ leftTabButtons.forEach(btn => {
                     if (mode === 'obs') rawVal = obsMap[idx];
                     else if (mode === 'calc') rawVal = kCalc * calcMap[idx];
                     else if (mode === 'diff') rawVal = obsMap[idx] - kCalc * calcMap[idx];
+                    else if (mode === 'super') rawVal = superMap[idx];
 
                     if (!isFinite(rawVal)) {
+
                         data[d_idx] = bgRGB[0]; data[d_idx+1] = bgRGB[1]; data[d_idx+2] = bgRGB[2]; data[d_idx+3] = 255;
                         continue;
                     }
@@ -2496,7 +2602,7 @@ leftTabButtons.forEach(btn => {
                     data[d_idx+3] = 255;
                 }
             }
-            pattersonCtx.putImageData(img, 0, 0);
+            ctx.putImageData(img, 0, 0);
         }
 
         function updateAllTables() {
@@ -2638,9 +2744,52 @@ leftTabButtons.forEach(btn => {
             if (onSize) onSize(inner, inner);
         }
 
+        /**
+         * Sizes the map grid so all four panes are equal squares laid out in a
+         * single row that fills the available width. Each square is a quarter of
+         * the grid's inner width (four columns minus three gaps). A loose
+         * viewport-height ceiling only binds on short windows so a square never
+         * runs off the bottom.
+         */
+        function sizeMapGrid() {
+            const grid = document.getElementById('map-grid');
+            if (!grid) return;
+            const cols = 4, gap = 14;
+            grid.style.maxWidth = 'none';            // use the full pane width
+            const availW = grid.clientWidth;
+            if (availW <= 0) return;                 // pane hidden: nothing to size yet
+
+            // Fill the width: each square is a quarter of the inner width.
+            const sideByW = Math.floor((availW - gap * (cols - 1)) / cols);
+
+            // Loose height ceiling: title (~16px) + bar (~14px) + labels (~14px)
+            // of chrome under the single row, kept within the viewport. Only
+            // binds when the window is short relative to its width.
+            const chrome = 46;
+            const vh = window.innerHeight || 800;
+            const budgetH = Math.max(300, Math.round(vh * 0.8));
+            const sideByH = budgetH - chrome;
+
+            let side = Math.max(140, Math.min(sideByW, sideByH));
+
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            MAP_MODES.forEach(m => {
+                const wrap = mapWrappers[m], cv = mapCanvases[m];
+                if (!wrap || !cv) return;
+                wrap.style.width = `${side}px`;
+                wrap.style.height = `${side}px`;
+                const inner = side - 2;              // 1px border each side
+                cv.style.width = `${inner}px`;
+                cv.style.height = `${inner}px`;
+                cv.width = Math.round(inner * dpr);
+                cv.height = Math.round(inner * dpr);
+            });
+            drawPattersonSlice();
+        }
+
         function resizeCanvas() {
             try {
-                sizeSquareCanvas(map2dWrapper, pattersonCanvas, 0.62, () => drawPattersonSlice());
+                sizeMapGrid();
                 // Both results-page canvases are squares filling their own
                 // half-width column, so together they span the pane the way the
                 // Map slice spans its own. The fraction is only a viewport
@@ -2668,7 +2817,9 @@ leftTabButtons.forEach(btn => {
         // moment a pane gains a size, which also covers dragging the divider.
         if (typeof ResizeObserver !== 'undefined') {
             const ro = new ResizeObserver(() => resizeCanvas());
-            [map2dWrapper, structureWrapper, costWrapper].forEach(el => {
+            const mapGridEl = document.getElementById('map-grid');
+            if (mapGridEl) ro.observe(mapGridEl);
+            [structureWrapper, costWrapper].forEach(el => {
                 if (el?.parentElement) ro.observe(el.parentElement);
             });
         }
@@ -2677,7 +2828,7 @@ leftTabButtons.forEach(btn => {
         // penalty have to agree or the reported contacts will not match what
         // the search was actually scored on.
         const SAME_SITE_TOL = 0.05;          // symmetry images of one site coincide to ~0
-        const ABSOLUTE_MIN_CONTACT = 1.2;    // no real compound goes below this
+        const ABSOLUTE_MIN_CONTACT = 0.0;    // Hard limit removed to allow dynamic merging
 
         /** Single place that sets the status banner and its state class. */
         function setStatus(msg, cls) {
@@ -3033,17 +3184,29 @@ leftTabButtons.forEach(btn => {
         }
         exportPeaksCsvBtn.addEventListener('click', exportPeaksCSV);
 
-        /** The map currently on screen, as a VESTA-readable .grd volume. */
+        /**
+         * Save every available map as its own VESTA-readable .grd volume, the
+         * map type appended to the filename. Panes with no data yet (e.g. the
+         * calculated / difference maps before a swarm has run) are skipped.
+         */
         function exportGRD() {
             try {
-                const map = activeMapArray();
-                if (!map) throw new Error('No map to export.');
-                const label = { obs: 'observed', calc: 'calculated', diff: 'difference' }[state.mapViewMode] || 'map';
-                const title = `sHarko ${label} Patterson map, ${state.mapResolution} grid`
-                            + (state.crystalData?.spaceGroup ? `, SG ${state.crystalData.spaceGroup.number}` : '');
-                downloadText(sharkoBuildGRD(map, state.mapResolution, state.crystalData.cell, title),
-                             `${baseName()}_${label}.grd`, 'text/plain');
-                setStatus(`Saved ${state.mapResolution + 1}\u00b3 grid to ${baseName()}_${label}.grd`, 'is-success');
+                const labels = { obs: 'observed', calc: 'calculated', diff: 'difference', super: 'superposition' };
+                let saved = 0;
+                const skipped = [];
+                MAP_MODES.forEach(mode => {
+                    const map = mapArrayForMode(mode);
+                    const label = labels[mode] || mode;
+                    if (!map) { skipped.push(label); return; }
+                    const title = `sHarko ${label} Patterson map, ${state.mapResolution} grid`
+                                + (state.crystalData?.spaceGroup ? `, SG ${state.crystalData.spaceGroup.number}` : '');
+                    downloadText(sharkoBuildGRD(map, state.mapResolution, state.crystalData.cell, title),
+                                 `${baseName()}_${label}.grd`, 'text/plain');
+                    saved++;
+                });
+                if (saved === 0) { setStatus('No maps to export yet.', 'is-warn'); return; }
+                const note = skipped.length ? ` (skipped: ${skipped.join(', ')})` : '';
+                setStatus(`Saved ${saved} .grd file${saved === 1 ? '' : 's'} at ${state.mapResolution + 1}\u00b3${note}`, 'is-success');
             } catch (e) {
                 console.error('GRD export failed:', e);
                 setStatus(`GRD export failed: ${e.message}`, 'is-error');
@@ -3051,18 +3214,20 @@ leftTabButtons.forEach(btn => {
         }
         exportGrdBtn.addEventListener('click', exportGRD);
 
-        /** Which array the map pane is currently showing, in observed units. */
-        function activeMapArray() {
-            const mode = state.mapViewMode || 'obs';
-            if (mode === 'obs') return state.pattersonMap3D;
+        /** The map array for a given mode, in observed units, or null if absent. */
+        function mapArrayForMode(mode) {
+            if (mode === 'obs') return state.pattersonMap3D || null;
+            if (mode === 'super') return state.superpositionMap3D || null;
             if (!state.calculatedMap3D) return null;
             if (state.calculatedMap3D.length !== (state.pattersonMap3D?.length || -1)) return null;
             const k = Number.isFinite(state.calcScale) ? state.calcScale : 1;
             const out = new Float32Array(state.calculatedMap3D.length);
             if (mode === 'calc') {
                 for (let i = 0; i < out.length; i++) out[i] = k * state.calculatedMap3D[i];
-            } else {
+            } else if (mode === 'diff') {
                 for (let i = 0; i < out.length; i++) out[i] = state.pattersonMap3D[i] - k * state.calculatedMap3D[i];
+            } else {
+                return null;
             }
             return out;
         }
@@ -3347,11 +3512,11 @@ leftTabButtons.forEach(btn => {
             }
         }
 
+        
         function resetAnalysis(isNewFile = false) {
              console.log(`Resetting. New file: ${isNewFile}`);
             if(isNewFile) { state.crystalData = null; updateCrystalInfo(); }
-            state.pattersonMap3D=null; state.foundPeaks=[]; state.harkerAnalysisResults=[]; state.consolidatedSites=[];
-
+            state.pattersonMap3D=null; state.superpositionMap3D=null; state.foundPeaks=[]; state.harkerAnalysisResults=[]; state.consolidatedSites=[];
             // The solution belongs to the map it was found in. This used to be
             // done only for a brand-new file, so any other recompute - a
             // resolution change, a sigma change - kept the previous run's
@@ -3380,8 +3545,7 @@ leftTabButtons.forEach(btn => {
             updateAllTables(); 
             
             try {
-                pattersonCtx.fillStyle='#1e2937'; 
-                pattersonCtx.fillRect(0,0,pattersonCanvas.width,pattersonCanvas.height);
+                MAP_MODES.forEach(m => blankMapPane(m));
             } catch (e) {}
 
             showLeftTab('map-controls-tab');
@@ -3407,7 +3571,7 @@ leftTabButtons.forEach(btn => {
                 setFitNote('');
                 // The structure, fitness, plot and map statistics are cleared
                 // for every reset, above; only file-scoped state belongs here.
-                mapTypeSelect.value = 'obs'; state.mapViewMode = 'obs';
+                state.mapViewMode = 'obs';
                 // Combination tolerance is a user preference, not map-dependent
                 // view state - only reset it for a brand-new file, not on
                 // every recompute (e.g. a resolution change).
@@ -3459,11 +3623,26 @@ leftTabButtons.forEach(btn => {
 
                 // Every section asks for room before it draws, so a table or an
                 // image never starts three millimetres from the bottom edge.
+                // jsPDF's standard fonts are WinAnsi (Latin-1). Any glyph
+                // outside that set - sigma, the perpendicular sign, em-dashes,
+                // curly quotes - renders as mojibake (the stray "yen" sign in
+                // the slice captions was the perpendicular sign). Map the ones
+                // that actually turn up in this report to safe equivalents and
+                // drop anything else above U+00FF.
+                const pdfText = s => String(s)
+                    .replace(/\u03c3/g, 'sigma')
+                    .replace(/\u22a5/g, 'perp. to')
+                    .replace(/[\u2013\u2014]/g, '-')      // en/em dash
+                    .replace(/[\u2018\u2019]/g, "'")      // curly single quotes
+                    .replace(/[\u201c\u201d]/g, '"')      // curly double quotes
+                    .replace(/\u00d7/g, 'x')              // multiplication sign
+                    .replace(/[^\x00-\xff]/g, '');        // anything else non-Latin-1
+
                 const need = h => { if (y + h > pageH - m) { doc.addPage(); y = m + lh; } };
-                const heading = t => { need(lh * 2); doc.setFontSize(11); doc.text(t, m, y); y += lh; };
+                const heading = t => { need(lh * 2); doc.setFontSize(11); doc.text(pdfText(t), m, y); y += lh; };
                 const note = t => {
                     doc.setFontSize(8);
-                    const lines = doc.splitTextToSize(t, contentW);
+                    const lines = doc.splitTextToSize(pdfText(t), contentW);
                     need(lh * lines.length);
                     doc.text(lines, m, y);
                     y += lh * lines.length;
@@ -3482,7 +3661,7 @@ leftTabButtons.forEach(btn => {
                     need(imgH + lh * 2);
                     doc.addImage(du, 'PNG', m, y, imgW, imgH);
                     y += imgH + lh;
-                    if (caption) { doc.setFontSize(8); doc.text(caption, m, y); y += lh; }
+                    if (caption) { doc.setFontSize(8); doc.text(pdfText(caption), m, y); y += lh; }
                     y += lh;
                 };
 
@@ -3543,12 +3722,18 @@ leftTabButtons.forEach(btn => {
                 });
                 y = doc.autoTable.previous.finalY + lh * 2;
 
-                /* ---- map slice ---- */
+                /* ---- map slices: every populated pane ---- */
                 const ax = state.activeSlicingAxis.toUpperCase();
-                heading('Active Patterson Map Slice');
-                addCanvas(pattersonCanvas, 0.6,
-                          `Slice \u22a5 ${ax} at ${state[`slice${ax}`].toFixed(3)} `
-                          + `(${state.mapViewMode === 'obs' ? 'observed' : state.mapViewMode})`);
+                const paneLabels = { obs: 'observed', calc: 'calculated', diff: 'difference', super: 'superposition' };
+                heading('Patterson Map Slices');
+                const axLetter = { u: 'a', v: 'b', w: 'c' }[state.activeSlicingAxis] || ax;
+                MAP_MODES.forEach(mode => {
+                    if (!mapArrayForMode(mode)) return;   // pane has no data yet
+                    // jsPDF's standard fonts are WinAnsi, so avoid glyphs like
+                    // the perpendicular sign that render as garbage - spell it out.
+                    addCanvas(mapCanvases[mode], 0.45,
+                              `Slice perpendicular to ${axLetter} at ${state[`slice${ax}`].toFixed(3)} (${paneLabels[mode]})`);
+                });
 
                 /* ---- fitness plot ---- */
                 if (costHistory.length > 1) {
@@ -3565,7 +3750,7 @@ leftTabButtons.forEach(btn => {
                         state.foundPeaks.map((p, i) => [
                             i + 1, p.u.toFixed(4), p.v.toFixed(4), p.w.toFixed(4),
                             (st && st.sigma > 0 && Number.isFinite(p.value))
-                                ? ((p.value - st.mean) / st.sigma).toFixed(1) : '\u2014'
+                                ? ((p.value - st.mean) / st.sigma).toFixed(1) : '-'
                         ]), [75, 85, 99]);
                 }
 
@@ -3614,7 +3799,7 @@ leftTabButtons.forEach(btn => {
                     if (contactReport?.textContent) note(contactReport.textContent);
                     if (state.structureEdited) {
                         note('Coordinates were edited by hand after the swarm run. '
-                           + 'The fitness above refers to the swarm\u2019s own solution.');
+                           + "The fitness above refers to the swarm's own solution.");
                     }
                 }
 
@@ -3969,16 +4154,10 @@ leftTabButtons.forEach(btn => {
             }, 0);
         });
 
-        // --- Which map is displayed (was three separate tabs) ---
-        mapTypeSelect.addEventListener('change', e => {
-            state.mapViewMode = e.target.value;
-            const notes = {
-                obs: 'from the measured intensities',
-                calc: 'from the swarm structure, smeared to the data resolution',
-                diff: 'observed minus scaled calculated'
-            };
-            drawPattersonSlice();
-        });
+        // All four maps are drawn at once; there is no longer a "which map"
+        // selector. state.mapViewMode is retained only as the default target
+        // for code paths that still expect a single active mode (report
+        // snapshot, GRD naming falls back to it if needed).
 
         // --- Slice axis and section ---
 
