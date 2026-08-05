@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S_Harko — Patterson & Harker Map Analysis Technical Reference</title>
+    
+    <link rel="stylesheet" href="style.css">
+    
+    <script>
+        (function initTheme() {
+            try {
+                const saved = localStorage.getItem('sharko-theme');
+                const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+                document.documentElement.setAttribute('data-theme', saved || (prefersDark ? 'dark' : 'light'));
+            } catch (e) {}
+        })();
+        
+        MathJax = {
+          tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+          svg: { fontCache: 'global' }
+        };
+    </script>
+    <script type="text/javascript" id="MathJax-script" async
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js">
+    </script>
+    
+    <style>
+        body {
+            margin: 0; background-color: var(--bg, #ffffff);
+            color: var(--fg, #1f2937); line-height: 1.7; 
+            height: 100vh; overflow: hidden;
+        }
+        .help-wrapper {
+            display: flex !important; flex-direction: row !important; 
+            height: 100vh; width: 100vw; overflow: hidden; box-sizing: border-box;
+        }
+        #left-panel {
+            width: 320px; flex-shrink: 0; background-color: var(--bg-elevated, #f3f4f6);
+            color: var(--fg-3, #9ca3af); padding: 2rem; overflow-y: auto;
+            border-right: 1px solid var(--rule, #e5e7eb);
+            height: 100%; box-sizing: border-box;
+        }
+        #left-panel .logo {
+            font-size: 1.5rem; font-weight: 700; color: var(--fg, #111827);
+            margin-bottom: 2rem;
+        }
+        #left-panel .logo span { color: var(--accent, #3b82f6); }
+        #toc { list-style: none; padding: 0; margin: 0; }
+        #toc li { margin-bottom: 0.25rem; }
+        #toc li a {
+            display: block; color: var(--fg-3, #9ca3af); text-decoration: none;
+            padding: 0.5rem 0.75rem; border-radius: var(--r-3, 0.375rem); font-weight: 500;
+            font-size: 0.85rem; transition: background-color 0.2s, color 0.2s;
+            border-left: 3px solid transparent;
+        }
+        #toc li a:hover { background-color: var(--bg, #ffffff); color: var(--fg, #111827); }
+        #toc li a.active {
+            background-color: var(--rule, #e5e7eb); color: var(--fg, #111827);
+            border-left-color: var(--accent, #3b82f6); font-weight: 600;
+        }
+        #toc li ul { padding-left: 1rem; margin-top: 0.25rem; display: none; }
+        #toc li.expanded > ul { display: block; }
+        #toc li a.toc-parent { cursor: pointer; }
+        #toc li a.toc-parent::after {
+            content: ' ▸'; float: right; transition: transform 0.2s;
+        }
+        #toc li.expanded > a.toc-parent::after { transform: rotate(90deg); }
+        #main-content { 
+            flex-grow: 1; overflow-y: auto; padding: 3rem 4rem; 
+            height: 100%; box-sizing: border-box;
+        }
+        section { 
+            margin-bottom: 4rem; padding-top: 2rem; border-top: 1px solid var(--rule, #e5e7eb);
+        }
+        section:first-child { padding-top: 0; border-top: none; }
+        h1, h2, h3, h4 {
+            color: var(--fg, #111827); font-weight: 700; line-height: 1.3;
+            margin-top: 1.5em; margin-bottom: 0.75em;
+        }
+        h1 { font-size: 2.5rem; }
+        h2 { font-size: 1.8rem; border-bottom: 1px solid var(--rule, #e5e7eb); padding-bottom: 0.5rem; }
+        h3 { font-size: 1.4rem; }
+        h4 { font-size: 1.15rem; color: var(--fg-2, #4b5563); }
+        p, li { margin-bottom: 0.75rem; }
+        ul, ol { padding-left: 1.5rem; }
+        a { color: var(--accent, #3b82f6); text-decoration: none; font-weight: 500; }
+        a:hover { text-decoration: underline; }
+        code {
+            font-family: 'Source Code Pro', monospace; background-color: var(--bg-elevated, #f3f4f6);
+            color: var(--fg, #111827); padding: 0.15em 0.4em;
+            border-radius: 0.25rem; font-size: 0.9em; border: 1px solid var(--rule, #e5e7eb);
+        }
+        pre {
+            background-color: var(--bg-elevated, #f3f4f6); border-radius: 0.5rem; padding: 1rem;
+            overflow-x: auto; font-size: 0.8rem; line-height: 1.5; border: 1px solid var(--rule, #e5e7eb);
+        }
+        pre code { padding: 0; background: none; border: none; }
+        
+        blockquote {
+            margin-left: 0; padding: 1.25rem 1.5rem; border-left: 4px solid var(--accent, #3b82f6);
+            background-color: var(--bg-elevated, #f3f4f6); color: var(--fg, #1f2937);
+            border-radius: 0 var(--r-3, 8px) var(--r-3, 8px) 0; 
+        }
+        blockquote strong { color: var(--accent, #3b82f6); }
+        table {
+            width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; font-size: 0.85rem;
+        }
+        th, td { padding: 0.6rem 0.9rem; border: 1px solid var(--rule, #d1d5db); text-align: left; }
+        th { background-color: var(--bg-elevated, #f3f4f6); font-weight: 600; }
+        td.code { font-family: monospace; font-size: 0.9em; }
+        .param-table th:first-child { width: 30%; }
+        .param-table td:first-child { font-weight: 500; }
+        
+        .callout {
+            padding: 1rem 1.5rem; border-radius: 0.5rem; margin: 1.5rem 0;
+            border-left: 4px solid;
+        }
+        .callout-info { background: var(--bg-elevated); border-color: var(--accent); }
+        .callout-warning { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
+        .callout-danger { background: #fee2e2; border-color: #ef4444; color: #991b1b; }
+        .callout-success { background: #dcfce7; border-color: #22c55e; color: #166534; }
+        
+        .footer {
+            text-align: center; margin-top: 4rem; padding-top: 2rem;
+            border-top: 1px solid var(--rule, #e5e7eb); font-size: 0.85rem; color: var(--fg-3, #9ca3af);
+        }
+        
+        .algorithm-box {
+            background: var(--bg-elevated); border: 1px solid var(--rule);
+            border-radius: 0.5rem; padding: 1.5rem; margin: 1.5rem 0;
+            font-family: monospace; font-size: 0.8rem; line-height: 1.6;
+            overflow-x: auto;
+        }
+        .math-display { text-align: center; margin: 1.5rem 0; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="help-wrapper">
+        <aside id="left-panel">
+            <div class="logo">S_Harko <span>Docs</span></div>
+            <nav>
+                <ul id="toc">
+                    <li><a href="#introduction" class="active">1. Theory & Background</a></li>
+                    <li class="toc-parent"><a href="#architecture" class="toc-parent">2. Program Architecture</a>
+                        <ul>
+                            <li><a href="#arch-overview">2.1 Overview</a></li>
+                            <li><a href="#arch-worker">2.2 Web Worker Pipeline</a></li>
+                            <li><a href="#arch-gpu">2.3 WebGPU Swarm Optimization</a></li>
+                            <li><a href="#arch-symmetry">2.4 Symmetry & Operator Resolution</a></li>
+                        </ul>
+                    </li>
+                    <li class="toc-parent"><a href="#data-input" class="toc-parent">3. Data Input & Intensity Correction</a>
+                        <ul>
+                            <li><a href="#data-file-structure">3.1 Data File Parsing</a></li>
+                            <li><a href="#data-intensity">3.2 Intensity Classification & Correction</a></li>
+                        </ul>
+                    </li>
+                    <li class="toc-parent"><a href="#map-calculation" class="toc-parent">4. Patterson Map Synthesis</a>
+                        <ul>
+                            <li><a href="#map-fft">4.1 FFT Synthesis Engine</a></li>
+                            <li><a href="#map-parameters">4.2 Grid Resolution & Anti-Aliasing</a></li>
+                            <li><a href="#map-smearing">4.3 Model Gaussian Smearing</a></li>
+                            <li><a href="#map-scaling">4.4 Least-Squares Map Scaling</a></li>
+                        </ul>
+                    </li>
+                    <li class="toc-parent"><a href="#peak-analysis" class="toc-parent">5. Peak Finding & Harker Analysis</a>
+                        <ul>
+                            <li><a href="#peak-finding">5.1 3D Local Maxima Search</a></li>
+                            <li><a href="#harker-sections">5.2 Harker Section Deconvolution</a></li>
+                            <li><a href="#site-combination">5.3 Multi-Section Site Combination</a></li>
+                        </ul>
+                    </li>
+                    <li class="toc-parent"><a href="#swarm-optimization" class="toc-parent">6. WebGPU Swarm Optimization</a>
+                        <ul>
+                            <li><a href="#swarm-theory">6.1 Particle Swarm Dynamics</a></li>
+                            <li><a href="#swarm-fitness">6.2 Vector Fitness & Anti-Bump Penalties</a></li>
+                            <li><a href="#swarm-params">6.3 Multi-Restart PSO & GPU Hardware Limits</a></li>
+                            <li><a href="#swarm-contact">6.4 Minimum Contact Distance Filter</a></li>
+                        </ul>
+                    </li>
+                    <li class="toc-parent"><a href="#visualization" class="toc-parent">7. Visualisation & Data Export</a>
+                        <ul>
+                            <li><a href="#viz-2d">7.1 2D Patterson Slice Viewer</a></li>
+                            <li><a href="#viz-3d">7.2 3D Unit Cell Structure Viewer</a></li>
+                            <li><a href="#viz-export">7.3 CIF, GRD, CSV & PDF Generation</a></li>
+                        </ul>
+                    </li>
+                    <li class="toc-parent"><a href="#workflow" class="toc-parent">8. Step-by-Step Workflows</a>
+                        <ul>
+                            <li><a href="#wf-harker">8.1 Deterministic Harker Analysis</a></li>
+                            <li><a href="#wf-swarm">8.2 WebGPU Swarm Global Search</a></li>
+                            <li><a href="#wf-hybrid">8.3 Combined Hybrid Resolution Workflow</a></li>
+                        </ul>
+                    </li>
+                    <li><a href="#reference">9. Reference Tables & Specifications</a></li>
+                    <li><a href="#troubleshooting">10. Troubleshooting & FAQ</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <main id="main-content">
+            <section id="introduction">
+                <h1>S_Harko: Complete Technical Reference Manual</h1>
+                <p class="callout-info">
+                    <strong>Program Name:</strong> S_Harko (derived from <em>Swarm Harker</em>)[cite: 1] &bull; 
+                    <strong>Core Architecture:</strong> Asynchronous FFT Patterson Engine + WebGPU Parallel Particle Swarm Optimization &bull; 
+                    <strong>Symmetry Database:</strong> 230 Space Groups (cctbx_space_groups_all_settings_v6.json)
+                </p>
+
+                <h2>1. Theoretical Background & The Phase Problem</h2>
+                <p>
+                    In X-ray crystallographic analyses, experimentally measured diffraction intensities $I(h,k,l)$ are directly proportional to the squared structure factor magnitudes $|F(\mathbf{h})|^2$. However, phase information $\phi(\mathbf{h})$ is inherently lost during measurement. S_Harko bypasses the direct phase requirement by synthesizing the 3D Patterson function, which represents the real-space autocorrelation of crystal electron density:
+                </p>
+                <div class="math-display">
+                    $$ P(\mathbf{u}) = \frac{1}{V} \sum_{\mathbf{h}} |F_{\mathbf{h}}|^2 e^{2\pi i \mathbf{h}\cdot\mathbf{u}} = \frac{1}{V} \sum_{\mathbf{h}} |F_{\mathbf{h}}|^2 \cos(2\pi \mathbf{h}\cdot\mathbf{u}) $$
+                </div>
+                <p>where $\mathbf{u} = (u,v,w)$ are fractional Patterson coordinates and $V$ represents the real-space unit cell volume[cite: 2].</p>
+
+                <h3>Physical Properties of the Patterson Map</h3>
+                <ul>
+                    <li><strong>Interatomic Vector Representation:</strong> Patterson map peaks do not directly correspond to atomic locations $\mathbf{x}_i$. Instead, each peak located at $\mathbf{u}$ represents an interatomic displacement vector $\mathbf{u}_{ij} = \mathbf{x}_i - \mathbf{x}_j$ between atoms $i$ and $j$[cite: 2].</li>
+                    <li><strong>Weighting Factor:</strong> Peak heights scale proportionally with the product of the atomic numbers of the interacting pair ($Z_i Z_j$). As a consequence, heavy atoms generate dominant peaks that stand out clearly against lighter organic matrices[cite: 2].</li>
+                    <li><strong>Origin Peak:</strong> The point at $(0,0,0)$ corresponds to all self-vectors ($\mathbf{x}_i - \mathbf{x}_i = \mathbf{0}$) with total integrated power $\sum Z_k^2$. S_Harko automatically masks a spherical volume around the origin to prevent scalar distortion in peak finding and colour map rendering[cite: 2].</li>
+                    <li><strong>Centrosymmetry:</strong> Regardless of whether the space group is non-centrosymmetric, the Patterson function is strictly centrosymmetric ($P(\mathbf{u}) = P(-\mathbf{u})$)[cite: 2].</li>
+                </ul>
+
+                <h3>Harker Sections</h3>
+                <p>
+                    Symmetry elements within space groups generate interatomic vectors constrained to specialized planes or lines termed <strong>Harker sections</strong>. For a general space group operation $\mathbf{S}\mathbf{x} = \mathbf{R}\mathbf{x} + \mathbf{t}$, symmetry-equivalent atoms generate Harker vectors defined by:
+                </p>
+                <div class="math-display">
+                    $$ \mathbf{u}_H = \mathbf{x} - (\mathbf{R}\mathbf{x} + \mathbf{t}) = (\mathbf{I} - \mathbf{R})\mathbf{x} - \mathbf{t} $$
+                </div>
+                <p>
+                    By evaluating peak maxima on these constrained planes, S_Harko extracts discrete fractional atomic coordinates directly from one-dimensional and two-dimensional searches.
+                </p>
+
+                <blockquote>
+                    <strong>Dual-Engine Strategy in S_Harko:</strong> S_Harko couples deterministic <em>Harker Section Analysis</em> (for fast position solving on symmetry planes) with parallel <em>WebGPU Particle Swarm Optimization (PSO)</em> (for global optimization over the full asymmetric unit). Both engines operate directly on the underlying high-resolution FFT Patterson map computed by S_Harko.
+                </blockquote>
+            </section>
+
+            <section id="architecture">
+                <h2 id="arch-overview">2. Program Architecture</h2>
+                <p>
+                    S_Harko isolates computational workloads across thread boundaries to guarantee smooth UI interaction at high animation frame rates.
+                </p>
+                
+                <h3>Multi-Threaded System Map</h3>
+                <table class="param-table">
+                    <thead>
+                        <tr>
+                            <th>Execution Layer</th>
+                            <th>Primary Responsibility</th>
+                            <th>Source Components</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Main Thread (UI)</strong></td>
+                            <td>File parsing, UI state management, Three.js 3D structure rendering, 2D slice visualizer, PDF report generation.</td>
+                            <td><code>index.html</code>, <code>patterson3d.js</code>, <code>style.css</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Web Worker Engine</strong></td>
+                            <td>Asynchronous 3D Radix-2 FFT synthesis, peak finding, Harker section coordinate deconvolution, site consolidation.</td>
+                            <td><code>sharko_worker.js</code>, <code>symmetry_utils.js</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>WebGPU Compute Shader</strong></td>
+                            <td>Hardware-accelerated global Particle Swarm Optimization, GPU symmetry expansion, minimum contact evaluations.</td>
+                            <td><code>swarm_compute.wgsl</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3 id="arch-worker">2.2 Web Worker Pipeline</h3>
+                <p>When data files are uploaded, S_Harko triggers a background worker thread via a single <code>CALCULATE</code> execution message:</p>
+                <pre class="algorithm-box">
+STAGE 1: ASYNCHRONOUS FFT PATTERSON SYNTHESIS
+  ├─ Expand unique reflections across full Friedel sphere using space group symmetry operators
+  ├─ Grid determination: N = next_power_of_two( max(requested_grid, 2*h_max + 1) )
+  ├─ Populate complex grid array with intensity values I(h,k,l)
+  ├─ Execute 3D Radix-2 Cooley-Tukey Inverse FFT
+  ├─ Map normalization: P(u,v,w) = Real(FFT) / Volume
+  └─ Extract metadata: d_min resolution limit, calculated peak width σ = max(0.26 * d_min, 0.7 * dx)
+
+STAGE 2: 3D LOCAL MAXIMA PEAK DETECTION
+  ├─ Generate origin mask: exclude all grid points within 1.1 Å radius of (0,0,0)
+  ├─ Calculate map statistics (mean, sigma) over non-origin voxels
+  ├─ Apply dynamic candidate thresholding (min + 0.15 * [max - min])
+  ├─ Run 26-neighbor 3D local maximum search with periodic boundary wrapping
+  └─ Sort peaks by normalized height; retain top 50 vectors
+
+STAGE 3: HARKER SECTION DECONVOLUTION
+  ├─ Load space-group-specific Harker plane/line definitions
+  ├─ Match identified Patterson peaks lying on Harker planes within 1.5 grid spacing tolerances
+  └─ Deconvolve analytical solver equations: x = f(u,v,w), y = f(u,v,w), z = f(u,v,w)
+
+STAGE 4: SITE CONSOLIDATION & CLUSTERING
+  ├─ Match pairs of partial sites agreeing on 2 out of 3 coordinates across different sections
+  ├─ Execute hierarchical clustering with periodic distance wrapping
+  └─ Return consolidated sites array with site coincidence counts
+                </pre>
+
+                <h3 id="arch-gpu">2.3 WebGPU Swarm Optimization Engine</h3>
+                <p>
+                    Global structural search in S_Harko is executed by a WebGPU compute pipeline using <code>swarm_compute.wgsl</code>. Each workgroup handles a single candidate particle within the swarm, running 64 parallel threads that perform symmetry expansion, compute vector matches against the experimental Patterson grid, and apply anti-bump contact distance penalties.
+                </p>
+
+                <h3 id="arch-symmetry">2.4 Symmetry & Operator Resolution</h3>
+                <p>
+                    S_Harko queries space group matrices from <code>cctbx_space_groups_all_settings_v6.json</code>. It extracts $3 \times 3$ rotation matrices $\mathbf{R}_k$ and translation vectors $\mathbf{t}_k$, ensuring that intensity expansion and atomic coordinate generation fully respect unit cell boundary constraints.
+                </p>
+            </section>
+
+            <section id="data-input">
+                <h2 id="data-file-structure">3. Data Input & Intensity Correction</h2>
+                
+                <h3>3.1 File Formats</h3>
+                <p>
+                    S_Harko reads ASCII data exports generated by powder diffraction profile refinement tools (such as Powder5, FullProf, TOPAS, or GSAS-II).
+                </p>
+
+                <h3>3.2 Intensity Classification Hierarchy</h3>
+                <p>
+                    To calculate an accurate Patterson map, S_Harko requires $|F(h,k,l)|^2$ magnitudes. S_Harko automatically classifies input columns using the following priority order:
+                </p>
+                
+                <table class="param-table">
+                    <thead>
+                        <tr>
+                            <th>Priority Class</th>
+                            <th>Detected Columns</th>
+                            <th>Computation Rule</th>
+                            <th>S_Harko Processing Mode</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>1 (Highest)</strong></td>
+                            <td><code>|Fo|</code> or <code>Fo</code></td>
+                            <td>$\text{Intensity} = |F_o|^2$</td>
+                            <td><code>perReflection = true</code>. Multiplicity ($m$) and $L_p$ are already removed by the refinement software.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>2</strong></td>
+                            <td><code>I_hkl</code>, <code>m</code>, <code>Lp</code></td>
+                            <td>$\text{Intensity} = \frac{I_{hkl}}{m \cdot L_p}$</td>
+                            <td><code>perReflection = true</code>. Multiplicity and $L_p$ factors are explicitly divided out per line item.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>3</strong></td>
+                            <td><code>I_hkl</code>, <code>2th_corr</code></td>
+                            <td>$\text{Intensity} = \frac{I_{hkl}}{L_p(2\theta, K)}$</td>
+                            <td><code>perReflection = false</code>. S_Harko calculates $L_p$ internally; multiplicity is handled during orbit expansion.</td>
+                        </tr>
+                        <tr>
+                            <td><strong>4 (Fallback)</strong></td>
+                            <td><code>I_hkl</code> only</td>
+                            <td>$\text{Intensity} = I_{hkl}$</td>
+                            <td><code>perReflection = false</code>. Uncorrected raw areas used; a low-angle dominant intensity warning is issued.</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="callout callout-warning">
+                    <strong>Critical Note on Multiplicity:</strong> If <code>perReflection</code> is set to <code>true</code>, S_Harko treats input values as single-reflection $|F|^2$ values and avoids double-dividing by reflection multiplicity during symmetry expansion.
+                </div>
+
+                <h4>Lorentz-Polarisation ($L_p$) Formula</h4>
+                <p>When S_Harko calculates $L_p$ corrections internally, it applies the following formula:</p>
+                <div class="math-display">
+                    $$ L_p(2\theta) = \frac{1 + K \cos^2(2\theta)}{1 + K} \cdot \frac{1}{\sin^2\theta \cos\theta} $$
+                </div>
+                <p>where $K$ represents the polarization ratio (default $K = 1.0$ for unpolarized radiation, or monochromator-specific values defined in the file).</p>
+            </section>
+
+            <section id="map-calculation">
+                <h2 id="map-fft">4. Patterson Map Synthesis</h2>
+                
+                <h3>4.1 FFT Synthesis Engine</h3>
+                <p>
+                    S_Harko uses a 3D Radix-2 Fast Fourier Transform to calculate maps. Compared to direct summation algorithms ($O(N^3 \times N_{refl})$), the FFT engine ($O(N^3 \log N)$) accelerates map calculation by over 300 times on standard grid resolutions.
+                </p>
+
+                <h3 id="map-parameters">4.2 Grid Resolution & Anti-Aliasing</h3>
+                <p>
+                    S_Harko automatically selects an anti-aliased grid size based on the highest reflection indices present in the dataset ($h_{max}, k_{max}, l_{max}$):
+                </p>
+                <div class="math-display">
+                    $$ N_{grid} = 2^{\lceil \log_2( \max(N_{requested}, \; 2 \cdot h_{max} + 1) ) \rceil} $$
+                </div>
+                <p>
+                    If the user toggles High Resolution mode, S_Harko sets the base grid target to $128^3$. If data indices extend beyond this limit, S_Harko increases the grid size to $256^3$ to prevent spatial aliasing.
+                </p>
+
+                <h3 id="map-smearing">4.3 Gaussian Peak Smearing (Calculated Maps)</h3>
+                <p>
+                    Idealized interatomic delta vectors generated by trial structures produce single-voxel spikes. To enable direct comparison against resolution-limited experimental maps, S_Harko convolves trial maps with an isotropic 3D Gaussian kernel:
+                </p>
+                <div class="math-display">
+                    $$ G(\mathbf{u}; \sigma) = \frac{1}{(2\pi\sigma^2)^{3/2}} \exp\left( -\frac{|\mathbf{u}|^2}{2\sigma^2} \right) $$
+                </div>
+                <p>
+                    By default, S_Harko automatically sets the broadening width to $\sigma = 0.26 \cdot d_{min}$, matching the experimental diffraction cutoff limit.
+                </p>
+
+                <h3 id="map-scaling">4.4 Least-Squares Map Scaling</h3>
+                <p>
+                    To scale trial maps ($P_{calc}$) to observed experimental data ($P_{obs}$), S_Harko calculates an absolute scale factor $k$ using linear least-squares over all non-origin voxels:
+                </p>
+                <div class="math-display">
+                    $$ k = \frac{\sum_{\mathbf{u} \notin \text{origin}} P_{obs}(\mathbf{u}) P_{calc}(\mathbf{u})}{\sum_{\mathbf{u} \notin \text{origin}} [P_{calc}(\mathbf{u})]^2} $$
+                </div>
+                <p>
+                    This scale factor $k$ is automatically applied to display calculated maps ($k \cdot P_{calc}$) and compute difference maps ($P_{obs} - k \cdot P_{calc}$).
+                </p>
+            </section>
+
+            <section id="peak-analysis">
+                <h2 id="peak-finding">5. Peak Finding & Harker Analysis</h2>
+                
+                <h3 id="peak-finding">5.1 3D Local Maxima Search</h3>
+                <p>
+                    S_Harko identifies peak vectors by scanning non-masked voxels using a 26-neighbor 3D local maximum search with periodic boundary wrapping. Points exceeding 15% of the map's total dynamic range are cataloged and sorted by height.
+                </p>
+
+                <h3 id="harker-sections">5.2 Harker Section Deconvolution</h3>
+                <p>
+                    Peaks located on Harker sections are mapped to candidate fractional atomic coordinates $(x,y,z)$ using space-group-specific analytical expressions.
+                </p>
+
+                <h4>Example Deconvolution Transformations</h4>
+                <table class="param-table">
+                    <thead>
+                        <tr>
+                            <th>Space Group</th>
+                            <th>Harker Section</th>
+                            <th>Observed Vector $(u,v,w)$</th>
+                            <th>Solved Coordinate Relationship</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>$P 2 / m$ (No. 10)</td>
+                            <td>Plane $v = 0$</td>
+                            <td>$(2x, 0, 2z)$</td>
+                            <td>$x = u/2, \quad z = w/2, \quad y = \text{unconstrained } (?)$</td>
+                        </tr>
+                        <tr>
+                            <td>$P 2_1 / c$ (No. 14)</td>
+                            <td>Plane $v = 1/2$</td>
+                            <td>$(2x, 1/2, 2z + 1/2)$</td>
+                            <td>$x = u/2, \quad z = (w - 1/2)/2, \quad y = \text{unconstrained } (?)$</td>
+                        </tr>
+                        <tr>
+                            <td>$P 2_1 2_1 2_1$ (No. 19)</td>
+                            <td>Plane $u = 1/2$</td>
+                            <td>$(1/2, 1/2 - 2y, 2z)$</td>
+                            <td>$y = (1/2 - v)/2, \quad z = w/2, \quad x = \text{unconstrained } (?)$</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3 id="site-combination">5.3 Multi-Section Site Combination</h3>
+                <p>
+                    Partial site positions obtained from isolated Harker sections are cross-referenced across planes. When candidate positions agree on 2 out of 3 coordinates within the defined combination tolerance (default $0.03$), S_Harko merges them into consolidated 3D atomic sites.
+                </p>
+            </section>
+
+            <section id="swarm-optimization">
+                <h2 id="swarm-theory">6. WebGPU Swarm Optimization</h2>
+                
+                <h3 id="swarm-theory">6.1 Particle Swarm Dynamics</h3>
+                <p>
+                    S_Harko optimizes candidate atomic positions within the asymmetric unit using Particle Swarm Optimization (PSO) on the GPU. The position vector $\mathbf{X}_i$ and velocity vector $\mathbf{V}_i$ for particle $i$ update each generation according to:
+                </p>
+                <div class="math-display">
+                    $$ \mathbf{V}_i^{(t+1)} = w \mathbf{V}_i^{(t)} + c_1 r_1 \left( \mathbf{P}_{best, i} - \mathbf{X}_i^{(t)} \right) + c_2 r_2 \left( \mathbf{G}_{best} - \mathbf{X}_i^{(t)} \right) $$
+                </div>
+                <div class="math-display">
+                    $$ \mathbf{X}_i^{(t+1)} = \text{frac}\left( \mathbf{X}_i^{(t)} + \mathbf{V}_i^{(t+1)} \right) $$
+                </div>
+                <p>
+                    where $w = 0.5$ represents inertia, $c_1 = 1.5$ is the cognitive factor, $c_2 = 1.5$ is the social component, and $r_1, r_2 \sim U(0,1)$ are random variables.
+                </p>
+
+                <h3 id="swarm-fitness">6.2 Vector Fitness & Anti-Bump Penalties</h3>
+                <p>
+                    S_Harko evaluates structural fitness by calculating the atomic-number-weighted average of observed Patterson map intensities at all predicted interatomic vector positions, minus a steric collision penalty:
+                </p>
+                <div class="math-display">
+                    $$ \mathcal{F} = \frac{\sum_{m < n} 2 Z_m Z_n \cdot P_{obs}(\text{frac}(\mathbf{x}_m - \mathbf{x}_n))}{\sum_{m < n} 2 Z_m Z_n} - \mathcal{P}_{bump} $$
+                </div>
+                <p>
+                    If any pair of symmetry-generated atoms falls closer than the threshold distance $d_{cutoff}$, S_Harko applies a heavy steric collision penalty:
+                </p>
+                <div class="math-display">
+                    $$ \mathcal{P}_{bump} = \sum_{d_{ij} < d_{cutoff}} (d_{cutoff} - d_{ij}) \cdot \max(P_{obs}) \cdot 1000 $$
+                </div>
+
+                <h3 id="swarm-params">6.3 Multi-Restart PSO & Hardware Safety Limits</h3>
+                <p>
+                    To avoid getting trapped in local minima, S_Harko supports multi-restart searches, running fresh randomized swarms and retaining the top global result. Particle limits are dynamically capped based on the GPU device's maximum storage buffer binding limits (`maxStorageBufferBindingSize`) to prevent driver TDR timeouts.
+                </p>
+
+                <h3 id="swarm-contact">6.4 Minimum Contact Distance Filter</h3>
+                <p>
+                    S_Harko calculates pair contact cutoffs using either a user-defined fixed distance (e.g., $2.20\text{ \AA}$) or an automatic van der Waals radius sum calculation ($0.6 \times (r_i + r_j)$), enforcing an absolute physical floor of $1.20\text{ \AA}$.
+                </p>
+            </section>
+
+            <section id="visualization">
+                <h2 id="viz-2d">7. Visualisation & Data Export</h2>
+                
+                <h3>7.1 2D Patterson Slice Viewer</h3>
+                <p>
+                    S_Harko displays 2D Patterson sections perpendicular to fractional axes $u, v,$ or $w$. Users can switch between Observed, Calculated, and Difference map views ($P_{obs} - k \cdot P_{calc}$). S_Harko quotes map features directly in standard deviation ($\sigma$) units above the non-origin spatial mean.
+                </p>
+
+                <h3>7.2 3D Unit Cell Structure Viewer</h3>
+                <p>
+                    Built on Three.js, S_Harko's interactive 3D viewer renders unit cell boundaries, fractional coordinate axes, and CPK-colored atomic spheres generated across all symmetry operations. Users can adjust asymmetric unit coordinates directly in the UI table to inspect structure modifications in real time.
+                </p>
+
+                <h3 id="viz-export">7.3 Export Formats</h3>
+                <ul>
+                    <li><strong>Crystallographic Information File (.cif):</strong> Exports refined atomic site labels, element symbols, fractional coordinates $(x,y,z)$, site occupancy factors, unit cell metrics, space group settings, and theoretical density estimates.</li>
+                    <li><strong>VESTA Volume Density File (.grd):</strong> Outputs 3D density grids compatible with VESTA and ChimeraX software.</li>
+                    <li><strong>Peak Vector List (.csv):</strong> Exports raw 3D Patterson peak positions and consolidated Harker site solutions.</li>
+                    <li><strong>PDF Summary Report:</strong> Generates publication-ready summary reports containing cell metadata, active map slice visualizers, peak tables, and 3D structure views.</li>
+                </ul>
+            </section>
+
+            <section id="workflow">
+                <h2 id="wf-harker">8. Step-by-Step Workflows</h2>
+                
+                <h3>8.1 Deterministic Harker Analysis</h3>
+                <ol>
+                    <li>Click <strong>Select Data File</strong> to upload your experimental reflection dataset.</li>
+                    <li>Verify space group parameters, unit cell metrics, and reflection count displays in the sidebar.</li>
+                    <li>S_Harko automatically calculates the 3D FFT Patterson map and extracts vector peaks.</li>
+                    <li>Open the <strong>Peaks</strong> tab to review peak tables, single-section Harker site solutions, and consolidated 3D sites.</li>
+                    <li>Adjust the <strong>Combination Tolerance</strong> slider if necessary to refine candidate site merging.</li>
+                </ol>
+
+                <h3>8.2 WebGPU Swarm Global Optimization</h3>
+                <ol>
+                    <li>Switch to the <strong>Swarm</strong> controls tab.</li>
+                    <li>Add the expected asymmetric unit chemical composition (element symbols and numbers of atoms).</li>
+                    <li>Adjust Particle count, Iterations per run, and Restarts sliders based on GPU hardware limits.</li>
+                    <li>Click <strong>Initialize & Run Swarm</strong> to start WebGPU global optimization.</li>
+                    <li>Track real-time fitness convergence on the cost chart and monitor structural updates in the 3D viewer.</li>
+                    <li>When the search completes, navigate to the <strong>Swarm Results</strong> tab to inspect atomic sites, edit coordinates if desired, and click <strong>Save CIF</strong>.</li>
+                </ol>
+
+                <h3>8.3 Combined Hybrid Resolution Workflow</h3>
+                <p>
+                    For complex structures, use Harker section analysis to solve heavy atom locations first. Then, run the WebGPU Swarm engine to place remaining lighter atoms, cross-referencing final solutions against the consolidated Harker site tables.
+                </p>
+            </section>
+
+            <section id="reference">
+                <h2>9. Reference Tables & Specifications</h2>
+                
+                <h3>9.1 Supported Atomic Tabular Data (`ATOM_DATA`)</h3>
+                <table class="param-table">
+                    <thead>
+                        <tr>
+                            <th>Element</th>
+                            <th>Atomic Number ($Z$)</th>
+                            <th>van der Waals Radius ($r$, \AA)</th>
+                            <th>Standard Atomic Mass ($m$, g/mol)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>H</td><td>1</td><td>1.20</td><td>1.008</td></tr>
+                        <tr><td>C</td><td>6</td><td>1.70</td><td>12.011</td></tr>
+                        <tr><td>N</td><td>7</td><td>1.55</td><td>14.007</td></tr>
+                        <tr><td>O</td><td>8</td><td>1.52</td><td>15.999</td></tr>
+                        <tr><td>F</td><td>9</td><td>1.47</td><td>18.998</td></tr>
+                        <tr><td>Na</td><td>11</td><td>2.27</td><td>22.990</td></tr>
+                        <tr><td>Mg</td><td>12</td><td>1.73</td><td>24.305</td></tr>
+                        <tr><td>Al</td><td>13</td><td>1.18</td><td>26.982</td></tr>
+                        <tr><td>Si</td><td>14</td><td>2.10</td><td>28.085</td></tr>
+                        <tr><td>P</td><td>15</td><td>1.80</td><td>30.974</td></tr>
+                        <tr><td>S</td><td>16</td><td>1.80</td><td>32.060</td></tr>
+                        <tr><td>Cl</td><td>17</td><td>1.75</td><td>35.450</td></tr>
+                        <tr><td>K</td><td>19</td><td>2.75</td><td>39.098</td></tr>
+                        <tr><td>Ca</td><td>20</td><td>2.31</td><td>40.078</td></tr>
+                        <tr><td>Fe</td><td>26</td><td>1.26</td><td>55.845</td></tr>
+                        <tr><td>Cu</td><td>29</td><td>1.40</td><td>63.546</td></tr>
+                        <tr><td>Zn</td><td>30</td><td>1.39</td><td>65.380</td></tr>
+                        <tr><td>As</td><td>33</td><td>1.85</td><td>74.922</td></tr>
+                        <tr><td>Se</td><td>34</td><td>1.90</td><td>78.971</td></tr>
+                        <tr><td>Br</td><td>35</td><td>1.85</td><td>79.904</td></tr>
+                        <tr><td>Ag</td><td>47</td><td>1.72</td><td>107.868</td></tr>
+                        <tr><td>I</td><td>53</td><td>1.98</td><td>126.904</td></tr>
+                        <tr><td>Ba</td><td>56</td><td>2.68</td><td>137.327</td></tr>
+                        <tr><td>Pt</td><td>78</td><td>1.75</td><td>195.084</td></tr>
+                        <tr><td>Au</td><td>79</td><td>1.66</td><td>196.967</td></tr>
+                        <tr><td>Hg</td><td>80</td><td>1.55</td><td>200.592</td></tr>
+                        <tr><td>Pb</td><td>82</td><td>2.02</td><td>207.200</td></tr>
+                        <tr><td>U</td><td>92</td><td>1.86</td><td>238.029</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section id="troubleshooting">
+                <h2>10. Troubleshooting & Technical FAQ</h2>
+                
+                <h3>10.1 Diagnostic Solutions</h3>
+                <table class="param-table">
+                    <thead>
+                        <tr>
+                            <th>Symptom / Error</th>
+                            <th>Root Cause</th>
+                            <th>Resolution</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>"WebGPU is not supported by this browser/device"</td>
+                            <td>WebGPU flags are disabled or the hardware lacks modern Compute Shader support.</td>
+                            <td>Use a WebGPU-enabled browser (Chromium v113+, Edge, or Firefox Nightly) with updated graphics drivers.</td>
+                        </tr>
+                        <tr>
+                            <td>"GPU device lost (likely a driver timeout)"</td>
+                            <td>Workgroup dispatches exceeded the operating system's TDR execution limit.</td>
+                            <td>Reduce particle counts, lower grid resolution to 64³, or optimize the number of asymmetric unit atoms.</td>
+                        </tr>
+                        <tr>
+                            <td>Intensity source reads "raw" in amber</td>
+                            <td>The input file lacks $|F_o|$, explicit $m$ and $L_p$ columns, or $2\theta$ values.</td>
+                            <td>Enable the internal "Divide out Lorentz–polarisation" toggle, or re-export reflection data with explicit correction columns.</td>
+                        </tr>
+                        <tr>
+                            <td>"Symmetry warning: setting not matched"</td>
+                            <td>The space group setting in the file header did not match standard database naming.</td>
+                            <td>S_Harko falls back to standard settings; verify that cell axes match the assumed setting.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <div class="footer">
+                <p>S_Harko Documentation &middot; Harker sections in Patterson maps &middot; NitaD, Univ Paris-Saclay</p>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // TOC expansion handler
+            document.querySelectorAll('#toc li a.toc-parent').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    link.parentElement.classList.toggle('expanded');
+                });
+            });
+
+            // ScrollSpy Navigation Observer
+            const sections = document.querySelectorAll('section');
+            const navLinks = document.querySelectorAll('#toc a');
+            const mainContent = document.getElementById('main-content');
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const id = entry.target.getAttribute('id');
+                        navLinks.forEach(link => link.classList.remove('active'));
+                        const activeLink = document.querySelector(`#toc a[href="#${id}"]`);
+                        if (activeLink) activeLink.classList.add('active');
+                        
+                        let parent = activeLink?.closest('li');
+                        while (parent) {
+                            parent.classList.add('expanded');
+                            parent = parent.parentElement?.closest('li');
+                        }
+                    }
+                });
+            }, { root: mainContent, rootMargin: "0px 0px -70% 0px" });
+
+            sections.forEach(section => observer.observe(section));
+
+            // Smooth Scrolling
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    if (this.classList.contains('toc-parent')) return;
+                    e.preventDefault();
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    this.classList.add('active');
+                    const targetId = this.getAttribute('href');
+                    const targetElement = document.querySelector(targetId);
+                    if (targetElement) {
+                        mainContent.scrollTo({
+                            top: targetElement.offsetTop - 32,
+                            behavior: 'smooth'
+                        });
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
