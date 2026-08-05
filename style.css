@@ -1,14 +1,10 @@
 
 /* Web-font import removed: sHarko runs entirely from local files.
-   The stacks below resolve to fonts already present on every desktop OS. */
+   The stacks below resolve to fonts already present on every desktop OS.
+   
+   version 26 aug 2026, implementation de Buerger supermap
+   */
 
-/* ==========================================================================
-   Powder 5 — Studio Monitor theme
-   Original CSS replaced. Selector names preserved to keep JS happy.
-   Aesthetic: high-end Japanese audio receiver. Brushed metal, hairline
-   rules, monospace technical readouts, restrained amber LED accent,
-   muted cool blue for primary actions. Light + dark.
-   ========================================================================== */
 
 :root {
     color-scheme: light;
