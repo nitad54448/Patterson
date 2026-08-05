@@ -2466,7 +2466,7 @@ leftTabButtons.forEach(btn => {
 
         /** Set one pane's colour bar style and min/max labels. */
         function setPaneScale(mode, lo, hi) {
-            if (mapBars[mode]) mapBars[mode].classList.toggle('diverging', mode === 'diff');
+            if (mapBars[mode]) mapBars[mode].classList.remove('diverging');
             if (mapMinEls[mode]) mapMinEls[mode].textContent = fmtScale(lo);
             if (mapMaxEls[mode]) mapMaxEls[mode].textContent = fmtScale(hi);
         }
@@ -2535,11 +2535,9 @@ leftTabButtons.forEach(btn => {
             const ext = getMapExtent(mode, obsMap, calcMap, kCalc, originMask, superMap);
             let lo = ext.min, hi = ext.max;
             if (!isFinite(lo) || !isFinite(hi)) { lo = sliceMin; hi = sliceMax; }
-            if (mode === 'obs' || mode === 'calc' || mode === 'super') { lo = Math.max(0, lo); } // 0 -> white; ramp upward
+            if (mode === 'obs' || mode === 'calc' || mode === 'super') { lo = Math.max(0, lo); } // clamp scale bottom to 0
 
-            // For the difference pane the bar is symmetric about zero, so the
-            // labels read as the true signed extent. The colour bar element
-            // itself already shows white in the middle via the CSS gradient.
+            // Every pane uses the same rainbow scale over its own [lo, hi].
             setPaneScale(mode, lo, hi);
 
             // 2. Draw the pixels
@@ -2579,19 +2577,7 @@ leftTabButtons.forEach(btn => {
                     // the range the scale was built from.
                     const val = range > 1e-12 ? Math.max(0, Math.min(1, (rawVal - lo) / range)) : 0.5;
                     let r = 0, g = 0, b = 0;
-                    if (mode === 'diff') {
-                        // Diverging blue-white-red, white pinned at the map's
-                        // true zero rather than the middle of [lo, hi] - that
-                        // range is the map's real min/max now, and needn't be
-                        // symmetric, so the two sides are scaled separately.
-                        if (rawVal >= 0) {
-                            const t = hi > 0 ? Math.max(0, Math.min(1, rawVal / hi)) : 0;
-                            r = 255; g = Math.round(255 * (1 - t)); b = Math.round(255 * (1 - t));
-                        } else {
-                            const t = lo < 0 ? Math.max(0, Math.min(1, rawVal / lo)) : 0;
-                            r = Math.round(255 * (1 - t)); g = Math.round(255 * (1 - t)); b = 255;
-                        }
-                    } else if (val < 0.25) { r = 0; g = Math.round(4 * val * 255); b = 255; }
+                    if (val < 0.25) { r = 0; g = Math.round(4 * val * 255); b = 255; }
                     else if (val < 0.5)    { r = 0; g = 255; b = Math.round((1 - 4 * (val - 0.25)) * 255); }
                     else if (val < 0.75)   { r = Math.round(4 * (val - 0.5) * 255); g = 255; b = 0; }
                     else                   { r = 255; g = Math.round((1 - 4 * (val - 0.75)) * 255); b = 0; }
