@@ -87,12 +87,13 @@
         <div class="control-group">
             <label class="control-label">Patterson Map Calculation</label>
 
-            <label class="field-label" for="lorch-slider">Lorch filter strength:
-                <span id="lorch-value" class="mono">0.00</span>
+<label class="field-label" for="lorch-slider">Lorch filter strength:
+                <span id="lorch-value" class="mono">0.000</span>
                 <span class="tooltip"><span class="help-dot">?</span>
                     <span class="tooltiptext">Suppresses series termination ripples in the Patterson map. 0 is off, 1 is a full Lorch modification. Since this broadens the peaks, use just enough to tame the ripples.</span></span>
             </label>
-            <input type="range" id="lorch-slider" min="0" max="1" value="0" step="0.05" disabled>
+            <input type="range" id="lorch-slider" min="0" max="1" value="0" step="0.01" disabled>
+
             <div style="margin-bottom:12px"></div>
 
             <div class="row-between" style="margin-bottom:5px">
@@ -4140,10 +4141,12 @@ function exportGRD() {
         
         if (lorchSlider) {
             lorchSlider.addEventListener('input', () => {
-                lorchValue.textContent = parseFloat(lorchSlider.value).toFixed(2);
+                const val = parseFloat(lorchSlider.value);
+                lorchValue.textContent = Math.pow(val, 2).toFixed(3);
             });
             lorchSlider.addEventListener('change', () => {
-                state.lorchStrength = parseFloat(lorchSlider.value);
+                const val = parseFloat(lorchSlider.value);
+                state.lorchStrength = Math.pow(val, 2);
                 if (state.crystalData) runMapCalculationAndAnalysis();
             });
         }
