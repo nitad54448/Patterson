@@ -220,13 +220,14 @@
                             <li><a href="#swarm-tuning">6.5 PSO Hyperparameter Tuning (w, c1, c2)</a></li>
                         </ul>
                     </li>
-                    <li class="toc-parent"><a href="#visualization" class="toc-parent">7. Visualisation & Data Export</a>
-                        <ul>
-                            <li><a href="#viz-2d">7.1 2D Patterson Slice Viewer</a></li>
-                            <li><a href="#viz-3d">7.2 3D Unit Cell Structure Viewer</a></li>
-                            <li><a href="#viz-export">7.3 CIF, GRD, CSV & PDF Generation</a></li>
-                        </ul>
-                    </li>
+<li class="toc-parent"><a href="#visualization" class="toc-parent">7. UI & Controls Guided Tour</a>
+    <ul>
+        <li><a href="#ui-layout">7.1 Workspace Layout Overview</a></li>
+        <li><a href="#ui-left-panel">7.2 Left Controls (Map & Swarm Tabs)</a></li>
+        <li><a href="#ui-right-panel">7.3 Right Results (Maps, Peaks & Swarm)</a></li>
+        <li><a href="#ui-exports">7.4 Exporting CIF, GRD, CSV & Reports</a></li>
+    </ul>
+</li>
                     <li class="toc-parent"><a href="#workflow" class="toc-parent">8. Step-by-Step Workflows</a>
                         <ul>
                             <li><a href="#wf-harker">8.1 Deterministic Harker & SMF Analysis</a></li>
@@ -563,14 +564,148 @@ STAGE 2: PEAK DETECTION, SMF & BUERGER SUPERPOSITION
             </section>
 
             <section id="visualization">
-                <h2 id="viz-2d">7. Visualisation & Data Export</h2>
-                <h3>7.1 Map Viewer & 3D Structure Viewer</h3>
-                <p>
-                    Includes support for Observed, Calculated, Difference, and <strong>SMF</strong> maps in the 2D slice visualizer. The Three.js 3D viewer renders unit cells, fractional axes, and CPK-colored atomic spheres with real-time coordinate editing.
-                </p>
-                <h3>7.2 Export Formats</h3>
-                <p>Supports CIF, VESTA GRD density volumes, CSV peak lists, and publication-ready PDF summary reports.</p>
-            </section>
+    <h2 id="ui-layout">7. UI & Controls Guided Tour</h2>
+    <p>
+        Welcome to <strong>sHarko</strong>! The UI is designed to keep controls organized on the left while leaving the bulk of your screen open for interactive 2D maps, 3D atomic structures, and peak analysis tables on the right.
+    </p>
+
+    <div class="callout callout-info">
+        <strong>💡 Pro-Tip: Resizing Your Workspace</strong><br>
+        You can drag the vertical divider handle between the left control panel and the right results area to adjust their widths. Every map, chart, and 3D structure automatically resizes on the fly to fit your screen.
+    </div>
+
+    <!-- 7.1 TOP RIGHT QUICK CONTROLS -->
+    <h3>Top-Right Quick Controls</h3>
+    <p>Floating cleanly in the upper right corner, you'll find three subtle, lightweight icons:</p>
+    <ul>
+        <li><strong>Info Button (ⓘ):</strong> Hover your mouse over this icon to reveal the current software build and version tag without taking up bottom page space.</li>
+        <li><strong>Theme Toggle (☀️ / 🌙):</strong> Instantly switches between Light Mode and Dark Mode. Your preference is saved locally, and all 3D cell frames and 2D map canvases dynamically adapt their color palettes.</li>
+        <li><strong>Help Button (?):</strong> Opens this documentation page in a fresh browser tab.</li>
+    </ul>
+
+    <!-- 7.2 LEFT CONTROLS PANEL -->
+    <h3 id="ui-left-panel">7.2 Left Controls Panel</h3>
+    <p>
+        The left panel handles data loading, map calculation parameters, and global WebGPU swarm solver settings. It is split into two primary tabs:
+    </p>
+
+    <h4>A. Map Controls Tab</h4>
+    <ul>
+        <li>
+            <strong>Select Data File:</strong> Click here to load your powder diffraction export (such as Powder5 or Pawley output files). sHarko will immediately parse the space group, cell parameters, reflection list, and $Lp$ settings.
+        </li>
+        <li>
+            <strong>Lorentz-Polarisation Correction Toggle:</strong> Enabled by default. When checked, sHarko divides out $Lp$ distortions so that low-angle reflections don't artificially overwhelm your Patterson synthesis.
+        </li>
+        <li>
+            <strong>Lorch Filter Strength (Slider 0.00 – 1.00):</strong> Controls a smoothing envelope applied during the Fourier transform. Setting this to <code>0.00</code> leaves peak heights untouched, while raising it (e.g., <code>0.10 - 0.25</code>) dampens annoying Fourier series truncation ripples caused by data cutoff at $d_{\min}$.
+        </li>
+        <li>
+            <strong>High Resolution Grid Toggle:</strong> Toggles between a standard $64^3$ voxel grid and an $128^3$ high-density grid. 
+            <em>Note:</em> If your reflection indices require a higher grid to avoid aliasing, sHarko will automatically step the grid up for you and inform you in the readout box below!
+        </li>
+        <li>
+            <strong>Peak Width $\sigma$ ($\text{\AA}$):</strong> Sets the Gaussian broadening used when building the calculated Patterson map. By default, sHarko seeds this to $0.26 \cdot d_{\min}$ (the natural peak width implied by your data resolution).
+        </li>
+        <li>
+            <strong>Overall Temperature Factor $B$ ($\text{\AA}^2$):</strong> Simulates thermal displacement broadening on trial point-atom models. You can set this manually or turn on <strong>Fit B</strong> on the Swarm Results tab to let sHarko refine it for you against the observed map.
+        </li>
+    </ul>
+
+    <h4>B. Swarm Controls Tab</h4>
+    <ul>
+        <li>
+            <strong>Asymmetric Unit Contents:</strong> Type an element symbol (e.g., <code>PB</code>, <code>O</code>, <code>C</code>) and quantity, then click <strong>Add</strong>. Each element chip displays its atomic number $Z$, van der Waals radius, and quantity.
+        </li>
+        <li>
+            <strong>Contact Filter Slider ($\text{\AA}$):</strong> Penalizes configurations where atoms collide closer than a reasonable physical distance. Leave this near <code>0.00 \AA</code> if you want to allow independent atoms to sit on or merge near special symmetry positions.
+        </li>
+        <li>
+            <strong>WebGPU Swarm Controls:</strong> Adjust the number of <strong>Configurations (Particles)</strong>, <strong>Iterations</strong>, and independent <strong>Restarts</strong>. You can fine-tune the particle velocity dynamics using the <strong>Inertia ($w$)</strong>, <strong>Cognitive ($c1$)</strong>, and <strong>Social ($c2$)</strong> sliders.
+        </li>
+        <li>
+            <strong>Seed Heaviest Atom from Harker Sites Toggle:</strong> When enabled, the heaviest atom (highest $Z$) is automatically placed on one of the candidate Harker positions found during peak analysis and leashed within $1\sigma$, dramatically speeding up structural convergence!
+        </li>
+    </ul>
+
+    <!-- 7.3 RIGHT RESULTS PANEL -->
+    <h3 id="ui-right-panel">7.3 Right Results Panel</h3>
+    <p>
+        The right main display gives you real-time visual feedback, split into three view modes:
+    </p>
+
+    <h4>1. Maps View</h4>
+    <p>
+        Displays a synchronized <strong>2x2 multi-map grid</strong> comparing all four map modes at once:
+    </p>
+    <ul>
+        <li><strong>Observed Map:</strong> The experimental Patterson synthesis computed directly from your diffraction intensities.</li>
+        <li><strong>Calculated Map:</strong> The model Patterson map generated from the trial atomic structure found by the swarm.</li>
+        <li><strong>Difference Map (Observed − Calculated):</strong> Highlights missing scattering density or incorrectly placed atoms.</li>
+        <li><strong>SMF (Symmetry Minimum Function):</strong> A multi-way minimum superposition map that filters out background noise and places heavy atoms on their true crystallographic positions.</li>
+    </ul>
+    <p>
+        Use the <strong>Axis Select dropdown</strong> to switch your slicing plane (a–b, a–c, or b–c) and drag the <strong>Section Slider</strong> to slice through the unit cell volume.
+    </p>
+
+    <h4>2. Peaks View</h4>
+    <p>
+        Organizes the peak extraction pipeline into three clear, progressive steps:
+    </p>
+    <ol>
+        <li><strong>Patterson Peaks:</strong> Raw 3D local maxima vectors $(u,v,w)$ found in the Patterson map, ordered by peak height in $\sigma$.</li>
+        <li><strong>Harker Solutions:</strong> Atomic coordinates $(x,y,z)$ deconvoluted independently from individual Harker sections.</li>
+        <li><strong>Consolidated Sites:</strong> Cross-referenced candidate positions agreed upon across multiple Harker sections or picked directly from the SMF map.</li>
+    </ol>
+
+    <h4>3. Swarm Results View</h4>
+    <p>
+        When you run the global optimization, this tab comes alive with:
+    </p>
+    <ul>
+        <li><strong>Fitness Evolution Plot:</strong> Displays the best structure score over time (quoted in $\sigma$ map units).</li>
+        <li><strong>Interactive 3D Structure Viewer:</strong> A real-time Three.js view showing all symmetry-generated atoms inside the unit cell box. Left-click and drag to rotate, right-click to pan, and scroll to zoom.</li>
+        <li><strong>Cell Statistics:</strong> Displays total cell atom count, shortest interatomic contact distance, cell mass, and theoretical density ($\text{g/cm}^3$).</li>
+        <li><strong>Fit B Toggle:</strong> When armed, sHarko automatically scans overall thermal motion $B$ to minimize the residual between the observed and calculated Patterson maps, showing a mouse <code>wait</code> cursor while calculating.</li>
+        <li><strong>Asymmetric Unit Editor:</strong> Live table listing all independent atoms. You can edit fractional coordinates $(x,y,z)$ directly in the text boxes; the 3D structure and density updates instantly!</li>
+    </ul>
+
+    <!-- 7.4 EXPORTS -->
+    <h3 id="ui-exports">7.4 Exporting CIF, GRD, CSV & Summary Reports</h3>
+    <p>sHarko makes it easy to export your results for publication or further refinement:</p>
+    <ul>
+        <li><strong>Save CIF (Swarm Results Tab):</strong> Writes a standard Crystallographic Information File containing your unit cell, space group, and the solved atomic coordinates.</li>
+        <li><strong>Density (.grd) (Maps Tab):</strong> Exports all active 3D volume maps as grid density files ready to open directly in VESTA or PyMOL.</li>
+        <li><strong>Save CSV / Peaks (.csv) (Peaks Tab):</strong> Exports the peak vector list and candidate sites into a flat CSV file for spreadsheets.</li>
+        <li><strong>PDF Report (Left Panel Bottom):</strong> Generates a full summary document featuring timestamped crystal parameters, map slices, fitness charts, peak tables, and 3D structure snapshots.</li>
+    </ul>
+</section>
+
+<section id="workflow">
+    <h2 id="wf-harker">8. Step-by-Step Workflows</h2>
+
+    <h3>Recommended Walkthrough: Solving a Structure with sHarko</h3>
+    <ol>
+        <li>
+            <strong>Load Data:</strong> Click <strong>Select Data File</strong> on the left panel and select your powder export file. Verify that the cell parameters and space group readout match your expectations.
+        </li>
+        <li>
+            <strong>Inspect the Observed & SMF Maps:</strong> Switch to the <strong>Maps</strong> tab on the right. Drag the <strong>Section Slider</strong> to inspect your Patterson map. Notice how the <strong>SMF map</strong> cleans up random noise and highlights candidate heavy atom positions.
+        </li>
+        <li>
+            <strong>Check the Candidate Peaks:</strong> Click the <strong>Peaks</strong> tab on the right to view the consolidated sites. These are the top candidate locations extracted from the SMF map.
+        </li>
+        <li>
+            <strong>Setup the Swarm:</strong> Click the <strong>Swarm</strong> tab on the left panel. Enter your expected asymmetric unit contents (e.g., <code>1 Pb</code>, <code>2 Cl</code>). Turn on <strong>Seed heaviest atom from Harker sites</strong> to pin the heavy atom to candidate positions.
+        </li>
+        <li>
+            <strong>Run Global Optimization:</strong> Click <strong>Run Swarm</strong>. Watch the fitness curve rise on the Swarm Results tab as WebGPU updates thousands of configurations per second.
+        </li>
+        <li>
+            <strong>Refine & Export:</strong> Turn on <strong>Fit B</strong> to optimize thermal parameters against the observed map. Inspect the solved model in the 3D viewer, nudge any coordinates manually in the Asymmetric Unit table if needed, and click <strong>Save CIF</strong>!
+        </li>
+    </ol>
+</section>
 
             <section id="workflow">
                 <h2 id="wf-harker">8. Step-by-Step Workflows</h2>

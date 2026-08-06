@@ -38,11 +38,14 @@
 
 <body>
 <div id="top-right-controls" style="position: fixed; top: 1rem; right: 1rem; z-index: 9999; display: flex; align-items: center; background: var(--bg-elevated); border: 1px solid var(--rule); border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-    <button id="theme-toggle" title="Toggle light / dark theme" aria-label="Toggle theme" style="position: static; margin: 0; width: 28px; height: 28px; border: none; border-right: 1px solid var(--rule); border-radius: 6px 0 0 6px; background: transparent; padding: 0; display: flex; align-items: center; justify-content: center; cursor: pointer;">
-        <svg id="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width: 20px; height: 20px;"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
-        <svg id="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    <button id="info-btn" title="swarm-Harko, 06 aug 2026" aria-label="Info" style="position: static; margin: 0; width: 28px; height: 28px; border: none; border-right: 1px solid var(--rule); border-radius: 6px 0 0 6px; background: transparent; padding: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--fg);">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
     </button>
-    <a href="s_harko_help.html" target="_blank" id="global-help-btn" title="Open Help" aria-label="Help" style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; color: var(--fg); text-decoration: none !important; font-weight: bold; font-size: 1.2rem; cursor: pointer; border: none; border-radius: 0 6px 6px 0; background: transparent;">?</a>
+    <button id="theme-toggle" title="Toggle light / dark theme" aria-label="Toggle theme" style="position: static; margin: 0; width: 28px; height: 28px; border: none; border-right: 1px solid var(--rule); border-radius: 0; background: transparent; padding: 0; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+        <svg id="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" style="width: 20px; height: 20px;"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <svg id="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+    <a href="s_harko_help.html" target="_blank" id="global-help-btn" title="Open Help" aria-label="Help" style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; color: var(--fg); text-decoration: none !important; font-weight: normal; font-size: 1.1rem; cursor: pointer; border: none; border-radius: 0 6px 6px 0; background: transparent;">?</a>
 </div>
 
 
@@ -96,19 +99,19 @@
 
             <div style="margin-bottom:12px"></div>
 
-            <div class="row-between" style="margin-bottom:5px">
-                <span class="field-label" style="margin:0">High resolution grid
-                    <span class="tooltip"><span class="help-dot">?</span>
-                        <span class="tooltiptext">Off: 64&sup3; grid. On: 128&sup3; &mdash; eight times the voxels,
-                        memory and time.<br><br>The transform needs a power-of-two grid, so these are the only two
-                        useful settings. sHarko raises the grid further on its own if the data reach an index high
-                        enough that 128 would alias one reflection onto another; the grid actually used is shown
-                        below.</span></span>
-                </span>
-                <label class="check-row">
-                    <input type="checkbox" id="high-res-toggle" class="check" disabled>
-                </label>
-            </div>
+<label class="check-row" style="margin-bottom:5px">
+    <input type="checkbox" id="high-res-toggle" class="check" disabled>
+    <span>High resolution grid</span>
+    <span class="tooltip"><span class="help-dot">?</span>
+        <span class="tooltiptext">Off: 64&sup3; grid. On: 128&sup3; &mdash; eight times the voxels,
+        memory and time.<br><br>The transform needs a power-of-two grid, so these are the only two
+        useful settings. sHarko raises the grid further on its own if the data reach an index high
+        enough that 128 would alias one reflection onto another; the grid actually used is shown
+        below.</span></span>
+</label>
+
+
+
             <div id="resolution-readout" class="readout" style="margin-bottom:12px">Grid: 64&sup3; (not yet calculated)</div>
 
             <label class="field-label" for="sigma-input">Peak width &sigma; (&#8491;):
@@ -539,9 +542,6 @@
         </div>
 
 
-<div style="position: absolute; bottom: 8px; right: 9px; font-size: 0.7rem; color: var(--fg-3);">
-            swarm-Harko, 06 aug 2026
-        </div>
     </div>
 
 </div><!-- /#app-container -->
@@ -549,11 +549,6 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         
-        
-
-
-
-
 
         // --- PERIODIC TABLE & SWARM HELPERS ---
         // r = van der Waals radius (Å), m = standard atomic weight (g/mol, for density calc)
@@ -929,7 +924,7 @@
         updateUIStates();
         updateAllTables();
 
-        // ResizeObserver is the robust fix for canvas sizing: rather than
+ // ResizeObserver is the robust fix for canvas sizing: rather than
         // relying on resize() being called at exactly the right moments
         // (page load, tab switch, window resize), it fires whenever the
         // actual measured size of the canvas's parent changes for ANY
@@ -940,6 +935,38 @@
         if (window.ResizeObserver) {
             const mg = document.getElementById('map-grid');
             if (mg) new ResizeObserver(() => resizeCanvas()).observe(mg);
+        }
+
+        // --- DRAG HANDLE RESIZING ---
+        const dragHandle = document.getElementById('drag-handle');
+        const controlsPanel = document.getElementById('controls-panel');
+
+        if (dragHandle && controlsPanel) {
+            let isDragging = false;
+
+            dragHandle.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const containerLeft = controlsPanel.parentElement ? controlsPanel.parentElement.getBoundingClientRect().left : 0;
+                const newWidth = Math.max(260, Math.min(e.clientX - containerLeft, window.innerWidth - 320));
+                controlsPanel.style.width = `${newWidth}px`;
+                controlsPanel.style.flex = `0 0 ${newWidth}px`;
+                resizeCanvas();
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                    resizeCanvas();
+                }
+            });
         }
 
 
@@ -1408,12 +1435,17 @@ leftTabButtons.forEach(btn => {
             stopSwarmBtn.textContent = "Stopping...";
         });
 
-        runSwarmBtn.addEventListener('click', async () => {
-            if (swarmAtoms.length === 0) {
-                statusMessage.textContent = "Add atoms to the Asymmetric Unit first.";
-                statusMessage.classList.remove('is-success'); statusMessage.classList.add('is-error');
-                return;
-            }
+runSwarmBtn.addEventListener('click', async () => {
+    if (tempFactorFit) tempFactorFit.checked = false;
+    setFitNote('');
+
+    if (swarmAtoms.length === 0) {
+        statusMessage.textContent = "Add atoms to the Asymmetric Unit first.";
+        statusMessage.classList.remove('is-success'); statusMessage.classList.add('is-error');
+        return;
+    }
+
+
             if (!navigator.gpu) {
                 statusMessage.textContent = "WebGPU is not supported by this browser/device.";
                 statusMessage.classList.remove('is-success'); statusMessage.classList.add('is-error');
@@ -4384,27 +4416,30 @@ function exportGRD() {
          * Returns the fitted B, or null if nothing was fitted, so the caller
          * can quote it in the status line.
          */
-        function applyTemperatureFactorFit() {
-            try {
-                const B = fitTemperatureFactor();
-                if (B === null) { setFitNote('nothing to fit against'); return null; }
-                state.tempFactorB = B;
-                // Drive the slider, not just the state, or the control on the
-                // Map panel would disagree with the map it is supposed to
-                // describe.
-                tempFactorInput.value = B;
-                updateTempFactorValue();
-                refreshCalculatedMap();
-                updateTempFactorNote('fitted');
-                setFitNote(`B = ${B.toFixed(2)} \u00c5\u00b2`);
-                return B;
-            } catch (e) {
-                console.error('B fit failed:', e);
-                updateTempFactorNote('fit failed');
-                setFitNote('fit failed');
-                return null;
-            }
-        }
+function applyTemperatureFactorFit() {
+    setBusy(true);
+    try {
+        const B = fitTemperatureFactor();
+        if (B === null) { setFitNote('nothing to fit against'); return null; }
+        state.tempFactorB = B;
+        tempFactorInput.value = B;
+        updateTempFactorValue();
+        refreshCalculatedMap();
+        updateTempFactorNote('fitted');
+        setFitNote(`B = ${B.toFixed(2)} \u00c5\u00b2`);
+        return B;
+    } catch (e) {
+        console.error('B fit failed:', e);
+        updateTempFactorNote('fit failed');
+        setFitNote('fit failed');
+        return null;
+    } finally {
+        setBusy(false);
+    }
+}
+
+
+
 
         /** Small readout under the Fit B toggle on the results page. */
         function setFitNote(msg) {
