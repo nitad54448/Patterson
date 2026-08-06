@@ -98,10 +98,10 @@ function solveCoordinate(solverString, peak) {
  * (a power of two large enough to avoid aliasing the highest-order
  * reflection), which is not necessarily the resolution that was requested.
  */
-function calculatePattersonMap(crystalData, spaceGroups, mapResolution) {
+    function calculatePattersonMap(crystalData, spaceGroups, mapResolution, lorchStrength) {
     try {
         const { cell, reflections, spaceGroup } = crystalData;
-        if (!reflections || reflections.length === 0) { throw new Error("No reflection data."); }
+    if (!reflections || reflections.length === 0) { throw new Error("No reflection data."); }
         if (!cell || !cell.a || !cell.b || !cell.c || isNaN(cell.a) || isNaN(cell.b) || isNaN(cell.c)) { throw new Error("Invalid cell data."); }
 
         // Expand unique reflections to the full sphere. Throws (rather than
@@ -139,8 +139,7 @@ function calculatePattersonMap(crystalData, spaceGroups, mapResolution) {
         // factor on the map, but the swarm's anti-bump penalty is scaled by
         // the map's own value range, so getting it wrong desynchronises
         // fitness from penalty.
-        const result = sharkoPattersonFFT(centrosymmetricReflections, cell, mapResolution);
-
+const result = sharkoPattersonFFT(centrosymmetricReflections, cell, mapResolution, lorchStrength);
         // Grid-size changes and dropped reflections are surfaced through the
         // same channel as the symmetry warnings so they cannot pass silently.
         if (result.warnings.length && lastExpansionSymmetry) {
@@ -370,7 +369,70 @@ function combineSites(harkerAnalysisResults, harkerTolerance) {
  * necessarily the one the user requested - every index computed below depends
  * on getting that right.
  */
-function runAnalysisSteps(pattersonMap3D, crystalData, spaceGroups, mapResolution, harkerTolerance) {
+
+/**
+ * Symmetry Minimum Function (SMF)
+ * Evaluates the minimum of Patterson Harker vectors for every voxel.
+ * This produces a map in the ABSOLUTE crystallographic frame,
+ * avoiding the arbitrary origin-shift of a general Buerger superposition.
+ */
+function computeSymmetryMinimumFunction(map, res, symOps) {
+    const smfMap = new Float32Array(map.length);
+    
+    // Filter out the identity operator
+    const activeOps = symOps.filter(op => {
+        const isId = Math.abs(op.r[0]-1) < 1e-4 && Math.abs(op.r[4]-1) < 1e-4 && Math.abs(op.r[8]-1) < 1e-4 &&
+                     Math.abs(op.r[1]) < 1e-4 && Math.abs(op.r[2]) < 1e-4 && Math.abs(op.r[3]) < 1e-4 && 
+                     Math.abs(op.r[5]) < 1e-4 && Math.abs(op.r[6]) < 1e-4 && Math.abs(op.r[7]) < 1e-4 &&
+                     Math.abs(op.t[0]) < 1e-4 && Math.abs(op.t[1]) < 1e-4 && Math.abs(op.t[2]) < 1e-4;
+        return !isId;
+    });
+
+    // Fallback if P1 or no operators exist
+    if (activeOps.length === 0) return null; 
+
+    for (let w = 0; w < res; w++) {
+        for (let v = 0; v < res; v++) {
+            for (let u = 0; u < res; u++) {
+                const x = u / res;
+                const y = v / res;
+                const z = w / res;
+                let minVal = Infinity;
+                
+                for (let i = 0; i < activeOps.length; i++) {
+                    const op = activeOps[i];
+                    const sx = x * op.r[0] + y * op.r[1] + z * op.r[2] + op.t[0];
+                    const sy = x * op.r[3] + y * op.r[4] + z * op.r[5] + op.t[1];
+                    const sz = x * op.r[6] + y * op.r[7] + z * op.r[8] + op.t[2];
+                    
+                    const dx = x - sx;
+                    const dy = y - sy;
+                    const dz = z - sz;
+                    
+                    // Wrap securely to [0, res - 1]
+                    const iu = Math.round((((dx % 1) + 1) % 1) * res) % res;
+                    const iv = Math.round((((dy % 1) + 1) % 1) * res) % res;
+                    const iw = Math.round((((dz % 1) + 1) % 1) * res) % res;
+                    
+                    const val = map[iw * res * res + iv * res + iu];
+                    if (val < minVal) minVal = val;
+                }
+                smfMap[w * res * res + v * res + u] = minVal;
+            }
+        }
+    }
+    return smfMap;
+}
+
+
+/**
+ * Steps 2-4 of the pipeline: peak-finding, Harker analysis, site combination.
+ *
+ * mapResolution here is the grid the FFT actually produced, which is not
+ * necessarily the one the user requested - every index computed below depends
+ * on getting that right.
+ */
+function runAnalysisSteps(pattersonMap3D, crystalData, spaceGroups, mapResolution, harkerTolerance, dMin) {
     // Fallback for the case where the symmetry was resolved elsewhere and
     // calculatePattersonMap never ran in this worker.
     if (!lastExpansionSymmetry && crystalData?.spaceGroup) {
@@ -400,20 +462,47 @@ function runAnalysisSteps(pattersonMap3D, crystalData, spaceGroups, mapResolutio
 
     postMessage({ type: 'status', payload: 'Computing superposition map...' });
     let consolidatedSites = [];
-    let superMap = null; // Initialized here so it is always in scope
+    let superMap = null; 
+
+    // 1. Try Symmetry Minimum Function (SMF) first to get ABSOLUTE coordinates.
+    // Buerger superposition yields a relative structure with the origin on the shifted atom.
+    let setting = crystalData?.spaceGroup ? findSpaceGroupSetting(spaceGroups, crystalData.spaceGroup.number, crystalData.spaceGroup.name) : null;
+    let symOps = setting && setting.sym_ops ? setting.sym_ops : null;
     
-    // Auto-run Buerger Superposition on the strongest non-origin vector
-    if (foundPeaks.length > 0) {
-        const topVector = foundPeaks[0];
-        superMap = computeSuperposition(pattersonMap3D, mapResolution, topVector.u, topVector.v, topVector.w);
-        
-        // Find peaks in the superposition map to propose as full sites
-        const superPeaks = findPeaks(superMap, mapResolution, crystalData?.cell);
-        consolidatedSites = superPeaks.map((p) => ({
-            x: p.u, y: p.v, z: p.w, count: 'Super'
-        }));
+    if (symOps && symOps.length > 1) {
+        console.log(`[Worker] Computing Symmetry Minimum Function (SMF) for absolute coordinates...`);
+        superMap = computeSymmetryMinimumFunction(pattersonMap3D, mapResolution, symOps);
     }
 
+    // 2. If P1 or no symOps available, fall back to standard Buerger Superposition
+    if (!superMap && foundPeaks.length > 0) {
+        const orth = crystalData?.cell ? sharkoOrthMatrix(crystalData.cell) : null;
+        const originExclusion = Math.max(ORIGIN_MASK_ANGSTROM,
+                                         (Number.isFinite(dMin) && dMin > 0) ? dMin : 0);
+
+        let shiftVector = null;
+        for (const p of foundPeaks) {
+            if (!orth) { shiftVector = p; break; }
+            const d = sharkoFracToCartLength(p.u, p.v, p.w, orth);
+            if (d >= originExclusion) { shiftVector = p; break; }
+        }
+        if (!shiftVector) shiftVector = foundPeaks[0];
+
+        console.log(`[Worker] Superposition shift = (${shiftVector.u.toFixed(3)}, ${shiftVector.v.toFixed(3)}, ` +
+                    `${shiftVector.w.toFixed(3)}), |shift| ${orth ? sharkoFracToCartLength(shiftVector.u, shiftVector.v, shiftVector.w, orth).toFixed(2) : '?'} A.`);
+
+        superMap = computeSuperposition(pattersonMap3D, mapResolution, shiftVector.u, shiftVector.v, shiftVector.w);
+    }
+
+    // 3. Extract the peaks from the resulting map
+    if (superMap) {
+        const superPeaks = findPeaks(superMap, mapResolution, null);
+        consolidatedSites = superPeaks.map((p) => ({
+            x: p.u, y: p.v, z: p.w, 
+            count: symOps && symOps.length > 1 ? 'SMF' : 'Super',
+            height: p.height, value: p.value
+        }));
+    }
  
     let finalMessage = "Done.";
     if (consolidatedSites.length > 0) { finalMessage = `Done. Found ${consolidatedSites.length} superposition site(s).`; }
@@ -422,23 +511,21 @@ function runAnalysisSteps(pattersonMap3D, crystalData, spaceGroups, mapResolutio
     return { foundPeaks, harkerAnalysisResults, consolidatedSites, finalMessage, superMap };
 }
 
+
 self.onmessage = (e) => {
     const { type, payload } = e.data;
     lastExpansionSymmetry = null;
     
-    if (type === 'CALCULATE') {
+        if (type === 'CALCULATE') {
         try {
-            const { crystalData, spaceGroups, mapResolution, harkerTolerance } = payload;
+            const { crystalData, spaceGroups, mapResolution, harkerTolerance, lorchStrength } = payload;
 
-            // Step 1: Calculate the map by FFT. Fast enough on this single
-            // worker thread that the old main-thread WebGPU path (which ran
-            // the same O(res^3 * reflections) summation the CPU used to, just
-            // spread over more cores) has been removed entirely.
+            // Step 1: Calculate the map by FFT.
             postMessage({ type: 'status', payload: `Transforming ${mapResolution}^3 map...` });
             const t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
             const { map: pattersonMap3D, res: actualRes, dMin, sigma } =
-                calculatePattersonMap(crystalData, spaceGroups, mapResolution);
-            const t1 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+                calculatePattersonMap(crystalData, spaceGroups, mapResolution, lorchStrength || 0);
+                const t1 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
             console.log(`[Worker] ${actualRes}^3 Patterson map by FFT in ${Math.round(t1 - t0)} ms ` +
                         `(dMin ${isFinite(dMin) ? dMin.toFixed(2) : '?'} A, peak sigma ${sigma.toFixed(2)} A).`);
 
@@ -446,7 +533,7 @@ self.onmessage = (e) => {
             // not the one that was requested.
 
             const { foundPeaks, harkerAnalysisResults, consolidatedSites, finalMessage, superMap } =
-                runAnalysisSteps(pattersonMap3D, crystalData, spaceGroups, actualRes, harkerTolerance);
+                runAnalysisSteps(pattersonMap3D, crystalData, spaceGroups, actualRes, harkerTolerance, dMin);
 
             const transferList = [pattersonMap3D.buffer];
             if (superMap) transferList.push(superMap.buffer);

@@ -65,27 +65,34 @@
 
     <div id="panel-scroll">
 
-    <!-- ---------- MAP CONTROLS ---------- -->
+        <!-- ---------- MAP CONTROLS ---------- -->
     <div id="map-controls-tab" class="left-tab-content active">
-
         <div class="control-group">
             <label class="control-label">Crystal &amp; Refinement Data</label>
             <div id="crystal-info-box" class="info-box">Upload a file to see data.</div>
         </div>
-
+        
         <div class="control-group">
             <label class="control-label">Intensity Correction</label>
             <label class="check-row">
                 <input type="checkbox" id="lp-correction-toggle" class="check" checked>
-                <span>Divide out Lorentz&ndash;polarisation</span>
+                <span>Divide out Lorentz-polarisation</span>
             </label>
             <p class="hint" style="margin:5px 0 0 22px">Used only when the file supplies neither |Fo| nor an Lp column
-               and sHarko has to compute Lp itself.</p>
-            <div id="lp-status" class="readout" style="margin-top:6px"></div>
+           and sHarko has to compute Lp itself.</p>
+            <div id="lp-status" class="readout" style="margin-top:6px; margin-bottom:0px;"></div>
         </div>
 
         <div class="control-group">
             <label class="control-label">Patterson Map Calculation</label>
+
+            <label class="field-label" for="lorch-slider">Lorch filter strength:
+                <span id="lorch-value" class="mono">0.00</span>
+                <span class="tooltip"><span class="help-dot">?</span>
+                    <span class="tooltiptext">Suppresses series termination ripples in the Patterson map. 0 is off, 1 is a full Lorch modification. Since this broadens the peaks, use just enough to tame the ripples.</span></span>
+            </label>
+            <input type="range" id="lorch-slider" min="0" max="1" value="0" step="0.05" disabled>
+            <div style="margin-bottom:12px"></div>
 
             <div class="row-between" style="margin-bottom:5px">
                 <span class="field-label" style="margin:0">High resolution grid
@@ -130,9 +137,14 @@
             <input type="range" id="temp-factor-input" min="0" max="3" value="0" step="0.05" disabled>
             <div id="temp-factor-note" class="readout" style="margin-bottom:12px"></div>
 
-            <label class="field-label" for="tolerance-slider">Combination tolerance:
+            <!-- Combination tolerance retired: consolidated peaks now come
+                 solely from the superposition map (a single, data-driven
+                 source), so a Harker-clustering tolerance no longer applies.
+                 The control is kept in the DOM (hidden) so existing references
+                 stay valid, but it drives nothing. -->
+            <label class="field-label" for="tolerance-slider" style="display:none">Combination tolerance:
                 <span id="tolerance-value" class="mono">0.030</span></label>
-            <input type="range" id="tolerance-slider" min="0.01" max="0.10" value="0.03" step="0.005" disabled>
+            <input type="range" id="tolerance-slider" min="0.01" max="0.10" value="0.03" step="0.005" disabled style="display:none">
         </div>
     </div>
 
@@ -181,14 +193,38 @@
             
             <input type="range" id="swarm-restarts" min="1" max="20" value="4" step="1">
 
-            <label class="field-label" for="swarm-w" style="margin-top:9px">Inertia (w): <span id="swarm-w-value" class="mono">0.50</span></label>
+            <label class="field-label" for="swarm-w" style="margin-top:9px">Inertia (w): <span id="swarm-w-value" class="mono">0.50</span>
+                <span class="tooltip"><span class="help-dot">?</span>
+                    <span class="tooltiptext">Maintains the particle's current momentum. Higher values help search the whole cell (global search); lower values help it converge (local search).</span></span>
+            </label>
             <input type="range" id="swarm-w" min="0.1" max="1.5" value="0.5" step="0.05">
             
-            <label class="field-label" for="swarm-c1" style="margin-top:9px">Cognitive (c1): <span id="swarm-c1-value" class="mono">1.50</span></label>
+            <label class="field-label" for="swarm-c1" style="margin-top:9px">Cognitive (c1): <span id="swarm-c1-value" class="mono">1.50</span>
+                <span class="tooltip"><span class="help-dot">?</span>
+                    <span class="tooltiptext">Controls how strongly a particle is pulled back toward its own personal best position.</span></span>
+            </label>
             <input type="range" id="swarm-c1" min="0.1" max="3.0" value="1.5" step="0.05">
             
-            <label class="field-label" for="swarm-c2" style="margin-top:9px">Social (c2): <span id="swarm-c2-value" class="mono">1.50</span></label>
+            <label class="field-label" for="swarm-c2" style="margin-top:9px">Social (c2): <span id="swarm-c2-value" class="mono">1.50</span>
+                <span class="tooltip"><span class="help-dot">?</span>
+                    <span class="tooltiptext">Controls how strongly a particle is pulled toward the global best position found by the entire swarm.</span></span>
+            </label>
             <input type="range" id="swarm-c2" min="0.1" max="3.0" value="1.5" step="0.05">
+
+            <label class="check-row" style="margin-top:12px">
+                <input type="checkbox" id="seed-heavy-toggle" class="check">
+                <span>Seed heaviest atom from Harker sites</span>
+                <span class="tooltip"><span class="help-dot">?</span>
+                    <span class="tooltiptext">Instead of starting every atom at a random position, the
+                    heaviest atom in the asymmetric unit (highest Z) is placed on one of the consolidated
+                    Harker positions and kept there, free to refine only within one peak width &sigma;. The
+                    remaining atoms still start at random and search freely.<br><br>The heavy atom dominates
+                    the Patterson, so its position is what the Harker sections determine most reliably;
+                    pinning it collapses the hardest part of the search. Needs consolidated sites (run the
+                    peak analysis first). If the Harker positions are wrong the structure cannot be solved
+                    from this data anyway, so nothing is lost by trusting them.</span></span>
+            </label>
+            <div id="seed-heavy-note" class="readout" style="margin:5px 0 0 22px"></div>
 
             <div class="row" style="margin:12px 0 10px">
                 <button id="run-swarm-btn" class="btn btn-primary" style="flex:1 1 auto">Initialize &amp; Run Swarm</button>
@@ -285,7 +321,7 @@
                             </div>
                         </div>
                         <div class="map-pane" data-mode="super">
-                            <div class="map-pane-title">Superposition</div>
+                            <div class="map-pane-title">SMF</div>
                             <div class="canvas-wrapper map-pane-wrapper" data-mode="super">
                                 <canvas class="patterson-canvas" data-mode="super"></canvas>
                             </div>
@@ -375,9 +411,13 @@
                     <div class="col-sub">agreed across sections</div>
                     <div class="table-container">
                         <table id="consolidated-sites-table" class="styled-table">
-                            <thead><tr><th>#</th><th>x</th><th>y</th><th>z</th><th>n</th></tr></thead>
+                            <thead><tr><th>#</th><th>x</th><th>y</th><th>z</th></tr></thead>
                             <tbody id="consolidated-sites-table-body"></tbody>
                         </table>
+                    </div>
+                    <div class="pane-actions" style="margin-top:10px; display:flex; justify-content:flex-end;">
+                        <button id="export-csv-btn" class="btn" disabled
+                                title="Save the consolidated SMF peaks as a CSV file">Save CSV</button>
                     </div>
                 </div>
             </div>
@@ -592,6 +632,8 @@
         const swarmDensityInfo = document.getElementById('swarm-density-info');
         const lpToggle = document.getElementById('lp-correction-toggle');
         const lpStatus = document.getElementById('lp-status');
+        const lorchSlider = document.getElementById('lorch-slider');
+        const lorchValue = document.getElementById('lorch-value');
         const exportGrdBtn = document.getElementById('export-grd-btn');
         const exportPeaksCsvBtn = document.getElementById('export-peaks-csv-btn');
         const minContactInput = document.getElementById('min-contact-input');
@@ -608,6 +650,7 @@
         const revertStructureBtn = document.getElementById('revert-structure-btn');
         const harkerSiteCount = document.getElementById('harker-site-count');
         const exportCifBtn = document.getElementById('export-cif-btn');
+        const exportCsvBtn = document.getElementById('export-csv-btn');
         const themeToggle = document.getElementById('theme-toggle');
 
         // Central helper for the "busy" state: keeps the cursor and the
@@ -621,6 +664,7 @@
 
         // --- STATE (Main Thread) ---
         let state = {
+            lorchStrength: 0,
             crystalData: null, spaceGroups: null, pattersonMap3D: null, fileName: null,
             // 64 by default. The transform needs a power of two, so the only
             // meaningful alternative is 128 - hence a switch rather than a
@@ -1097,7 +1141,9 @@ function nearestSymmetryImage(gBest, pos, off, nAtoms, symOps, orth, out) {
             const isBusy = document.body.style.cursor === 'wait';
 
             setCheckDisabled(highResToggle, !hasCrystalData || isBusy);
+            if (lorchSlider) lorchSlider.disabled = !hasCrystalData || isBusy;
             sigmaInput.disabled = !hasMap || isBusy;
+
             // The B slider stays usable with Fit B on: moving it is a perfectly
             // reasonable way to inspect the residual by hand, and the next fit
             // will simply overwrite whatever was set.
@@ -1107,7 +1153,8 @@ function nearestSymmetryImage(gBest, pos, off, nAtoms, symOps, orth, out) {
             // and the fit then happens when the swarm finishes.
             setCheckDisabled(tempFactorFit, !hasMap || isBusy);
 
-            exportCifBtn.disabled = !hasCrystalData || isBusy || !((state.swarmSites || []).length || state.consolidatedSites.length);
+            exportCifBtn.disabled = !hasCrystalData || isBusy || !(state.swarmSites || []).length;
+            if (exportCsvBtn) exportCsvBtn.disabled = isBusy || !(state.consolidatedSites || []).length;
 
             axisSelect.disabled = !hasMap || isBusy;
             sectionSlider.disabled = !hasMap || isBusy;
@@ -1223,6 +1270,32 @@ leftTabButtons.forEach(btn => {
         const swarmC2Value = document.getElementById('swarm-c2-value');
         swarmC2Slider.addEventListener('input', () => swarmC2Value.textContent = parseFloat(swarmC2Slider.value).toFixed(2));
 
+        const seedHeavyToggle = document.getElementById('seed-heavy-toggle');
+        const seedHeavyNote = document.getElementById('seed-heavy-note');
+
+        /**
+         * Keeps the note under the seeding checkbox honest about whether it can
+         * actually do anything: it needs consolidated Harker sites AND at least
+         * one atom in the ASU. Called when the toggle changes and whenever the
+         * consolidated sites are updated.
+         */
+        function updateSeedHeavyNote() {
+            if (!seedHeavyNote) return;
+            if (!seedHeavyToggle.checked) { seedHeavyNote.textContent = ''; return; }
+            const nSites = (state.consolidatedSites || []).length;
+            if (nSites === 0) {
+                seedHeavyNote.textContent = 'No consolidated Harker sites yet - run the peak analysis first, or this falls back to a random start.';
+                return;
+            }
+            // Name the heaviest element if we can, so the user can sanity-check
+            // that the atom being pinned is the one they expect.
+            let heaviest = null;
+            (swarmAtoms || []).forEach(a => { if (!heaviest || a.z > heaviest.z) heaviest = a; });
+            const el = heaviest ? (heaviest.element || `Z=${heaviest.z}`) : 'heaviest atom';
+            seedHeavyNote.textContent = `${el} will be pinned to ${nSites} candidate position(s), free to refine within one \u03c3.`;
+        }
+        seedHeavyToggle.addEventListener('change', updateSeedHeavyNote);
+
         function logSwarm(msg, isError = false) {
             console[isError ? 'error' : 'log'](msg);
             if (!swarmLogEl) return;
@@ -1309,6 +1382,7 @@ leftTabButtons.forEach(btn => {
             swarmWSlider.disabled = true;
             swarmC1Slider.disabled = true;
             swarmC2Slider.disabled = true;
+            seedHeavyToggle.disabled = true;
             swarmLogEl.innerHTML = ''; swarmLogEl.classList.add('hidden');
 
             swarmStopRequested = false;
@@ -1576,19 +1650,93 @@ leftTabButtons.forEach(btn => {
                 const startTime = performance.now();
                 runSwarmBtn.textContent = "Running Swarm...";
 
+                // --- Heavy-atom seeding setup -------------------------------
+                // When armed, the heaviest atom (highest Z) is started on one of
+                // the consolidated Harker positions and leashed to within one
+                // peak width sigma of that seed. Everything here is computed once
+                // for the whole run; the per-restart init and per-generation
+                // update below consult it. Falls back to the old random start if
+                // there are no consolidated sites.
+                const seedCandidates = (seedHeavyToggle.checked ? (state.consolidatedSites || []) : [])
+                    .filter(s => Number.isFinite(s.x) && Number.isFinite(s.y) && Number.isFinite(s.z));
+                let heavyAtom = -1;                 // atom index whose slot is pinned, or -1
+                let leashFrac = [0, 0, 0];          // sigma leash per axis, in fractional units
+                let heavySeedInfo = '';
+                if (seedCandidates.length > 0 && buffers.totalAtoms > 0) {
+                    // Heaviest = largest Z in the (composition-ordered) zArray.
+                    let zMax = -Infinity;
+                    for (let a = 0; a < buffers.totalAtoms; a++) {
+                        if (buffers.zArray[a] > zMax) { zMax = buffers.zArray[a]; heavyAtom = a; }
+                    }
+                    // Movement allowance: one peak width, in Angstrom, mapped to
+                    // fractional coordinates along each axis via the cell edges.
+                    // A short fallback keeps the leash sane if sigma is unknown.
+                    const sigA = (typeof effectiveSigma === 'function' && Number.isFinite(effectiveSigma()))
+                                 ? effectiveSigma()
+                                 : (Number.isFinite(state.mapSigma) ? state.mapSigma : null);
+                    const cell = state.crystalData.cell;
+                    const sAxis = sigA && sigA > 0 ? sigA : 0.4;   // ~0.4 A default leash
+                    leashFrac = [sAxis / (cell.a || 1), sAxis / (cell.b || 1), sAxis / (cell.c || 1)];
+                    heavySeedInfo = `atom #${heavyAtom + 1} (Z=${zMax}) pinned to ${seedCandidates.length} Harker `
+                                  + `candidate(s), leash \u00b1${sAxis.toFixed(2)} \u00c5`;
+                    logSwarm(`Heavy-atom seeding ON: ${heavySeedInfo}.`);
+                } else if (seedHeavyToggle.checked) {
+                    logSwarm('Heavy-atom seeding requested but no consolidated Harker sites - using random start.', true);
+                }
+                const seedActive = heavyAtom >= 0;
+                // Per-particle chosen seed coordinates (set at each restart), so
+                // the leash in the update loop measures displacement from the
+                // exact seed this particle was given.
+                const heavySeed = new Float32Array(numParticles * 3);
+
+                // Wrap a signed fractional delta into [-0.5, 0.5] so the leash
+                // measures the short way round the cell, matching wrapDelta used
+                // by the PSO update.
+                const wrapHalf = d => { d -= Math.round(d); return d; };
+
                 for (let restart = 0; restart < numRestarts; restart++) {
                     if (swarmStopRequested) break;
 
-                    gpuInfoEl.textContent = `Restart ${restart + 1}/${numRestarts}: new random start.`;
+                    gpuInfoEl.textContent = seedActive
+                        ? `Restart ${restart + 1}/${numRestarts}: heavy atom seeded from Harker.`
+                        : `Restart ${restart + 1}/${numRestarts}: new random start.`;
 
                     // Fresh random initialization for this restart
-      
-
                     for (let i = 0; i < swarmPositions.length; i++) {
                         swarmPositions[i] = Math.random();
                         pBestPositions[i] = swarmPositions[i];
                         swarmVelocities[i] = (Math.random() - 0.5) * 0.1;
                     }
+
+                    // Overwrite the heavy atom's slot with a Harker candidate.
+                    // Candidates are cycled across particles (and offset by the
+                    // restart) so the whole pool is covered rather than every
+                    // particle piling onto the first site. A small jitter within
+                    // the leash spreads particles that share a candidate so they
+                    // don't all start on the identical point.
+                    if (seedActive) {
+                        const base3 = heavyAtom * 3;
+                        for (let i = 0; i < numParticles; i++) {
+                            const cand = seedCandidates[(i + restart) % seedCandidates.length];
+                            const jit = ax => (Math.random() - 0.5) * 2 * leashFrac[ax] * 0.5;
+                            const sx = cand.x + jit(0), sy = cand.y + jit(1), sz = cand.z + jit(2);
+                            // Record the (un-jittered) seed centre for the leash.
+                            heavySeed[i * 3]     = cand.x;
+                            heavySeed[i * 3 + 1] = cand.y;
+                            heavySeed[i * 3 + 2] = cand.z;
+                            const idx = i * coordsPerParticle + base3;
+                            const norm = v => v - Math.floor(v);
+                            swarmPositions[idx]     = norm(sx);
+                            swarmPositions[idx + 1] = norm(sy);
+                            swarmPositions[idx + 2] = norm(sz);
+                            pBestPositions[idx]     = swarmPositions[idx];
+                            pBestPositions[idx + 1] = swarmPositions[idx + 1];
+                            pBestPositions[idx + 2] = swarmPositions[idx + 2];
+                            // A pinned atom shouldn't carry random launch velocity.
+                            swarmVelocities[idx] = swarmVelocities[idx + 1] = swarmVelocities[idx + 2] = 0;
+                        }
+                    }
+
                     pBestFitnesses.fill(-Infinity);
                     let gBestPosition = new Float32Array(coordsPerParticle);
                     let gBestFitness = -Infinity;
@@ -1647,6 +1795,25 @@ leftTabButtons.forEach(btn => {
 
                                 swarmPositions[idx] += swarmVelocities[idx];
                                 swarmPositions[idx] = swarmPositions[idx] - Math.floor(swarmPositions[idx]);
+                            }
+
+                            // Leash the pinned heavy atom: it may refine, but only
+                            // within one sigma of the Harker seed it was given.
+                            // The PSO update above ran normally for its three
+                            // coordinates; here any excursion beyond the leash is
+                            // pulled back to the boundary and its velocity along
+                            // that axis killed so it doesn't keep straining out.
+                            if (seedActive) {
+                                const b = heavyAtom * 3;
+                                for (let ax = 0; ax < 3; ax++) {
+                                    const idx = i * coordsPerParticle + b + ax;
+                                    let d = wrapHalf(swarmPositions[idx] - heavySeed[i * 3 + ax]);
+                                    const L = leashFrac[ax];
+                                    if (d >  L) { d =  L; swarmVelocities[idx] = 0; }
+                                    else if (d < -L) { d = -L; swarmVelocities[idx] = 0; }
+                                    let p = heavySeed[i * 3 + ax] + d;
+                                    swarmPositions[idx] = p - Math.floor(p);
+                                }
                             }
                         }
                         readBuffer.unmap();
@@ -1770,6 +1937,7 @@ leftTabButtons.forEach(btn => {
                 swarmWSlider.disabled = false;
                 swarmC1Slider.disabled = false;
                 swarmC2Slider.disabled = false;
+                seedHeavyToggle.disabled = false;
                 // Everything else that depends on there now being a model -
                 // the B fit checkbox above all - is gated in updateUIStates().
                 // Re-enabling only the swarm's own controls here left it
@@ -2623,14 +2791,14 @@ leftTabButtons.forEach(btn => {
             } catch (e) { console.error("Err sites table:", e); }
             try {
                 consolidatedSitesTableBody.innerHTML = state.consolidatedSites.length === 0
-                    ? '<tr><td colspan="5" class="table-empty">No sites combined.</td></tr>'
+                    ? '<tr><td colspan="4" class="table-empty">No consolidated peaks.</td></tr>'
                     : state.consolidatedSites.map((p, i) =>
                         `<tr><td>${i + 1}</td><td class="num">${p.x.toFixed(4)}</td>` +
-                        `<td class="num">${p.y.toFixed(4)}</td><td class="num">${p.z.toFixed(4)}</td>` +
-                        `<td class="num">${p.count ?? ''}</td></tr>`).join('');
+                        `<td class="num">${p.y.toFixed(4)}</td><td class="num">${p.z.toFixed(4)}</td></tr>`).join('');
                 consolidatedPeakCount.textContent = state.consolidatedSites.length
                     ? `${state.consolidatedSites.length} sites` : '';
             } catch (e) { console.error("Err combined table:", e); }
+            try { if (typeof updateSeedHeavyNote === 'function') updateSeedHeavyNote(); } catch (e) {}
         }
 
         function recombineSitesAndUpdateUI() {
@@ -3132,11 +3300,17 @@ leftTabButtons.forEach(btn => {
                 }
             }
 
-            if (!isFinite(shortest)) { contactReport.textContent = ''; return; }
-            const rule = `${Math.max(ABSOLUTE_MIN_CONTACT, fixed).toFixed(2)} A`;
-            contactReport.innerHTML = violations === 0
-                ? `No contacts below ${rule}. Shortest is <strong>${shortest.toFixed(2)} A</strong>.`
-                : `<strong>${violations} contact(s)</strong> below ${rule}; shortest ${shortest.toFixed(2)} A.`;
+if (!isFinite(shortest)) { contactReport.textContent = ''; return; }
+            const cut = Math.max(ABSOLUTE_MIN_CONTACT, fixed);
+            const rule = `${cut.toFixed(2)} A`;
+            
+            if (cut === 0) {
+                contactReport.innerHTML = `Shortest contact is <strong>${shortest.toFixed(2)} A</strong>.`;
+            } else {
+                contactReport.innerHTML = violations === 0
+                    ? `No contacts below ${rule}. Shortest is <strong>${shortest.toFixed(2)} A</strong>.`
+                    : `<strong>${violations} contact(s)</strong> below ${rule}; shortest ${shortest.toFixed(2)} A.`;
+            }
             contactReport.style.color = violations === 0 ? 'var(--success)' : 'var(--warning)';
         }
 
@@ -3175,9 +3349,9 @@ leftTabButtons.forEach(btn => {
          * map type appended to the filename. Panes with no data yet (e.g. the
          * calculated / difference maps before a swarm has run) are skipped.
          */
-        function exportGRD() {
+function exportGRD() {
             try {
-                const labels = { obs: 'observed', calc: 'calculated', diff: 'difference', super: 'superposition' };
+                const labels = { obs: 'observed', calc: 'calculated', diff: 'difference', super: 'SMF' };
                 let saved = 0;
                 const skipped = [];
                 MAP_MODES.forEach(mode => {
@@ -3349,17 +3523,11 @@ leftTabButtons.forEach(btn => {
                            `${a.x.toFixed(5).padStart(9)} ${a.y.toFixed(5).padStart(9)} ${a.z.toFixed(5).padStart(9)} ` +
                            `1.000 ${Number.isFinite(a.mult) ? a.mult : '?'}`);
                 });
-            } else if (state.consolidatedSites.length) {
-                // No element assignment exists for Harker sites, so they are
-                // written as unknown scatterers rather than invented as a
-                // specific element.
-                state.consolidatedSites.forEach((p, i) => {
-                    L.push(`Q${i + 1}`.padEnd(8) + ` ?    ` +
-                           `${p.x.toFixed(5).padStart(9)} ${p.y.toFixed(5).padStart(9)} ${p.z.toFixed(5).padStart(9)} ` +
-                           `1.000 ?`);
-                });
             } else {
-                throw new Error('No sites to write. Run the swarm or consolidate Harker peaks first.');
+                // The CIF records the SWARM SOLUTION only. Peak tables are
+                // exported separately as CSV (Peaks tab), so with no solution
+                // there is nothing to write here.
+                throw new Error('No swarm solution to write. Run the swarm first (peaks export as CSV in the Peaks tab).');
             }
             L.push('');
             return L.join('\n');
@@ -3387,6 +3555,47 @@ leftTabButtons.forEach(btn => {
         }
 
         exportCifBtn?.addEventListener('click', exportCIF);
+
+        /**
+         * Save the consolidated superposition peaks as CSV. This is the peak
+         * export (the CIF, by contrast, records the swarm solution). The peaks
+         * are the superposition-map maxima, ranked by strength, so the strength
+         * (height) is written alongside the coordinates when available.
+         */
+        function buildPeaksCSV() {
+            const cs = state.consolidatedSites || [];
+            if (!cs.length) throw new Error('No consolidated peaks to save. Run the analysis first.');
+            const rows = ['index,x,y,z,SMF_height'];
+
+            cs.forEach((p, i) => {
+                const h = Number.isFinite(p.height) ? p.height.toFixed(5)
+                        : (Number.isFinite(p.value) ? p.value : '');
+                rows.push([i + 1, p.x.toFixed(6), p.y.toFixed(6), p.z.toFixed(6), h].join(','));
+            });
+            return rows.join('\n') + '\n';
+        }
+
+        function exportPeaksCSV() {
+            try {
+                const text = buildPeaksCSV();
+                const blob = new Blob([text], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const base = (state.fileName || 'sharko').replace(/\.[^.]*$/, '').replace(/[^A-Za-z0-9_-]/g, '_');
+                a.href = url; a.download = `${base}_peaks.csv`;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+                statusMessage.textContent = `Peaks CSV saved (${a.download}).`;
+                statusMessage.classList.remove('is-error', 'is-warn');
+                statusMessage.classList.add('is-success');
+            } catch (e) {
+                console.error('CSV export failed:', e);
+                statusMessage.textContent = `CSV export failed: ${e.message}`;
+                statusMessage.classList.remove('is-success', 'is-warn');
+                statusMessage.classList.add('is-error');
+            }
+        }
+        exportCsvBtn?.addEventListener('click', exportPeaksCSV);
 
         /** Peak width actually in force: the manual override, or the value the data imply. */
         /**
@@ -3541,10 +3750,11 @@ leftTabButtons.forEach(btn => {
              axisSelect.value = 'w'; sectionSlider.value = 0.5;
              updateSectionReadout();
 
-             if (isNewFile) {
+            if (isNewFile) {
                 highResToggle.checked = false; state.highRes = false; state.mapResolution = 64;
                 resolutionReadout.innerHTML = 'Grid: 64&sup3; (not yet calculated)';
                 sigmaInput.value = 0; updateSigmaValue();
+                if (lorchSlider) { lorchSlider.value = 0; lorchValue.textContent = '0.00'; state.lorchStrength = 0; }
                 // A B fitted against the previous structure means nothing here,
                 // and it would sit on the slider looking authoritative until
                 // the next fit overwrote it.
@@ -3709,8 +3919,8 @@ leftTabButtons.forEach(btn => {
                 y = doc.autoTable.previous.finalY + lh * 2;
 
                 /* ---- map slices: every populated pane ---- */
-                const ax = state.activeSlicingAxis.toUpperCase();
-                const paneLabels = { obs: 'observed', calc: 'calculated', diff: 'difference', super: 'superposition' };
+        const ax = state.activeSlicingAxis.toUpperCase();
+                const paneLabels = { obs: 'observed', calc: 'calculated', diff: 'difference', super: 'SMF' };
                 heading('Patterson Map Slices');
                 const axLetter = { u: 'a', v: 'b', w: 'c' }[state.activeSlicingAxis] || ax;
                 MAP_MODES.forEach(mode => {
@@ -3857,15 +4067,28 @@ leftTabButtons.forEach(btn => {
              // One path now. The FFT synthesis in the worker is faster than
              // the old GPU summation was, so there is nothing left to fall
              // back from.
+
              pattersonWorker.postMessage({
                 type: 'CALCULATE',
                 payload: {
                     crystalData: state.crystalData,
                     spaceGroups: state.spaceGroups,
                     mapResolution: state.mapResolution,
-                    harkerTolerance: state.harkerTolerance
+                    harkerTolerance: state.harkerTolerance,
+                    lorchStrength: state.lorchStrength
                 }
              });
+        }
+
+        
+        if (lorchSlider) {
+            lorchSlider.addEventListener('input', () => {
+                lorchValue.textContent = parseFloat(lorchSlider.value).toFixed(2);
+            });
+            lorchSlider.addEventListener('change', () => {
+                state.lorchStrength = parseFloat(lorchSlider.value);
+                if (state.crystalData) runMapCalculationAndAnalysis();
+            });
         }
 
 
@@ -4175,10 +4398,13 @@ leftTabButtons.forEach(btn => {
             toleranceValue.textContent = parseFloat(e.target.value).toFixed(3);
         });
 
-        toleranceSlider.addEventListener('change', e => {
-            state.harkerTolerance = parseFloat(e.target.value);
-            recombineSitesAndUpdateUI();
-        });
+        // Retired: the consolidated peak list is now sourced only from the
+        // superposition map (set in the worker's CALCULATE path). The old
+        // 'change' handler re-ran combineSites() with this tolerance and
+        // OVERWROTE the superposition peaks with Harker-clustered ones, which is
+        // why the peak list changed when the slider moved. That overwrite is
+        // gone; the slider is hidden and drives nothing.
+        // toleranceSlider.addEventListener('change', ...) removed intentionally.
 
         // --- HELP POPOVERS ---
 

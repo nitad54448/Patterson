@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>S_Harko — Patterson & Harker Map Analysis Technical Reference</title>
+    <title>S_Harko Help</title>
     
     <link rel="stylesheet" href="style.css">
     
@@ -197,9 +197,10 @@
                     <li class="toc-parent"><a href="#map-calculation" class="toc-parent">4. Patterson Map Synthesis</a>
                         <ul>
                             <li><a href="#map-fft">4.1 FFT Synthesis Engine</a></li>
-                            <li><a href="#map-parameters">4.2 Grid Resolution & Anti-Aliasing</a></li>
-                            <li><a href="#map-smearing">4.3 Model Gaussian Smearing</a></li>
-                            <li><a href="#map-scaling">4.4 Least-Squares Map Scaling</a></li>
+                            <li><a href="#map-lorch">4.2 Lorch Series Termination Filter</a></li>
+                            <li><a href="#map-parameters">4.3 Grid Resolution & Anti-Aliasing</a></li>
+                            <li><a href="#map-smearing">4.4 Model Gaussian Smearing</a></li>
+                            <li><a href="#map-scaling">4.5 Least-Squares Map Scaling</a></li>
                         </ul>
                     </li>
                     <li class="toc-parent"><a href="#peak-analysis" class="toc-parent">5. Peak Finding & Harker Analysis</a>
@@ -207,7 +208,7 @@
                             <li><a href="#peak-finding">5.1 3D Local Maxima Search</a></li>
                             <li><a href="#harker-sections">5.2 Harker Section Deconvolution</a></li>
                             <li><a href="#site-combination">5.3 Multi-Section Site Combination</a></li>
-                            <li><a href="#superposition">5.4 Buerger Minimum Superposition Map</a></li>
+                            <li><a href="#smf-superposition">5.4 Symmetry Minimum Function (SMF) & Buerger Superposition</a></li>
                         </ul>
                     </li>
                     <li class="toc-parent"><a href="#swarm-optimization" class="toc-parent">6. WebGPU Swarm Optimization</a>
@@ -228,41 +229,42 @@
                     </li>
                     <li class="toc-parent"><a href="#workflow" class="toc-parent">8. Step-by-Step Workflows</a>
                         <ul>
-                            <li><a href="#wf-harker">8.1 Deterministic Harker Analysis</a></li>
+                            <li><a href="#wf-harker">8.1 Deterministic Harker & SMF Analysis</a></li>
                             <li><a href="#wf-swarm">8.2 WebGPU Swarm Global Search</a></li>
                             <li><a href="#wf-hybrid">8.3 Combined Hybrid Resolution Workflow</a></li>
                         </ul>
                     </li>
-                    <li><a href="#reference">9. Reference Tables & Specifications</a></li>
-                    <li><a href="#troubleshooting">10. Troubleshooting & FAQ</a></li>
+                    <li><a href="#troubleshooting">9. Troubleshooting & FAQ</a></li>
                 </ul>
             </nav>
         </aside>
 
         <main id="main-content">
             <section id="introduction">
-                <h1>S_Harko: Complete Technical Reference Manual</h1>
+                <h1>S_Harko: Technical Reference</h1>
                 <p class="callout-info">
-                    <strong>Program Name:</strong> S_Harko (derived from <em>Swarm Harker</em>)[cite: 1] &bull; 
-                    <strong>Core Architecture:</strong> Asynchronous FFT Patterson Engine + Buerger Superposition + WebGPU Parallel PSO &bull; 
-                    <strong>Symmetry Database:</strong> 230 Space Groups (cctbx_space_groups_all_settings_v6.json)
+                    <strong>Program Name:</strong> S_Harko (derived from <em>Swarm Harker</em>) <br>
+                    <strong>Core Architecture:</strong> Asynchronous FFT Patterson Engine + Symmetry Minimum Function (SMF) / Buerger Superposition + WebGPU Parallel PSO <br> 
+                    <strong>Symmetry Database:</strong> 230 Space Groups (cctbx_space_groups_all_settings_v6.json)<br>
+                     <strong>Version:</strong> Initial Harko version 12 oct 2025, last updated August 6, 2026.<br>
+
                 </p>
 
                 <h2>1. Theoretical Background & The Phase Problem</h2>
                 <p>
-                    In X-ray crystallographic analyses, experimentally measured diffraction intensities $I(h,k,l)$ are directly proportional to the squared structure factor magnitudes $|F(\mathbf{h})|^2$. However, phase information $\phi(\mathbf{h})$ is inherently lost during measurement. S_Harko bypasses the direct phase requirement by synthesizing the 3D Patterson function, which represents the real-space autocorrelation of crystal electron density[cite: 2]:
+                    In X-ray crystallographic analyses, experimentally measured diffraction intensities $I(h,k,l)$ are directly proportional to the squared structure factor magnitudes $|F(\mathbf{h})|^2$. However, phase information $\phi(\mathbf{h})$ is inherently lost during measurement. S_Harko bypasses the direct phase requirement by synthesizing the 3D Patterson function, which represents the real-space autocorrelation of crystal electron density:
                 </p>
                 <div class="math-display">
                     $$ P(\mathbf{u}) = \frac{1}{V} \sum_{\mathbf{h}} |F_{\mathbf{h}}|^2 e^{2\pi i \mathbf{h}\cdot\mathbf{u}} = \frac{1}{V} \sum_{\mathbf{h}} |F_{\mathbf{h}}|^2 \cos(2\pi \mathbf{h}\cdot\mathbf{u}) $$
                 </div>
-                <p>where $\mathbf{u} = (u,v,w)$ are fractional Patterson coordinates and $V$ represents the real-space unit cell volume[cite: 2].</p>
+                <p>where $\mathbf{u} = (u,v,w)$ are fractional Patterson coordinates and $V$ represents the real-space unit cell volume.</p>
 
                 <h3>Physical Properties of the Patterson Map</h3>
                 <ul>
-                    <li><strong>Interatomic Vector Representation:</strong> Patterson map peaks do not directly correspond to atomic locations $\mathbf{x}_i$. Instead, each peak located at $\mathbf{u}$ represents an interatomic displacement vector $\mathbf{u}_{ij} = \mathbf{x}_i - \mathbf{x}_j$ between atoms $i$ and $j$[cite: 2].</li>
-                    <li><strong>Weighting Factor:</strong> Peak heights scale proportionally with the product of the atomic numbers of the interacting pair ($Z_i Z_j$). As a consequence, heavy atoms generate dominant peaks that stand out clearly against lighter organic matrices[cite: 2].</li>
-                    <li><strong>Origin Peak:</strong> The point at $(0,0,0)$ corresponds to all self-vectors ($\mathbf{x}_i - \mathbf{x}_i = \mathbf{0}$) with total integrated power $\sum Z_k^2$. S_Harko automatically masks a spherical volume around the origin to prevent scalar distortion in peak finding and colour map rendering[cite: 2].</li>
-                    <li><strong>Centrosymmetry:</strong> Regardless of whether the space group is non-centrosymmetric, the Patterson function is strictly centrosymmetric ($P(\mathbf{u}) = P(-\mathbf{u})$)[cite: 2].</li>
+                    <li><strong>Interatomic Vector Representation:</strong> Patterson map peaks do not directly correspond to atomic locations $\mathbf{x}_i$. Instead, each peak located at $\mathbf{u}$ represents an interatomic displacement vector $\mathbf{u}_{ij} = \mathbf{x}_i - \mathbf{x}_j$ between atoms $i$ and $j$.</li>
+                    <li><strong>Weighting Factor:</strong> Peak heights scale proportionally with the product of the atomic numbers of the interacting pair ($Z_i Z_j$). As a consequence, heavy atoms generate dominant peaks that stand out clearly against lighter organic matrices.</li>
+                    <li><strong>Origin Peak:</strong> The point at $(0,0,0)$ corresponds to all self-vectors ($\mathbf{x}_i - \mathbf{x}_i = \mathbf{0}$) with total integrated power $\sum Z_k^2$. S_Harko automatically masks a spherical volume around the origin to prevent scalar distortion in peak finding and colour map rendering.</li>
+                    <li><strong>Centrosymmetry:</strong> Regardless of whether the space group is non-centrosymmetric, the Patterson function is strictly centrosymmetric ($P(\mathbf{u}) = P(-\mathbf{u})$).</li>
                 </ul>
 
                 <h3>Harker Sections</h3>
@@ -300,7 +302,7 @@
                         </tr>
                         <tr>
                             <td><strong>Web Worker Engine</strong></td>
-                            <td>Asynchronous 3D Radix-2 FFT synthesis, peak finding, Buerger minimum superposition map generation, site consolidation.</td>
+                            <td>Asynchronous 3D Radix-2 FFT synthesis, Lorch filtering, peak finding, SMF & Buerger minimum superposition map generation, site consolidation.</td>
                             <td><code>sharko_worker.js</code>, <code>symmetry_utils.js</code></td>
                         </tr>
                         <tr>
@@ -312,22 +314,23 @@
                 </table>
 
                 <h3 id="arch-worker">2.2 Web Worker Pipeline</h3>
-                <p>When data files are uploaded, S_Harko triggers a background worker thread via a single <code>CALCULATE</code> execution message:</p>
+                <p>When data files are uploaded or parameters change, S_Harko triggers a background worker thread via a single <code>CALCULATE</code> execution message:</p>
                 <pre class="algorithm-box">
 STAGE 1: ASYNCHRONOUS FFT PATTERSON SYNTHESIS
   ├─ Expand unique reflections across full Friedel sphere using space group symmetry operators
+  ├─ Apply Lorch modification envelope: I *= (1-s) + s * sinc(π * d* * d_min)
   ├─ Grid determination: N = next_power_of_two( max(requested_grid, 2*h_max + 1) )
   ├─ Populate complex grid array with intensity values I(h,k,l)
   ├─ Execute 3D Radix-2 Cooley-Tukey Inverse FFT
   ├─ Map normalization: P(u,v,w) = Real(FFT) / Volume
   └─ Extract metadata: d_min resolution limit, calculated peak width σ = max(0.26 * d_min, 0.7 * dx)
 
-STAGE 2: 3D LOCAL MAXIMA PEAK DETECTION & SUPERPOSITION
+STAGE 2: PEAK DETECTION, SMF & BUERGER SUPERPOSITION
   ├─ Generate origin mask: exclude all grid points within 1.1 Å radius of (0,0,0)
   ├─ Calculate map statistics (mean, sigma) over non-origin voxels
-  ├─ Find top non-origin vector peak u_top = (u,v,w)
-  ├─ Compute Buerger Minimum Superposition Map: M(u) = min(P(u), P(u - u_top))
-  └─ Extract peaks from the supermap as initial consolidated structural candidate sites
+  ├─ Compute Symmetry Minimum Function (SMF) across all non-identity space group operators
+  ├─ Fallback (if P1): Compute Buerger Minimum Superposition Map M(u) = min(P(u), P(u - u_top))
+  └─ Extract peaks from SMF/Supermap (unmasked) as consolidated absolute candidate sites
                 </pre>
             </section>
 
@@ -335,19 +338,110 @@ STAGE 2: 3D LOCAL MAXIMA PEAK DETECTION & SUPERPOSITION
                 <h2 id="data-file-structure">3. Data Input & Intensity Correction</h2>
                 <h3>3.1 File Formats</h3>
                 <p>
-                    S_Harko reads ASCII data exports generated by powder diffraction profile refinement tools (such as Powder5, FullProf, TOPAS, or GSAS-II).
+                    S_Harko reads ASCII data exports generated by powder diffraction profile refinement tools (such as Powder5, other files need to be tested or the input function in the program can be modified).
                 </p>
                 <h3>3.2 Intensity Classification Hierarchy</h3>
-                <p>
-                    To calculate an accurate Patterson map, S_Harko requires $|F(h,k,l)|^2$ magnitudes[cite: 1]. S_Harko automatically classifies input columns using priority tiers from direct $|F_o|$ values to uncorrected raw areas.
-                </p>
+
+<p>
+    Synthesis of a physically accurate Patterson map requires pure structure factor magnitudes squared, $|F(\mathbf{h})|^2$. However, raw measured powder diffraction peak intensities ($I_{\text{obs}}$ or $I_{hkl}$) carry geometric and instrumental distortions:
+</p>
+<ul>
+    <li>
+        <strong>Lorentz–Polarization Factor ($Lp$):</strong> Instrument geometry and beam polarization artificially inflate measured intensities at low and high scattering angles.
+    </li>
+    <li>
+        <strong>Multiplicity ($m$):</strong> Overlapping symmetry-equivalent reflections in powder diffraction scale the integrated peak area proportionally to the orbit multiplicity.
+    </li>
+</ul>
+<p>
+    If $Lp$ and $m$ are not removed, low-angle reflections artificially dominate the Patterson synthesis, distorting vector peak heights and masking true interatomic vectors.
+</p>
+
+<p>
+    Because profile refinement software exports vary (e.g., Powder 5, FullProf, TOPAS, GSAS-II), S_Harko inspects the uploaded file columns and automatically applies the highest available priority tier:
+</p>
+
+<table class="param-table">
+    <thead>
+        <tr>
+            <th>Priority Tier</th>
+            <th>Detected Columns</th>
+            <th>Intensity Calculation ($|F|^2$)</th>
+            <th>Processing Route & Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>Tier 1 (Highest)</strong></td>
+            <td class="code">|Fo|</td>
+            <td>$|F|^2 = |F_o|^2$</td>
+            <td>
+                Direct $|F_o|$ values supplied by the file. The refinement software has already removed $m$ and $Lp$ at high floating-point precision using refined $2\theta$ positions. No further corrections are applied.
+            </td>
+        </tr>
+        <tr>
+            <td><strong>Tier 2</strong></td>
+            <td class="code">I_hkl, m, Lp</td>
+            <td>$|F|^2 = \frac{I_{hkl}}{m \cdot Lp}$</td>
+            <td>
+                Explicit $m$ and $Lp$ columns present in the table header are used directly to isolate $|F|^2$ per reflection.
+            </td>
+        </tr>
+        <tr>
+            <td><strong>Tier 3</strong></td>
+            <td class="code">I_hkl, 2th</td>
+            <td>$|F|^2 = \frac{I_{hkl}}{Lp(2\theta)}$</td>
+            <td>
+                $Lp(2\theta)$ is calculated by S_Harko using the beam polarisation constant $K$ read from the file header. Multiplicity $m$ is handled during symmetry orbit expansion.
+            </td>
+        </tr>
+        <tr>
+            <td><strong>Tier 4 (Fallback)</strong></td>
+            <td class="code">I_hkl only</td>
+            <td>$|F|^2 = I_{hkl}$</td>
+            <td>
+                Neither $|F_o|$ nor $2\theta$/$Lp$ data are available. Uncorrected raw peak areas are used. Low-angle reflections will dominate the map, and a warning is displayed.
+            </td>
+        </tr>
+    </tbody>
+</table>
             </section>
 
             <section id="map-calculation">
                 <h2 id="map-fft">4. Patterson Map Synthesis</h2>
-                <h3>4.1 FFT Synthesis Engine & Least-Squares Scaling</h3>
+                
+                <h3 id="map-fft">4.1 FFT Synthesis Engine</h3>
                 <p>
-                    S_Harko uses a 3D Radix-2 Fast Fourier Transform to calculate maps ($O(N^3 \log N)$), accelerating calculations by over 300 times compared to direct summations. Trial maps are scaled to observed data using least-squares scaling over non-origin voxels.
+                    S_Harko uses a 3D Radix-2 Fast Fourier Transform to calculate maps ($O(N^3 \log N)$), accelerating calculations by over 300 times compared to direct summations.
+                </p>
+
+                <h3 id="map-lorch">4.2 Lorch Series Termination Filter</h3>
+                <p>
+                    Truncation of the reciprocal space data at resolution limit $d_{\min}$ introduces Fourier series termination ripples (ghost oscillations around heavy atom vectors). S_Harko incorporates a tunable Lorch modification strength slider ($s \in [0, 1]$) applied per-reflection during accumulation:
+                </p>
+                <div class="math-display">
+                    $$ I(\mathbf{h})_{\text{modified}} = I(\mathbf{h}) \cdot \left[ (1 - s) + s \cdot \text{sinc}(\pi \cdot d^* \cdot d_{\min}) \right] $$
+                </div>
+                <p>where $d^* = \frac{1}{d(\mathbf{h})}$ is the reciprocal interplanar distance in $\text{\AA}^{-1}$, $d_{\min}$ is the dataset's minimum $d$-spacing, and $\text{sinc}(x) = \frac{\sin(x)}{x}$ (with $\text{sinc}(0) = 1$).</p>
+                <ul>
+                    <li><strong>$s = 0.00$ (Off):</strong> Preserves original measured intensities without filtering. Peak heights remain maximal, though termination ripples may persist.</li>
+                    <li><strong>$0 < s < 1.00$ (Tunable Blend):</strong> Blends raw intensities with the Lorch envelope, allowing users to dial in just enough ripple suppression without causing excessive peak flattening.</li>
+                    <li><strong>$s = 1.00$ (Full Lorch):</strong> Applies complete Lorch modification, effectively taming truncation ripples at the cost of slight peak broadening.</li>
+                </ul>
+
+                <h3 id="map-parameters">4.3 Grid Resolution & Anti-Aliasing</h3>
+                <p>
+                    The FFT grid automatically expands to a power of two satisfying $N \ge 2 h_{\max} + 1$ to prevent high-index reflections from aliasing onto low-order data.
+                </p>
+
+                <h3 id="map-smearing">4.4 Model Gaussian Smearing</h3>
+                <p>
+                    Model Patterson maps generated from trial atomic coordinates are convoluted with a Gaussian broadening kernel matching the resolution limit $d_{\min}$ and Debye-Waller temperature factor $B$.
+                </p>
+
+                <h3 id="map-scaling">4.5 Least-Squares Map Scaling</h3>
+                <p>
+                    Trial calculated maps are scaled to observed data using least-squares scale fitting over non-origin voxels.
                 </p>
             </section>
 
@@ -366,20 +460,39 @@ STAGE 2: 3D LOCAL MAXIMA PEAK DETECTION & SUPERPOSITION
 
                 <h3 id="site-combination">5.3 Multi-Section Site Combination</h3>
                 <p>
-                    Partial site positions obtained from isolated Harker sections are cross-referenced across planes to form preliminary consolidated sites.
+                    Partial site positions obtained from isolated Harker sections are cross-referenced across planes to form preliminary candidate sites.
                 </p>
 
-                <h3 id="superposition">5.4 Buerger Minimum Superposition Map (Supermap)</h3>
+                <h3 id="smf-superposition">5.4 Symmetry Minimum Function (SMF) & Buerger Superposition</h3>
                 <p>
-                    To overcome the limitations of isolated Harker section analysis, S_Harko implements an automated <strong>Buerger Minimum Superposition Function</strong>. 
-                    Rather than relying solely on individual symmetry planes, the worker extracts the strongest non-origin vector peak $\mathbf{u}_{top} = (u, v, w)$ from the 3D local maxima search and computes a superposition map across the entire unit cell:
+                    Extracting atomic positions directly from a raw Patterson map is complicated by overlapping vectors and floating relative origins. S_Harko implements a dual-mode map reduction architecture: <strong>Symmetry Minimum Function (SMF)</strong> for absolute crystallographic positioning, and <strong>Buerger Minimum Superposition</strong> as a single-shift fallback.
+                </p>
+
+                <h4>A. Symmetry Minimum Function (SMF)</h4>
+                <p>
+                    The SMF queries the Patterson map at vector displacements predicted by <em>all</em> non-identity symmetry operators $\mathbf{S}_i = (\mathbf{R}_i, \mathbf{t}_i)$ of the space group simultaneously. For any trial atomic position $\mathbf{x} = (x,y,z)$, the expected interatomic Harker vector generated by operator $i$ is $\mathbf{u}_i = \mathbf{x} - (\mathbf{R}_i \mathbf{x} + \mathbf{t}_i)$. The SMF value at $\mathbf{x}$ is the minimum Patterson intensity across all active symmetry operations:
                 </p>
                 <div class="math-display">
-                    $$ M(\mathbf{u}) = \min\left( P(\mathbf{u}), \; P(\mathbf{u} - \mathbf{u}_{top}) \right) $$
+                    $$ \text{SMF}(\mathbf{x}) = \min_{i = 1 \dots N_{\text{ops}}} P\Big( \mathbf{x} - (\mathbf{R}_i \mathbf{x} + \mathbf{t}_i) \Big) $$
                 </div>
                 <p>
-                    By taking the minimum value between the original Patterson map $P(\mathbf{u})$ and its shifted copy $P(\mathbf{u} - \mathbf{u}_{top})$, series termination ripples and background noise are heavily suppressed, highlighting true atomic positions. 
-                    Users can directly inspect this map by selecting <strong>Superposition</strong> from the map type dropdown in the 2D Patterson slice visualizer. Peaks extracted from this supermap provide robust starting candidate positions for global optimization.
+                    Because all symmetry operators are bound directly to the unit cell's origin, <strong>the SMF produces peaks directly in the absolute crystallographic frame</strong> (e.g., placing heavy atoms accurately on special positions such as $y=0.75$ in space group <em>Pnma</em>). Taking the multi-way minimum acts as a powerful logical "AND" filter, obliterating background noise and random vector overlaps while preserving genuine atomic sites.
+                </p>
+
+                <h4>B. Buerger Minimum Superposition Function</h4>
+                <p>
+                    In space group $P1$ or when symmetry operators are unavailable, S_Harko falls back to the classical Buerger Minimum Function. The worker selects the strongest non-origin vector peak $\mathbf{u}_{\text{top}}$ clearing the origin exclusion radius ($d_{\min}$ or $1.1\text{ \AA}$) and shifts a copy of the Patterson map:
+                </p>
+                <div class="math-display">
+                    $$ M(\mathbf{u}) = \min\left( P(\mathbf{u}), \; P(\mathbf{u} - \mathbf{u}_{\text{top}}) \right) $$
+                </div>
+                <p>
+                    <em>Note:</em> Buerger superposition fixes the origin relative to the shifted atom (placing that atom at $(0,0,0)$), whereas SMF resolves positions within the true space group frame.
+                </p>
+
+                <h4>C. Unmasked Consolidated Peak Detection</h4>
+                <p>
+                    Unlike the raw Patterson map (where the $(0,0,0)$ origin peak is masked to prevent scalar distortion), peak finding on the resulting SMF or Superposition map is performed <strong>without an origin mask</strong>. Because SMF/Superposition shifts valid atomic sites directly onto grid positions (which may include $(0,0,0)$ or special positions on mirror planes), unmasked peak detection ensures valid structural candidates are never accidentally deleted.
                 </p>
             </section>
 
@@ -397,10 +510,32 @@ STAGE 2: 3D LOCAL MAXIMA PEAK DETECTION & SUPERPOSITION
                     $$ \mathbf{X}_i^{(t+1)} = \text{frac}\left( \mathbf{X}_i^{(t)} + \mathbf{V}_i^{(t+1)} \right) $$
                 </div>
 
-                <h3 id="swarm-fitness">6.2 Vector Fitness & Anti-Bump Penalties</h3>
-                <p>
-                    S_Harko evaluates structural fitness by calculating the atomic-number-weighted average of observed Patterson map intensities at all predicted interatomic vector positions, minus a steric collision penalty.
-                </p>
+                    <h3 id="swarm-fitness">6.2 Vector Fitness & Sigma Normalization</h3>
+<p>
+    S_Harko evaluates trial structural candidate configurations by measuring how strongly the observed Patterson map supports the predicted interatomic vectors.
+</p>
+
+<h4>A. Raw Vector Fitness Calculation</h4>
+<p>
+    For $N$ independent atoms expanded across all space group symmetry operations, the raw fitness $\text{Fitness}_{\text{raw}}$ computes the pair-weight-normalized mean Patterson intensity at all predicted vector positions $\mathbf{u}_{ij} = \mathbf{x}_i - \mathbf{x}_j$, minus steric collision penalties:
+</p>
+<div class="math-display">
+    $$ \text{Fitness}_{\text{raw}} = \frac{1}{\sum_{i < j} 2 Z_i Z_j} \left( \sum_{i < j} 2 Z_i Z_j \cdot P(\mathbf{u}_{ij}) \;-\; \text{Penalty}_{\text{bump}} \right) $$
+</div>
+<p>
+    where $P(\mathbf{u}_{ij})$ is trilinearly interpolated from the observed map. Normalizing by the constant sum of all pair weights ensures the search is not artificially biased toward structures sitting on special positions.
+</p>
+
+<h4>B. Sigma ($\sigma$) Scale Conversion</h4>
+<p>
+    Raw map values depend entirely on the scale of the source file intensities. To provide a standard metric, S_Harko converts the raw fitness into standard deviation units ($\sigma$):
+</p>
+<div class="math-display">
+    $$ \text{Fitness}_{\sigma} = \frac{\text{Fitness}_{\text{raw}}}{\sigma_{\text{map}}} $$
+</div>
+<p>
+    where $\sigma_{\text{map}}$ is the standard deviation of non-origin voxels in the observed map. Quoting the fitness in $\sigma$ places the swarm convergence score on the exact same physical scale used by the 2D color bars, peak table height values, and PDF reports.
+</p>
 
                 <h3 id="swarm-params">6.3 Multi-Restart PSO & Hardware Safety Limits</h3>
                 <p>
@@ -409,7 +544,7 @@ STAGE 2: 3D LOCAL MAXIMA PEAK DETECTION & SUPERPOSITION
 
                 <h3 id="swarm-contact">6.4 Minimum Contact Distance Filter & Zero Floor</h3>
                 <p>
-                    S_Harko calculates pair contact cutoffs using user-defined distances or van der Waals radius sums. To allow independent atoms of the same element to dynamically merge onto special positions, **the absolute hard limit has been removed and replaced with a zero floor ($0.00\text{ \AA}$)**. 
+                    S_Harko calculates pair contact cutoffs using user-defined distances or van der Waals radius sums. To allow independent atoms of the same element to dynamically merge onto special positions, **the absolute hard limit has been set to a zero floor ($0.00\text{ \AA}$)**. 
                     Both the CPU audit and the WGSL shader (`ABSOLUTE_MIN_CONTACT = 0.0`) allow close approaches when evaluating overlapping special positions, preventing artificial collision penalties from blocking structural convergence.
                 </p>
 
@@ -423,7 +558,7 @@ STAGE 2: 3D LOCAL MAXIMA PEAK DETECTION & SUPERPOSITION
                     <li><strong>Cognitive Factor ($c_1$, default: $1.50$):</strong> Dictates the particle's pull toward its own personal best-found position ($\mathbf{P}_{best}$). 
                         <em>Tuning tip:</em> Higher values encourage individual exploration of local neighborhoods.</li>
                     <li><strong>Social Factor ($c_2$, default: $1.50$):</strong> Dictates the particle's pull toward the swarm's global best position ($\mathbf{G}_{best}$). 
-                        <em>Tuning tip:</em> Crank up $c_2$ when working with smoothed or superposition maps to rapidly pull all particles toward the consensus solution.</li>
+                        <em>Tuning tip:</em> Increase $c_2$ when working with smoothed or SMF maps to rapidly pull all particles toward the consensus solution.</li>
                 </ul>
             </section>
 
@@ -431,7 +566,7 @@ STAGE 2: 3D LOCAL MAXIMA PEAK DETECTION & SUPERPOSITION
                 <h2 id="viz-2d">7. Visualisation & Data Export</h2>
                 <h3>7.1 Map Viewer & 3D Structure Viewer</h3>
                 <p>
-                    Includes support for Observed, Calculated, Difference, and <strong>Superposition</strong> maps in the 2D slice visualizer. The Three.js 3D viewer renders unit cells, fractional axes, and CPK-colored atomic spheres with real-time coordinate editing.
+                    Includes support for Observed, Calculated, Difference, and <strong>SMF</strong> maps in the 2D slice visualizer. The Three.js 3D viewer renders unit cells, fractional axes, and CPK-colored atomic spheres with real-time coordinate editing.
                 </p>
                 <h3>7.2 Export Formats</h3>
                 <p>Supports CIF, VESTA GRD density volumes, CSV peak lists, and publication-ready PDF summary reports.</p>
@@ -439,61 +574,37 @@ STAGE 2: 3D LOCAL MAXIMA PEAK DETECTION & SUPERPOSITION
 
             <section id="workflow">
                 <h2 id="wf-harker">8. Step-by-Step Workflows</h2>
-                <h3>8.1 Automated Superposition & Swarm Optimization</h3>
+                <h3>8.1 Automated SMF & Swarm Optimization</h3>
                 <ol>
-                    <li>Upload your diffraction data file. S_Harko automatically computes the FFT Patterson map and the automated <strong>Buerger Superposition Map</strong>.</li>
-                    <li>Inspect the superposition map by selecting <strong>Superposition</strong> under the Map dropdown.</li>
-                    <li>Review consolidated sites generated from the supermap in the <strong>Peaks</strong> tab.</li>
-                    <li>Switch to the <strong>Swarm</strong> tab, input asymmetric unit atoms, tune parameters ($w, c_1, c_2$), and click <strong>Initialize & Run Swarm</strong>.</li>
+                    <li>Upload your diffraction data file. S_Harko automatically computes the FFT Patterson map, applies the optional Lorch filter, and constructs the <strong>Symmetry Minimum Function (SMF) map</strong>.</li>
+                    <li>Inspect the SMF map by selecting <strong>SMF</strong> under the Map pane.</li>
+                    <li>Review consolidated absolute candidate sites generated from the SMF map in the <strong>Peaks</strong> tab.</li>
+                    <li>Switch to the <strong>Swarm</strong> tab, input asymmetric unit atoms, optionally enable heavy atom Harker seeding, tune parameters ($w, c_1, c_2$), and click <strong>Initialize & Run Swarm</strong>.</li>
                     <li>Inspect the final model and export your CIF file.</li>
                 </ol>
             </section>
 
-            <section id="reference">
-                <h2>9. Reference Tables & Specifications</h2>
-                <h3>9.1 Supported Atomic Tabular Data (`ATOM_DATA`)</h3>
-                <table class="param-table">
-                    <thead>
-                        <tr>
-                            <th>Element</th>
-                            <th>Atomic Number ($Z$)</th>
-                            <th>van der Waals Radius ($r$, \AA)</th>
-                            <th>Standard Atomic Mass ($m$, g/mol)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr><td>H</td><td>1</td><td>1.20</td><td>1.008</td></tr>
-                        <tr><td>C</td><td>6</td><td>1.70</td><td>12.011</td></tr>
-                        <tr><td>N</td><td>7</td><td>1.55</td><td>14.007</td></tr>
-                        <tr><td>O</td><td>8</td><td>1.52</td><td>15.999</td></tr>
-                        <tr><td>Na</td><td>11</td><td>2.27</td><td>22.990</td></tr>
-                        <tr><td>Mg</td><td>12</td><td>1.73</td><td>24.305</td></tr>
-                        <tr><td>Al</td><td>13</td><td>1.18</td><td>26.982</td></tr>
-                        <tr><td>Si</td><td>14</td><td>2.10</td><td>28.085</td></tr>
-                        <tr><td>P</td><td>15</td><td>1.80</td><td>30.974</td></tr>
-                        <tr><td>S</td><td>16</td><td>1.80</td><td>32.060</td></tr>
-                        <tr><td>Cl</td><td>17</td><td>1.75</td><td>35.450</td></tr>
-                        <tr><td>K</td><td>19</td><td>2.75</td><td>39.098</td></tr>
-                        <tr><td>Ca</td><td>20</td><td>2.31</td><td>40.078</td></tr>
-                        <tr><td>Fe</td><td>26</td><td>1.26</td><td>55.845</td></tr>
-                        <tr><td>Cu</td><td>29</td><td>1.40</td><td>63.546</td></tr>
-                        <tr><td>Zn</td><td>30</td><td>1.39</td><td>65.380</td></tr>
-                        <tr><td>Pb</td><td>82</td><td>2.02</td><td>207.200</td></tr>
-                    </tbody>
-                </table>
-            </section>
-
             <section id="troubleshooting">
-                <h2>10. Troubleshooting & Technical FAQ</h2>
+                <h2>9. Troubleshooting & Technical FAQ</h2>
                 <table class="param-table">
                     <thead>
                         <tr>
-                            <th>Symptom / Error</th>
-                            <th>Root Cause</th>
+                            <th>Symptom / Question</th>
+                            <th>Root Cause / Explanation</th>
                             <th>Resolution</th>
                         </tr>
                     </thead>
                     <tbody>
+                        <tr>
+                            <td>Lorch filter does not change peak list coordinates</td>
+                            <td>True interatomic vectors are robust physical features. Lorch modification tames ripples and broadens peaks, but does not displace true vector centers.</td>
+                            <td>This is normal and expected. Use Lorch strength ($0.1 - 0.3$) if termination ripples create noise peaks in the peak table.</td>
+                        </tr>
+                        <tr>
+                            <td>SMF map looks sparse/different from the raw Patterson map</td>
+                            <td>SMF evaluates an $N$-way minimum across all space group operators. It acts as a logical "AND" filter, suppressing background noise and leaving only true atomic positions in the absolute crystallographic frame.</td>
+                            <td>This is the expected behavior of SMF. Use the extracted SMF peaks as absolute candidate sites for seeding.</td>
+                        </tr>
                         <tr>
                             <td>"WebGPU is not supported..."</td>
                             <td>WebGPU disabled or unsupported browser.</td>
@@ -509,7 +620,7 @@ STAGE 2: 3D LOCAL MAXIMA PEAK DETECTION & SUPERPOSITION
             </section>
 
             <div class="footer">
-                <p>S_Harko Documentation &middot; Harker sections in Patterson maps &middot; NitaD, Univ Paris-Saclay</p>
+                <p>S_Harko Documentation &middot;  NitaD, Univ Paris-Saclay, 06 August 2026.<br>Edited with AI code inspection.</p>
             </div>
         </main>
     </div>

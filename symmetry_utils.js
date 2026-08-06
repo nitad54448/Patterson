@@ -193,6 +193,7 @@ function sharkoFFT3D(re, im, N, sign) {
 /*  Patterson synthesis                                                */
 /* ------------------------------------------------------------------ */
 
+
 /**
  * Patterson map by FFT.
  *
@@ -217,7 +218,7 @@ function sharkoFFT3D(re, im, N, sign) {
  *
  * Returns { map, res, dMin, sigma, hmax, warnings }.
  */
-function sharkoPattersonFFT(fullReflections, cell, requestedRes) {
+function sharkoPattersonFFT(fullReflections, cell, requestedRes, lorchStrength = 0) {
     const V = sharkoCellVolume(cell);
     if (!V || !isFinite(V) || V <= 0) throw new Error(`Invalid cell volume: ${V}`);
 
@@ -255,11 +256,23 @@ function sharkoPattersonFFT(fullReflections, cell, requestedRes) {
     const re = new Float64Array(N3);
     const im = new Float64Array(N3);
 
+    // Derived BEFORE accumulation so we can apply the Lorch parameter immediately.
+    const dMin = dStarMax > 0 ? 1 / dStarMax : NaN;
+
     let placed = 0, dropped = 0;
     for (const r of fullReflections) {
-        const h = r.h, k = r.k, l = r.l, I = r.intensity;
+        const h = r.h, k = r.k, l = r.l;
+        let I = r.intensity;
         if (!Number.isFinite(h) || !Number.isFinite(k) || !Number.isFinite(l) || !Number.isFinite(I)) continue;
         if (Math.abs(h) > limit || Math.abs(k) > limit || Math.abs(l) > limit) { dropped++; continue; }
+
+        if (lorchStrength > 0 && Number.isFinite(dMin)) {
+            const ds = sharkoDStar(h, k, l, B);
+            const arg = Math.PI * ds * dMin;
+            const sinc = arg === 0 ? 1 : Math.sin(arg) / arg;
+            I *= (1 - lorchStrength) + (lorchStrength * sinc);
+        }
+
         const ih = ((h % N) + N) % N;
         const ik = ((k % N) + N) % N;
         const il = ((l % N) + N) % N;
@@ -293,13 +306,13 @@ function sharkoPattersonFFT(fullReflections, cell, requestedRes) {
     // Gaussian to that FWHM gives sigma = 0.61*dMin/2.3548 ~ 0.26*dMin. The
     // floor keeps the peak at least comparable to the grid spacing, since a
     // Gaussian narrower than the sampling cannot be represented at all.
-    const dMin = dStarMax > 0 ? 1 / dStarMax : NaN;
     const axes = sharkoReciprocalAxisLengths(cell) || [1, 1, 1];
     const coarsestSpacing = Math.max(1 / (axes[0] * N), 1 / (axes[1] * N), 1 / (axes[2] * N));
     const sigma = Math.max(isFinite(dMin) ? 0.26 * dMin : 0, 0.7 * coarsestSpacing);
 
     return { map, res: N, dMin, sigma, hmax, warnings };
 }
+
 
 /* ------------------------------------------------------------------ */
 /*  Lorentz-polarisation                                               */
