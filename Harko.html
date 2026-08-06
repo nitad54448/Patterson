@@ -77,9 +77,10 @@
             <label class="check-row">
                 <input type="checkbox" id="lp-correction-toggle" class="check" checked>
                 <span>Divide out Lorentz-polarisation</span>
+                <span class="tooltip"><span class="help-dot">?</span>
+                    <span class="tooltiptext">Used only when the file supplies neither |Fo| nor an Lp column and sHarko has to compute Lp itself.</span>
+                </span>
             </label>
-            <p class="hint" style="margin:5px 0 0 22px">Used only when the file supplies neither |Fo| nor an Lp column
-           and sHarko has to compute Lp itself.</p>
             <div id="lp-status" class="readout" style="margin-top:6px; margin-bottom:0px;"></div>
         </div>
 
@@ -163,21 +164,35 @@
             </div>
         </div>
 
+
+
         <div class="control-group">
-            <label class="control-label">Contact Filter</label>
+            <label class="control-label">Contact Filter
+                <span class="tooltip"><span class="help-dot">?</span>
+                    <span class="tooltiptext">Audits the structure for unfeasibly short contacts and penalizes configurations where atoms sit closer than this minimum distance.</span>
+                </span>
+            </label>
             <label class="field-label" for="min-contact-input">Minimum contact distance (&#8491;):
                 <span id="min-contact-value" class="mono">0.00</span>
             </label>
+
+
+
             <input type="range" id="min-contact-input" min="0" max="3" value="0.00" step="0.05" disabled>
             <div id="contact-report" class="readout" style="margin-top:8px"></div>
         </div>
 
         <div class="control-group grow">
-            <label class="control-label">WebGPU Global Optimization</label>
+            <label class="control-label">WebGPU Global Optimization
+                <span class="tooltip"><span class="help-dot">?</span>
+                    <span class="tooltiptext" id="swarm-particles-limit">Calculating GPU limits...</span>
+                </span>
+            </label>
 
             <label class="field-label" for="swarm-particles">Particles: <span id="swarm-particles-value" class="mono">512</span></label>
             <input type="range" id="swarm-particles" min="64" max="2048" value="512" step="64">
-            <div id="swarm-particles-limit" class="readout" style="margin-bottom:9px"></div>
+            <!-- The old standalone div has been removed -->
+
 
             <label class="field-label" for="swarm-iterations">Iterations: <span id="swarm-iterations-value" class="mono">100</span></label>
             <input type="range" id="swarm-iterations" min="10" max="1000" value="100" step="10">
@@ -227,7 +242,7 @@
             <div id="seed-heavy-note" class="readout" style="margin:5px 0 0 22px"></div>
 
             <div class="row" style="margin:12px 0 10px">
-                <button id="run-swarm-btn" class="btn btn-primary" style="flex:1 1 auto">Initialize &amp; Run Swarm</button>
+                <button id="run-swarm-btn" class="btn btn-primary" style="flex:1 1 auto">Run Swarm</button>
             
                 
                 <button id="stop-swarm-btn" class="btn btn-danger" disabled>Stop</button>
@@ -334,7 +349,16 @@
                         <div id="canvas-busy-overlay"><div class="spinner"></div></div>
                     </div>
 
+
                     <div id="coords-display"></div>
+
+                    <!-- Auto range control -->
+                    <div style="margin-bottom: 8px;">
+                        <label class="check-row">
+                            <input type="checkbox" id="auto-range-toggle" class="check">
+                            <span>Auto range</span>
+                        </label>
+                    </div>
 
                     <!-- One controls row under the four maps -->
                     <div class="map-controls-row">
@@ -352,10 +376,13 @@
                             <div id="section-readout" class="readout">&mdash;</div>
                         </div>
                         <div class="map-ctrl">
-                            <button id="export-grd-btn" class="btn btn-block-caps" disabled
+                            <button id="export-grd-btn" class="btn btn-primary" disabled
                                     title="Write all four maps as volume files VESTA can open">Density (.grd)</button>
                         </div>
                     </div>
+
+
+
                 </section>
 
             </div>
@@ -369,8 +396,9 @@
                  same pipeline that could not be read together. -->
             <div class="row-between" style="margin-bottom:4px;flex-shrink:0">
                 <h2 class="map-section-title" style="margin:0">Vectors &rarr; sites</h2>
-                <button id="export-peaks-csv-btn" class="btn btn-sm" disabled>Peaks (.csv)</button>
+                <button id="export-peaks-csv-btn" class="btn btn-primary" disabled>Peaks (.csv)</button>
             </div>
+
             <p class="hint" style="margin:0 0 10px;flex-shrink:0">
                 Peaks in the Patterson map are interatomic <em>vectors</em>. Those lying on a Harker
                 section are decoded into candidate atom <em>positions</em>, and positions that agree
@@ -416,7 +444,7 @@
                         </table>
                     </div>
                     <div class="pane-actions" style="margin-top:10px; display:flex; justify-content:flex-end;">
-                        <button id="export-csv-btn" class="btn" disabled
+                        <button id="export-csv-btn" class="btn btn-primary" disabled
                                 title="Save the consolidated SMF peaks as a CSV file">Save CSV</button>
                     </div>
                 </div>
@@ -428,38 +456,12 @@
        <!-- ---------- SWARM RESULTS ---------- -->
         <div id="swarm-results-tab" class="right-tab-content">
 
-            <!-- Top row: 3D viewer left, fitness plot right, each half the width. -->
-            <div id="swarm-layout">
 
-                <div id="swarm-structure-col">
-                    <div class="pane-head">
-                        <h2 class="map-section-title">Proposed structure</h2>
-                        <span id="structure-edited-flag" class="tag-warn hidden" style="margin-left: 10px;">edited</span>
-                    </div>
-                    <div class="canvas-wrapper" id="structure-wrapper">
-                        <canvas id="structure-canvas"></canvas>
-                    </div>
 
-                    <label class="check-row" style="margin-top:8px">
-                        <input type="checkbox" id="temp-factor-fit" class="check" disabled>
-                        <span>Fit B</span>
-                        <span class="tooltip"><span class="help-dot">?</span>
-                            <span class="tooltiptext">Scans the overall temperature factor B for the value that
-                            minimises the residual between the calculated and observed Patterson maps, and writes it
-                            to the slider on the Map panel.<br><br>Turn it on and the fit runs straight away if a
-                            structure is already on screen, and again at the end of every swarm run. The fitted
-                            value is quoted in the status line.</span></span>
-                    </label>
-                    <div id="temp-factor-fit-note" class="readout" style="margin-top:4px"></div>
+            <!-- Top row: Three columns, each 1/3 of the width. -->
+            <div id="swarm-layout" style="display: flex; flex-direction: row; gap: 10px;">
 
-                    <div class="stat-block" id="structure-stats" style="margin-top:8px">
-                        <div class="stat-row"><span class="k">Atoms in cell</span><span id="stat-atoms" class="v">&mdash;</span></div>
-                        <div class="stat-row"><span class="k">Shortest contact</span><span id="stat-contact" class="v">&mdash;</span></div>
-                        <div class="stat-row"><span class="k">Cell mass</span><span id="stat-mass" class="v">&mdash;</span></div>
-                    </div>
-                </div>
-
-                <div id="swarm-plot-col">
+                <div id="swarm-plot-col" style="flex: 1 1 33.33%;">
                     <div class="pane-head">
                         <h2 class="map-section-title">Fitness evolution</h2>
                     </div>
@@ -467,7 +469,46 @@
                         <canvas id="cost-canvas"></canvas>
                     </div>
                 </div>
+
+                <div id="swarm-structure-col" style="flex: 1 1 33.33%;">
+                    <div class="pane-head">
+                        <h2 class="map-section-title">Proposed structure</h2>
+                        <span id="structure-edited-flag" class="tag-warn hidden" style="margin-left: 10px;">edited</span>
+                    </div>
+                    <div class="canvas-wrapper" id="structure-wrapper">
+                        <canvas id="structure-canvas"></canvas>
+                    </div>
+                </div>
+
+                <div id="swarm-stats-col" style="flex: 1 1 33.33%;">
+                    <div class="pane-head">
+                        <h2 class="map-section-title">Atoms in cell</h2>
+                    </div>
+                    <div class="stat-block" id="structure-stats" style="margin-top:0">
+                        <div class="stat-row"><span class="k">Atoms in cell</span><span id="stat-atoms" class="v">&mdash;</span></div>
+                        <div class="stat-row"><span class="k">Shortest contact</span><span id="stat-contact" class="v">&mdash;</span></div>
+                        <div class="stat-row"><span class="k">Cell mass</span><span id="stat-mass" class="v">&mdash;</span></div>
+                    </div>
+                </div>
             </div>
+
+            <!-- Placed below the top row columns -->
+            <div id="swarm-controls-below" style="margin-top: 8px;">
+                <label class="check-row">
+                    <input type="checkbox" id="temp-factor-fit" class="check" disabled>
+                    <span>Fit B</span>
+                    <span class="tooltip"><span class="help-dot">?</span>
+                        <span class="tooltiptext">Scans the overall temperature factor B for the value that
+                        minimises the residual between the calculated and observed Patterson maps, and writes it
+                        to the slider on the Map panel.<br><br>Turn it on and the fit runs straight away if a
+                        structure is already on screen, and again at the end of every swarm run. The fitted
+                        value is quoted in the status line.</span></span>
+                </label>
+                <div id="temp-factor-fit-note" class="readout" style="margin-top:4px"></div>
+            </div>
+
+
+
 
             <!-- Asymmetric unit, full width below the two columns. -->
             <div id="swarm-data-col">
@@ -1930,7 +1971,7 @@ leftTabButtons.forEach(btn => {
                 runSwarmBtn.disabled = false;
                 stopSwarmBtn.disabled = true;
                 stopSwarmBtn.textContent = "Stop";
-                runSwarmBtn.textContent = "Initialize & Run Swarm";
+                runSwarmBtn.textContent = "Run Swarm";
                 swarmIterationsSlider.disabled = false;
                 swarmParticlesSlider.disabled = false;
                 swarmRestartsSlider.disabled = false;
@@ -2694,16 +2735,25 @@ leftTabButtons.forEach(btn => {
                 }
             }
             if (!isValidSlice || sliceMax === sliceMin) { blankMapPane(mode); return; }
-
             // Absolute scale: the actual min/max of this mode's map over the
             // whole grid, origin excluded - one range so every slice and
             // section is comparable, rather than each one rescaling to its
             // own extremes (which makes an empty slice full of noise look
             // exactly as vivid as a slice containing a real peak).
-            const ext = getMapExtent(mode, obsMap, calcMap, kCalc, originMask, superMap);
-            let lo = ext.min, hi = ext.max;
-            if (!isFinite(lo) || !isFinite(hi)) { lo = sliceMin; hi = sliceMax; }
-            if (mode === 'obs' || mode === 'calc' || mode === 'super') { lo = Math.max(0, lo); } // clamp scale bottom to 0
+            let lo, hi;
+            const autoRangeToggle = document.getElementById('auto-range-toggle');
+            if (autoRangeToggle && autoRangeToggle.checked) {
+                lo = sliceMin;
+                hi = sliceMax;
+            } else {
+                const ext = getMapExtent(mode, obsMap, calcMap, kCalc, originMask, superMap);
+                lo = ext.min; 
+                hi = ext.max;
+                if (!isFinite(lo) || !isFinite(hi)) { lo = sliceMin; hi = sliceMax; }
+                if (mode === 'obs' || mode === 'calc' || mode === 'super') { lo = Math.max(0, lo); } // clamp scale bottom to 0
+            }
+
+
 
             // Every pane uses the same rainbow scale over its own [lo, hi].
             setPaneScale(mode, lo, hi);
@@ -3743,14 +3793,21 @@ function exportGRD() {
                 MAP_MODES.forEach(m => blankMapPane(m));
             } catch (e) {}
 
+
+
             showLeftTab('map-controls-tab');
-            statusMessage.textContent = isNewFile ? '' : (statusMessage.textContent.startsWith("Error:") ? statusMessage.textContent : '');
-             state.sliceU = state.sliceV = state.sliceW = 0.5;
-             state.activeSlicingAxis = 'w';
-             axisSelect.value = 'w'; sectionSlider.value = 0.5;
-             updateSectionReadout();
+             statusMessage.textContent = isNewFile ? '' : (statusMessage.textContent.startsWith("Error:") ? statusMessage.textContent : '');
 
             if (isNewFile) {
+                 state.sliceU = state.sliceV = state.sliceW = 0.5;
+                 state.activeSlicingAxis = 'w';
+                 axisSelect.value = 'w'; sectionSlider.value = 0.5;
+                 updateSectionReadout();
+
+                 highResToggle.checked = false; state.highRes = false; state.mapResolution = 64;
+
+
+
                 highResToggle.checked = false; state.highRes = false; state.mapResolution = 64;
                 resolutionReadout.innerHTML = 'Grid: 64&sup3; (not yet calculated)';
                 sigmaInput.value = 0; updateSigmaValue();
@@ -4386,6 +4443,11 @@ function exportGRD() {
             updateSectionReadout();
             drawPattersonSlice();
         });
+
+        const autoRangeToggle = document.getElementById('auto-range-toggle');
+        if (autoRangeToggle) {
+            autoRangeToggle.addEventListener('change', () => drawPattersonSlice());
+        }
 
         sectionSlider.addEventListener('input', e => {
             const v = parseFloat(e.target.value);
