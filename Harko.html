@@ -917,6 +917,12 @@
         }
 
         const openFileBtn = document.getElementById('open-file-btn');
+        // Hoisted above updateUIStates(), which now gates them: a `const`
+        // declared further down would be in the temporal dead zone if any
+        // early call reached updateUIStates() first.
+        const runSwarmBtn = document.getElementById('run-swarm-btn');
+        const stopSwarmBtn = document.getElementById('stop-swarm-btn');
+        const addAtomBtn = document.getElementById('add-atom-btn');
         const fileInput = document.getElementById('data-file-input');
         const statusMessage = document.getElementById('status-message');
         const crystalInfoBox = document.getElementById('crystal-info-box');
@@ -1030,8 +1036,14 @@
         // site setting document.body.style.cursor directly and forgetting
         // the visual feedback.
         function setBusy(isBusy) {
+            // The flag is the source of truth. updateUIStates() used to infer
+            // "busy" by reading document.body.style.cursor back out, which meant
+            // any code that touched the cursor for an unrelated reason could
+            // silently enable or disable half the interface.
+            if (typeof state !== 'undefined' && state) state.busy = !!isBusy;
             document.body.style.cursor = isBusy ? 'wait' : 'default';
             if (canvasBusyOverlay) canvasBusyOverlay.classList.toggle('visible', isBusy);
+            if (typeof updateUIStates === 'function') updateUIStates();
         }
 
         // --- STATE (Main Thread) ---
@@ -1046,6 +1058,12 @@
             // in memory was produced, so the display no longer matches the
             // controls and Calculate Map needs pressing.
             mapStale: false,
+            // Long-running work in progress. `busy` covers the map transform
+            // and other blocking steps; `swarmRunning` covers the GPU swarm,
+            // which drives its own async loop rather than going through
+            // setBusy(). Either one locks the commands that would corrupt or
+            // race the work in flight.
+            busy: false, swarmRunning: false,
             foundPeaks: [], harkerAnalysisResults: [], consolidatedSites: [],
             sliceU: 0.5, sliceV: 0.5, sliceW: 0.5,
             activeSlicingAxis: 'w',
@@ -1556,8 +1574,20 @@ function nearestSymmetryImage(gBest, pos, off, nAtoms, symOps, orth, out) {
             const hasHarkerData = !!state.spaceGroups;
             const hasMap = !!state.pattersonMap3D;
 
-            // Check if worker is busy (by checking if cursor is 'wait')
-            const isBusy = document.body.style.cursor === 'wait';
+            // Busy = a map transform (or similar blocking step) OR a swarm run.
+            // The swarm used to be invisible here, so during a run the whole
+            // left panel stayed live: Calculate Map could be pressed mid-search,
+            // a new file could be loaded out from under the GPU buffers, and the
+            // exports would write whatever half-finished state they found.
+            const isBusy = !!state.busy || !!state.swarmRunning;
+
+            // Commands that start competing work. stopSwarmBtn is deliberately
+            // NOT touched here - it is the only way out of a running search and
+            // is managed by the swarm handler itself.
+            if (openFileBtn) openFileBtn.disabled = isBusy;
+            if (fileInput) fileInput.disabled = isBusy;
+            if (addAtomBtn) addAtomBtn.disabled = isBusy;
+            if (runSwarmBtn) runSwarmBtn.disabled = isBusy || !hasMap;
 
             if (calcMapBtn) calcMapBtn.disabled = !hasCrystalData || isBusy;
             
@@ -1596,9 +1626,6 @@ function nearestSymmetryImage(gBest, pos, off, nAtoms, symOps, orth, out) {
 
         // --- SWARM UI LOGIC ---
         const atomListContainer = document.getElementById('atom-list-container');
-        const addAtomBtn = document.getElementById('add-atom-btn');
-        const runSwarmBtn = document.getElementById('run-swarm-btn');
-        const stopSwarmBtn = document.getElementById('stop-swarm-btn');
         const swarmParticlesSlider = document.getElementById('swarm-particles');
         const swarmParticlesValue = document.getElementById('swarm-particles-value');
         const swarmIterationsSlider = document.getElementById('swarm-iterations');
@@ -1884,6 +1911,12 @@ runSwarmBtn.addEventListener('click', async () => {
             let deviceLostHandled = false;
 
             try {
+                // Set inside the try, never before it: the finally below is the
+                // only thing that clears the flag, so a throw between here and
+                // there would otherwise leave every command disabled for good.
+                state.swarmRunning = true;
+                updateUIStates();
+
                 // 1. Load the compute shader
                 const response = await fetch('swarm_compute.wgsl');
                 if (!response.ok) throw new Error(`Could not load swarm_compute.wgsl (HTTP ${response.status})`);
@@ -2414,7 +2447,9 @@ runSwarmBtn.addEventListener('click', async () => {
                     try { res.destroy(); } catch (e) { /* already destroyed / device lost */ }
                 }
                 
-                runSwarmBtn.disabled = false;
+                // Cleared before updateUIStates() at the end of this block, so
+                // the commands it gates come back in the same pass.
+                state.swarmRunning = false;
                 stopSwarmBtn.disabled = true;
                 stopSwarmBtn.textContent = "Stop";
                 runSwarmBtn.textContent = "Run Swarm";
