@@ -1,22 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<style>
-    /* Restores styles for tooltips detached from the left panel */
-    body > .tooltiptext {
-        visibility: hidden; opacity: 0; transition: opacity .2s;
-        position: fixed; z-index: 10000; width: 320px;
-        background: var(--bg-elevated); color: var(--fg);
-        border: 1px solid var(--rule); box-shadow: var(--shadow-2);
-        border-radius: var(--r-3); padding: 11px 13px;
-        text-align: left; font-size: .76rem; line-height: 1.5; font-weight: 400;
-        text-transform: none; letter-spacing: normal;
-    }
-    body > .tooltiptext.right { left: auto; right: 0; }
-    body > .tooltiptext.visible { visibility: visible; opacity: 1; }
-    body > .tooltiptext a { color: var(--accent); }
-</style>
-
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -59,39 +43,14 @@
 
 
 
-<style>
-        .settings-card {
-            background: var(--bg-elevated);
-            border: 1px solid var(--rule);
-            border-radius: 6px;
-            padding: 14px;
-            margin-bottom: 16px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
-        .card-header {
-            margin-top: 0;
-            margin-bottom: 14px;
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--accent);
-            border-bottom: 1px solid var(--rule);
-            padding-bottom: 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        #status-message:empty {
-            display: none;
-        }
-    </style>
-
-    <!-- STATUS MESSAGE: PERMANENTLY DOCKED AT THE TOP -->
+<!-- STATUS MESSAGE: PERMANENTLY DOCKED AT THE TOP -->
     <div id="status-message" style="margin: 8px 0; flex-shrink: 0;"></div>
 
     <div id="panel-scroll" style="padding-top: 0px;">
 
 <!-- CARD 1: DATA INPUT -->
-        <div class="settings-card">
-            <h3 class="card-header">1. Data Input</h3>
+        <details class="settings-card" open>
+            <summary class="card-header">1. Data Input</summary>
             <button id="open-file-btn" class="btn btn-primary btn-full" style="margin-bottom: 12px;">Select Data File</button>
             <input type="file" id="data-file-input" class="hidden"/>
             
@@ -114,22 +73,22 @@
  
 
             <div id="lp-status" class="readout" style="margin-top:6px; margin-bottom:0px;"></div>
-        </div>
+        </details>
 
         <!-- CARD 2: STRUCTURE -->
-        <div class="settings-card">
-            <h3 class="card-header">2. Structure</h3>
+        <details class="settings-card" open>
+            <summary class="card-header">2. Structure</summary>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
                 <button type="button" id="space-group-open-modal" class="btn btn-full" style="grid-column: 1 / -1;">Select Space Group &raquo;</button>
             </div>
             <div id="space-group-info" class="readout" style="margin-bottom: 12px;">Group unspecified</div>
             <div id="lattice-parameters-container"></div>
             <div id="crystal-info-box" class="info-box" style="margin-top: 12px;">Upload a file to see data.</div>
-        </div>
+        </details>
 
         <!-- CARD 3: PATTERSON MAP -->
-        <div class="settings-card">
-            <h3 class="card-header">3. Patterson Map Synthesis</h3>
+        <details class="settings-card" open>
+            <summary class="card-header">3. Patterson Map Synthesis</summary>
 
             <label class="check-row" style="margin-bottom:12px">
 
@@ -203,11 +162,11 @@
             <label class="field-label" for="tolerance-slider" style="display:none">Combination tolerance:
                 <span id="tolerance-value" class="mono">0.030</span></label>
             <input type="range" id="tolerance-slider" min="0.01" max="0.10" value="0.03" step="0.005" disabled style="display:none">
-        </div>
+        </details>
 
         <!-- CARD 4: SWARM OPTIMIZATION -->
-        <div class="settings-card">
-            <h3 class="card-header">4. Swarm Optimization</h3>
+        <details class="settings-card" open>
+            <summary class="card-header">4. Swarm Optimization</summary>
             
             <label class="control-label" style="display: block; margin-bottom: 8px;">Asymmetric Unit Contents</label>
             <div id="atom-list-container" class="info-box scroll" style="padding:0;margin-bottom:9px">
@@ -316,14 +275,10 @@
             <div id="gpu-info" class="readout" style="margin-top:9px">GPU: not initialized</div>
             <div id="swarm-log" class="info-box scroll hidden" style="margin-top:6px"></div>
             
-        </div> <!-- /CLOSE CARD 4 -->
+        </details> <!-- /CLOSE CARD 4 -->
 
     </div><!-- /#panel-scroll -->
 
-    <div id="panel-footer">
-
-        <button id="generate-report-btn" class="btn btn-primary btn-full" disabled>PDF Report</button>
-    </div>
 </div>
 
 <div id="drag-handle"></div>
@@ -585,6 +540,8 @@
                 <button id="revert-structure-btn" class="btn" disabled
                         title="Discard edits and restore the swarm's own solution">Revert edits</button>
                 <button id="export-cif-btn" class="btn btn-primary" disabled>Save CIF</button>
+                <button id="generate-report-btn" class="btn btn-primary" disabled
+                        title="Export the run - maps, peaks, Harker analysis and the refined structure - as a PDF">PDF Report</button>
             </div>
             <div id="structure-contacts" class="scale-caption" style="text-align: right;"></div>
         </div>
@@ -965,6 +922,12 @@
         const crystalInfoBox = document.getElementById('crystal-info-box');
         const highResToggle = document.getElementById('high-res-toggle');
         const resolutionReadout = document.getElementById('resolution-readout');
+        // Hoisted to module scope: markMapStale() and updateUIStates() both
+        // need these, and the button lookup used to be a function-local const
+        // inside updateUIStates where nothing else could reach it.
+        const calcMapBtn = document.getElementById('calculate-map-btn');
+        const maxPeaksInput = document.getElementById('max-peaks-input');
+        const minSigmaInput = document.getElementById('min-sigma-input');
         const sigmaInput = document.getElementById('sigma-input');
         const sigmaValue = document.getElementById('sigma-value');
         const tempFactorInput = document.getElementById('temp-factor-input');
@@ -1079,6 +1042,10 @@
             // meaningful alternative is 128 - hence a switch rather than a
             // slider whose intermediate positions all rounded to the same grid.
             mapResolution: 64, highRes: false, harkerTolerance: 0.03,
+            // True when a synthesis/peak setting has changed since the map
+            // in memory was produced, so the display no longer matches the
+            // controls and Calculate Map needs pressing.
+            mapStale: false,
             foundPeaks: [], harkerAnalysisResults: [], consolidatedSites: [],
             sliceU: 0.5, sliceV: 0.5, sliceW: 0.5,
             activeSlicingAxis: 'w',
@@ -1592,7 +1559,6 @@ function nearestSymmetryImage(gBest, pos, off, nAtoms, symOps, orth, out) {
             // Check if worker is busy (by checking if cursor is 'wait')
             const isBusy = document.body.style.cursor === 'wait';
 
-const calcMapBtn = document.getElementById('calculate-map-btn');
             if (calcMapBtn) calcMapBtn.disabled = !hasCrystalData || isBusy;
             
             setCheckDisabled(highResToggle, !hasCrystalData || isBusy);
@@ -1620,7 +1586,11 @@ const calcMapBtn = document.getElementById('calculate-map-btn');
 
 
 
-            generateReportBtn.disabled = !hasCrystalData || isBusy;
+            // The report documents a solved structure, so it needs the same
+            // precondition as Save CIF: an actual swarm result. It used to be
+            // enabled as soon as a file was loaded, which produced a PDF with
+            // empty structure and contact sections.
+            generateReportBtn.disabled = !hasCrystalData || isBusy || !(state.swarmSites || []).length;
         }
 
 
@@ -1809,7 +1779,31 @@ const calcMapBtn = document.getElementById('calculate-map-btn');
 
 
         const yieldToEventLoop = () => new Promise(resolve => requestAnimationFrame(resolve));
-        const MAX_GEN_ATOMS = 256; // must match swarm_compute.wgsl's MAX_GEN_ATOMS
+        // Single source of truth for the shader's MAX_GEN_ATOMS. The value is
+        // injected into swarm_compute.wgsl at compile time, so the pre-flight
+        // checks and the shader can never disagree the way the old hard-coded
+        // 256-here / 384-in-shader pair did. This is the floor the device-sized
+        // value is never allowed to drop below.
+        const MAX_GEN_ATOMS_FLOOR = 384;
+        let activeMaxGenAtoms = MAX_GEN_ATOMS_FLOOR; // updated once the device is known
+
+        // Largest MAX_GEN_ATOMS that fits this device's per-workgroup storage.
+        // The shader allocates per workgroup: gx/gy/gz (3 x f32) + gActive
+        // (1 x u32) = 16 bytes per generated atom, plus partFit + partPen
+        // (WG x f32 x 2 = 512 bytes at WG=64). Solve the budget for the atom
+        // count, keep headroom for the driver's own reserve, never drop below
+        // the floor, and cap so a odd limit can't produce an absurd array.
+        function computeMaxGenAtoms(device) {
+            try {
+                const WG = 64, BYTES_PER_ATOM = 16, REDUCTION_BYTES = WG * 4 * 2;
+                const budget = (device?.limits?.maxComputeWorkgroupStorageSize) || 16384;
+                const usable = budget * 0.85 - REDUCTION_BYTES;
+                let cap = Math.floor(usable / BYTES_PER_ATOM);
+                return Math.max(MAX_GEN_ATOMS_FLOOR, Math.min(4096, cap));
+            } catch (e) {
+                return MAX_GEN_ATOMS_FLOOR;
+            }
+        }
         let swarmStopRequested = false;
 
         stopSwarmBtn.addEventListener('click', () => {
@@ -1926,8 +1920,8 @@ runSwarmBtn.addEventListener('click', async () => {
                 // trip the driver's TDR watchdog (which "loses" the device
                 // and looks like a crash). Warn instead of failing silently.
                 const genAtomsPerParticle = buffers.totalAtoms * numSymOps;
-                if (genAtomsPerParticle > MAX_GEN_ATOMS) {
-                    logSwarm(`Warning: ${buffers.totalAtoms} atom(s) x ${numSymOps} sym-ops = ${genAtomsPerParticle} symmetry-expanded positions per particle, above the shader's cap of ${MAX_GEN_ATOMS}. Extra positions are ignored and results will be approximate - consider fewer atoms for a complete search.`, true);
+                if (genAtomsPerParticle > MAX_GEN_ATOMS_FLOOR) {
+                    logSwarm(`Note: ${buffers.totalAtoms} atom(s) x ${numSymOps} sym-ops = ${genAtomsPerParticle} symmetry-expanded positions per particle. Large expansions can approach the GPU driver's watchdog timeout; the authoritative limit is checked once the device is known.`);
                 }
 
                 // 4. WebGPU device
@@ -1973,7 +1967,25 @@ runSwarmBtn.addEventListener('click', async () => {
                 } catch (e) { /* adapter info is optional diagnostics, ignore failures */ }
                 gpuInfoEl.textContent = `GPU: ${gpuLabel}`;
 
-                const shaderModule = device.createShaderModule({ code: shaderCode });
+                // Size MAX_GEN_ATOMS to this device and inject it into the shader
+                // source. Rounding down to a whole multiple of numSymOps keeps the
+                // cap from slicing an atom's symmetry orbit in half, which would
+                // leave that atom with fewer images than the group demands.
+                activeMaxGenAtoms = computeMaxGenAtoms(device);
+                if (numSymOps > 0) {
+                    activeMaxGenAtoms = Math.max(numSymOps,
+                        Math.floor(activeMaxGenAtoms / numSymOps) * numSymOps);
+                }
+                const injectedCode = shaderCode.replace(
+                    /const\s+MAX_GEN_ATOMS\s*:\s*u32\s*=\s*\d+u\s*;\s*\/\/__MAX_GEN_ATOMS__/,
+                    `const MAX_GEN_ATOMS: u32 = ${activeMaxGenAtoms}u; //__injected__`);
+                if (injectedCode === shaderCode) {
+                    // Token missing - this isn't the injectable shader. Fall back to
+                    // its built-in literal rather than compiling a mismatched cap.
+                    logSwarm('Note: shader MAX_GEN_ATOMS token not found; using the built-in shader cap.');
+                    activeMaxGenAtoms = MAX_GEN_ATOMS_FLOOR;
+                }
+                const shaderModule = device.createShaderModule({ code: injectedCode });
 
                 const symRArray = new Float32Array(numSymOps * 9);
                 const symTArray = new Float32Array(numSymOps * 3);
@@ -2103,12 +2115,13 @@ runSwarmBtn.addEventListener('click', async () => {
                 // sampling: generated atoms past it are simply never created,
                 // so the fitness would silently be computed for a structure
                 // missing part of its own symmetry. Fail loudly instead.
-                const SHADER_MAX_GEN_ATOMS = 384;
                 const totalGenerated = buffers.totalAtoms * numSymOps;
-                if (totalGenerated > SHADER_MAX_GEN_ATOMS) {
+                if (totalGenerated > activeMaxGenAtoms) {
                     throw new Error(`${buffers.totalAtoms} atom(s) x ${numSymOps} symmetry operators = ` +
-                                    `${totalGenerated} generated positions, above the shader limit of ` +
-                                    `${SHADER_MAX_GEN_ATOMS}. Search for fewer atoms at a time.`);
+                                    `${totalGenerated} generated positions, above this GPU's limit of ` +
+                                    `${activeMaxGenAtoms}. Search for fewer atoms at a time` +
+                                    (activeMaxGenAtoms > MAX_GEN_ATOMS_FLOOR ? '.' :
+                                     ', or use a GPU with more workgroup storage.'));
                 }
 
                 let overallBestPosition = new Float32Array(coordsPerParticle);
@@ -4515,6 +4528,34 @@ function getUI_Cell() {
         // --- Event Handlers ---
         document.getElementById('calculate-map-btn')?.addEventListener('click', runMapCalculationAndAnalysis);
 
+        /**
+         * Marks the held map as no longer matching the controls.
+         *
+         * Changing a synthesis or peak-search setting used to do one of two
+         * different things depending on which control it was: the grid toggle
+         * and the Lorch slider silently kicked off a full recalculation, while
+         * Max Peaks and Min sigma did nothing at all until the next manual
+         * Calculate Map. Same class of setting, opposite behaviour.
+         *
+         * All four now do the same thing - record the new value, say that the
+         * displayed result is out of date, and leave the recalculation to the
+         * Calculate Map button. That keeps an accidental slider nudge from
+         * launching a 128^3 transform, and it matches how the Lorentz-
+         * polarisation toggle already behaves.
+         *
+         * The existing map is deliberately NOT cleared: it is still a valid
+         * map, just one computed with different settings, and discarding it on
+         * every touch of a control would be more destructive than helpful.
+         */
+        function markMapStale(what) {
+            if (!state.crystalData) return;
+            state.mapStale = true;
+            statusMessage.textContent = `${what} changed \u2013 press Calculate Map to apply.`;
+            statusMessage.classList.remove('is-success', 'is-error');
+            statusMessage.classList.add('is-warn');
+            if (calcMapBtn) calcMapBtn.classList.add('needs-run');
+        }
+
         // --- MAIN ANALYSIS FUNCTION (NOW SENDS TO WORKER) ---
         async function runMapCalculationAndAnalysis() {
             if (!state.crystalData) { console.error("Run Skip: No data."); statusMessage.textContent = "Error: Load data first."; return; }
@@ -4587,12 +4628,19 @@ function getUI_Cell() {
              const maxPeaks = parseInt(document.getElementById('max-peaks-input')?.value) || 50;
              const minSigma = parseFloat(document.getElementById('min-sigma-input')?.value) || 3.0;
 
+             // The controls now match the map that is about to be produced.
+             state.mapStale = false;
+             if (calcMapBtn) calcMapBtn.classList.remove('needs-run');
+
              pattersonWorker.postMessage({
                 type: 'CALCULATE',
                 payload: {
                     crystalData: state.crystalData,
                     spaceGroups: state.spaceGroups,
-                    mapResolution: state.mapResolution,
+                    // Requested grid, derived here rather than read from
+                    // state.mapResolution (which holds the grid of the map
+                    // currently in memory, not the one being asked for).
+                    mapResolution: state.highRes ? 128 : 64,
                     harkerTolerance: state.harkerTolerance,
                     lorchStrength: state.lorchStrength,
                     maxPeaks: maxPeaks,
@@ -4610,7 +4658,7 @@ function getUI_Cell() {
             lorchSlider.addEventListener('change', () => {
                 const val = parseFloat(lorchSlider.value);
                 state.lorchStrength = Math.pow(val, 2);
-                if (state.crystalData) runMapCalculationAndAnalysis();
+                markMapStale('Lorch filter strength');
             });
         }
 
@@ -4742,10 +4790,24 @@ let currentSG = null; // Will hold the selected Space Group from UI
         // --- Map grid: 64 or 128 ---
         highResToggle.addEventListener('change', e => {
             state.highRes = e.target.checked;
-            state.mapResolution = state.highRes ? 128 : 64;
-            resolutionReadout.innerHTML = `Grid: ${state.mapResolution}&sup3; (recalculating...)`;
-            if (state.crystalData) runMapCalculationAndAnalysis();
+            // state.mapResolution is the grid of the map actually held in
+            // memory - slicing, peak coordinates, the origin mask and the
+            // swarm's map sampling all index with it. Writing the requested
+            // grid here while the old map is still loaded would leave every
+            // one of those reading a 64^3 array with 128^3 indices, so the
+            // requested value is applied only when the transform runs and is
+            // adopted from the worker's reply.
+            const requested = state.highRes ? 128 : 64;
+            resolutionReadout.innerHTML = `Grid: ${requested}&sup3; (press Calculate Map)`;
+            markMapStale('Grid resolution');
         });
+
+        // Max Peaks and Min sigma feed the peak search that runs straight after
+        // the transform. They used to be read only at Calculate Map time with
+        // no listener at all, so editing them looked like it did nothing. They
+        // now report staleness exactly like the grid and Lorch controls.
+        if (maxPeaksInput) maxPeaksInput.addEventListener('change', () => markMapStale('Max Peaks'));
+        if (minSigmaInput) minSigmaInput.addEventListener('change', () => markMapStale('Min \u03c3 threshold'));
 
         // --- Calculated-map peak width ---
 

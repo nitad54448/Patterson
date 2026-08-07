@@ -136,26 +136,6 @@
 
 * { box-sizing: border-box; }
 
-html, body {
-    margin: 0;
-    padding: 0;
-}
-
-body {
-    font-family: var(--font-sans);
-    font-size: 13px;
-    line-height: 1.4;
-    color: var(--fg);
-    background: var(--bg-app);
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    letter-spacing: 0.005em;
-}
-
 /* numeric inputs & readouts get monospace */
 input[type="number"],
 .control-input[type="number"],
@@ -171,30 +151,6 @@ input[type="text"].sg-search-row input,
 }
 
 /* ---------- App shell ---------- */
-
-#app-container {
-    display: flex;
-    width: 100%;
-    flex-grow: 1;
-    min-height: 0;
-    background: var(--bg-app);
-}
-
-#controls-panel {
-    width: 380px;
-    min-width: 320px;
-    max-width: 500px;
-    flex-shrink: 0;
-    background: var(--bg-panel);
-    border-right: 1px solid var(--rule);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    position: relative;
-    z-index: 20;
-    box-shadow: none;
-    border-radius: 0;
-}
 
 /* The only element inside #controls-panel that scrolls. Everything that
    isn't the action-button-bar footer lives in here, so the footer itself
@@ -233,14 +189,6 @@ input[type="text"].sg-search-row input,
     z-index: 5;
 }
 
-#drag-handle {
-    width: 1px;
-    cursor: col-resize;
-    background: var(--rule);
-    flex-shrink: 0;
-    transition: background 0.15s, box-shadow 0.15s;
-    position: relative;
-}
 #drag-handle::after {
     content: "";
     position: absolute;
@@ -249,21 +197,6 @@ input[type="text"].sg-search-row input,
 #drag-handle:hover, #drag-handle:active {
     background: var(--accent);
     box-shadow: 0 0 0 1px var(--accent-ring);
-}
-
-#results-area {
-    flex-grow: 1;
-    position: relative;
-    background: var(--bg-stage);
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    padding: 18px 20px 22px 20px;
-    z-index: 10;
-    border-radius: 0;
-    margin: 0;
-    box-shadow: none;
-    border-left: 1px solid var(--rule);
 }
 
 /* App version footer (model-number tag) */
@@ -281,18 +214,6 @@ input[type="text"].sg-search-row input,
 
 /* ---------- Controls panel sections (flat, hairline-separated) ---------- */
 
-.control-group {
-    padding: 14px 0 16px 0;
-    margin: 0;
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid var(--rule);
-    border-radius: 0;
-    box-shadow: none;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
 .control-group:first-child { padding-top: 6px; }
 .control-group:last-child  { border-bottom: none; }
 
@@ -311,15 +232,6 @@ input[type="text"].sg-search-row input,
 }
 
 /* ---------- Labels ---------- */
-
-.control-label {
-    display: block;
-    font-weight: 500;
-    color: var(--fg-2);
-    font-size: 11.5px;
-    letter-spacing: 0.02em;
-    margin-bottom: 4px;
-}
 
 /* ---------- Inputs ---------- */
 
@@ -376,49 +288,10 @@ input[type="text"].sg-search-row input,
 }
 
 /* number-input spinners — keep them but tone down */
-input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
-
 /* ---------- Buttons ---------- */
 
-.btn {
-    padding: 0 16px;
-    border-radius: var(--r-1);
-    font-weight: 600;
-    transition: background 0.12s, border-color 0.12s, color 0.12s, box-shadow 0.12s, transform 0.05s;
-    cursor: pointer;
-    border: 1px solid var(--rule);
-    text-align: center;
-    font-size: 12px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    height: 34px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--metal);
-    color: var(--fg);
-    box-shadow: var(--shadow-1);
-    font-family: inherit;
-}
-.btn:hover:not(:disabled) {
-    border-color: var(--rule-strong);
-    background: var(--bg-stage);
-}
 [data-theme="dark"] .btn:hover:not(:disabled) {
     background: var(--bg-elevated);
-}
-.btn:active:not(:disabled) { transform: translateY(0.5px); }
-
-.btn-primary {
-    background: var(--accent);
-    color: #fff;
-    border-color: var(--accent);
-    box-shadow: 0 1px 0 rgba(255,255,255,0.15) inset, var(--shadow-1);
-}
-.btn-primary:hover:not(:disabled) {
-    background: var(--accent-hover);
-    border-color: var(--accent-hover);
-    color: #fff;
 }
 .btn-primary:active:not(:disabled) {
     background: var(--accent-hover);
@@ -439,15 +312,6 @@ input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
 }
 [data-theme="dark"] .btn-secondary:hover:not(:disabled) {
     background: var(--bg-elevated);
-}
-
-.btn:disabled {
-    background: var(--bg-inset);
-    color: var(--fg-4);
-    border-color: var(--rule-soft);
-    cursor: not-allowed;
-    opacity: 0.6;
-    box-shadow: none;
 }
 
 /* ---------- Chart rubber-band zoom selection ---------- */
@@ -722,10 +586,6 @@ input[type="range"].custom-slider:disabled::-moz-range-thumb     { opacity: 0.4;
 }
 .anchor-remove-btn:hover { color: var(--danger); }
 
-#spline-points-list {
-    background: var(--bg-stage);
-}
-
 /* ---------- Form grids ---------- */
 
 .profile-controls-container + .profile-controls-container {
@@ -905,8 +765,6 @@ input[type="range"].custom-slider:disabled::-moz-range-thumb     { opacity: 0.4;
     margin: 10px 0;
 }
 
-.hidden { display: none !important; }
-
 /* ---------- Progress bar ---------- */
 
 #progress-bar-container {
@@ -947,10 +805,6 @@ input[type="range"].custom-slider:disabled::-moz-range-thumb     { opacity: 0.4;
     letter-spacing: 0.04em;
 }
 
-#results-area {
-    background-image: none;
-    background-color: var(--bg-stage);
-}
 [data-theme="dark"] #results-area {
     background-image: none;
 }
@@ -1305,6 +1159,7 @@ input[type="range"].custom-slider:disabled::-moz-range-thumb     { opacity: 0.4;
 /* ---------- Misc safety: tighten anything inline-styled in old CSS ----- */
 
 #spline-points-list {
+    background: var(--bg-stage);
     border: 1px solid var(--rule) !important;
     border-radius: var(--r-1) !important;
 }
@@ -1700,25 +1555,52 @@ input[type="range"].custom-slider:disabled::-moz-range-thumb     { opacity: 0.4;
 
 /* ---- shell ------------------------------------------------------------ */
 
-html, body { height: 100%; }
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
 body {
     font-family: var(--font-sans);
-    margin: 0; height: 100vh; overflow: hidden;
-    display: flex; flex-direction: column;
-    background: var(--bg-app); color: var(--fg);
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--fg);
+    background: var(--bg-app);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: 0.005em;
+    margin: 0;
 }
 
-#app-container { display: flex; width: 100%; flex: 1 1 auto; min-height: 0; }
+#app-container {
+    display: flex;
+    width: 100%;
+    flex-grow: 1;
+    min-height: 0;
+    background: var(--bg-app);
+    flex: 1 1 auto;
+}
 
 
 #controls-panel {
-    width: 420px; min-width: 340px; max-width: 720px;
-    flex-shrink: 0; padding: 16px 18px 0;
+    width: 420px;
+    min-width: 340px;
+    max-width: 720px;
+    flex-shrink: 0;
     background: var(--bg-panel);
     border-right: 1px solid var(--rule);
-    overflow: hidden;                 
-    display: flex; flex-direction: column;
-    position: relative; z-index: 20;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    z-index: 20;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 16px 18px 0;
 }
 
 #panel-scroll {
@@ -1742,16 +1624,34 @@ body {
 }
 
 #drag-handle {
-    width: 6px; flex-shrink: 0; cursor: col-resize;
-    background: var(--rule); transition: background-color .15s;
+    width: 6px;
+    cursor: col-resize;
+    background: var(--rule);
+    flex-shrink: 0;
+    transition: background-color .15s;
+    position: relative;
 }
 #drag-handle:hover, body.resizing #drag-handle { background: var(--accent); }
 body.resizing { cursor: col-resize !important; user-select: none; }
 
 #results-area {
-    flex: 1 1 auto; min-width: 0; padding: 12px 16px 8px;
-    background: var(--bg-stage); color: var(--fg);
-    display: flex; flex-direction: column; min-height: 0;
+    flex-grow: 1;
+    position: relative;
+    background: var(--bg-stage);
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 12px 16px 8px;
+    z-index: 10;
+    border-radius: 0;
+    margin: 0;
+    box-shadow: none;
+    border-left: 1px solid var(--rule);
+    background-image: none;
+    background-color: var(--bg-stage);
+    flex: 1 1 auto;
+    color: var(--fg);
+    min-height: 0;
 }
 
 footer#app-version-footer {
@@ -1764,17 +1664,32 @@ footer#app-version-footer {
 /* ---- generic controls ------------------------------------------------- */
 
 .control-group {
-    margin-bottom: 1rem; padding-bottom: 1rem;
+    padding: 14px 0 16px 0;
+    margin: 0;
+    background: transparent;
+    border: none;
     border-bottom: 1px solid var(--rule-soft);
+    border-radius: 0;
+    box-shadow: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
 }
 .control-group:last-of-type { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
 /* No longer a flex child fighting for height; it just takes what it needs. */
 .control-group.grow { display: block; }
 
 .control-label {
-    display: block; margin-bottom: 7px;
-    font-family: var(--font-mono); font-size: .66rem; font-weight: 600;
-    letter-spacing: .09em; text-transform: uppercase; color: var(--fg-3);
+    display: block;
+    font-weight: 600;
+    color: var(--fg-3);
+    font-size: .66rem;
+    letter-spacing: .09em;
+    margin-bottom: 7px;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
 }
 .field-label {
     display: block; margin-bottom: 4px;
@@ -1784,7 +1699,9 @@ footer#app-version-footer {
 .mono { font-family: var(--font-mono); }
 .readout { font-family: var(--font-mono); font-size: .7rem; color: var(--fg-3); }
 .readout strong { color: var(--fg); font-weight: 600; }
-.hidden { display: none !important; }
+.hidden {
+    display: none !important;
+}
 
 .row      { display: flex; align-items: center; gap: 8px; }
 .row-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -1793,18 +1710,53 @@ footer#app-version-footer {
 .stack > * + * { margin-top: 10px; }
 
 .btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    padding: .5rem .9rem; border: 1px solid var(--rule); border-radius: var(--r-2);
-    background: var(--metal); color: var(--fg);
-    font-family: var(--font-sans); font-size: .8rem; font-weight: 600;
-    cursor: pointer; text-align: center; white-space: nowrap;
+    padding: .5rem .9rem;
+    border-radius: var(--r-2);
+    font-weight: 600;
     transition: background .15s, border-color .15s, color .15s;
+    cursor: pointer;
+    border: 1px solid var(--rule);
+    text-align: center;
+    font-size: .8rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--metal);
+    color: var(--fg);
+    box-shadow: var(--shadow-1);
+    font-family: var(--font-sans);
+    gap: 6px;
+    white-space: nowrap;
 }
-.btn:hover:not(:disabled) { border-color: var(--rule-strong); background: var(--bg-hover); }
-.btn:active:not(:disabled) { transform: translateY(.5px); }
-.btn:disabled { opacity: .42; cursor: not-allowed; }
-.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn-primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn:hover:not(:disabled) {
+    border-color: var(--rule-strong);
+    background: var(--bg-hover);
+}
+.btn:active:not(:disabled) {
+    transform: translateY(.5px);
+}
+.btn:disabled {
+    background: var(--bg-inset);
+    color: var(--fg-4);
+    border-color: var(--rule-soft);
+    cursor: not-allowed;
+    opacity: .42;
+    box-shadow: none;
+}
+.btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.15) inset, var(--shadow-1);
+}
+.btn-primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    color: #fff;
+}
 .btn-danger:hover:not(:disabled) { background: var(--danger); border-color: var(--danger); color: #fff; }
 .btn-full { width: 100%; }
 .btn-sm { padding: .28rem .6rem; font-size: .7rem; }
@@ -1827,7 +1779,10 @@ input[type="text"]:focus, input[type="number"]:focus {
 }
 .control-input:disabled, .control-select:disabled { opacity: .45; cursor: not-allowed; }
 .input-narrow { width: 5.5rem; }
-input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
+input[type="number"] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
 
 input[type="range"] {
     width: 100%; height: 4px; appearance: none; -webkit-appearance: none;
@@ -1978,12 +1933,6 @@ label.switch input:focus-visible ~ .track { box-shadow: 0 0 0 2px var(--accent-r
 .map-controls-row .field-label { margin-bottom: 2px; }
 .map-controls-row #export-grd-btn { white-space: nowrap; }
 
-.canvas-wrapper {
-    position: relative; overflow: hidden;
-    background: var(--bg-inset-2);
-    border: 1px solid var(--rule-soft); border-radius: var(--r-3);
-    display: flex; align-items: center; justify-content: center;
-}
 canvas { display: block; }
 
 /* Help affordance parked inside the canvas, top-right */
@@ -2126,7 +2075,10 @@ canvas { display: block; }
     display: flex; align-items: center; margin-bottom: 10px;
     font-family: var(--font-mono); font-size: .72rem; color: var(--fg-2);
 }
-#status-message:empty { padding: 0; min-height: 0; margin-bottom: 0; }
+/* display:none came from an inline <style> block in the markup; the zeroed
+   box metrics were here. Merged: display:none makes the rest redundant for
+   layout, but they are kept so the rule still behaves if display is overridden. */
+#status-message:empty { display: none; padding: 0; min-height: 0; margin-bottom: 0; }
 #status-message.is-error   { color: var(--danger);  background: color-mix(in srgb, var(--danger) 13%, transparent); }
 #status-message.is-success { color: var(--success); background: color-mix(in srgb, var(--success) 13%, transparent); }
 #status-message.is-warn    { color: var(--warning); background: color-mix(in srgb, var(--warning) 15%, transparent); }
@@ -2212,7 +2164,17 @@ canvas { display: block; }
    height was also set by JS - so before the first resize ran (or whenever the
    pane was hidden and clientWidth measured zero) the box had no height and the
    wrapper drew straight over the content below it. */
-.canvas-wrapper { margin: 0; }
+.canvas-wrapper {
+    position: relative;
+    overflow: hidden;
+    background: var(--bg-inset-2);
+    border: 1px solid var(--rule-soft);
+    border-radius: var(--r-3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+}
 
 
 
@@ -2311,3 +2273,127 @@ details > summary::-webkit-details-marker { display: revert; }
 #swarm-results-tab { overflow-y: auto; padding-right: 4px; }
 #swarm-results-tab::-webkit-scrollbar { width: 8px; }
 #swarm-results-tab::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 4px; }
+
+/* ==========================================================================
+   Migrated from inline <style> blocks in Harko.html
+   ==========================================================================
+   These rules previously lived in two <style> elements in the markup: one
+   before <head> (invalid placement - the parser hoisted it into an implicit
+   head ahead of this file) and one inside <body>. Both are collected here so
+   every definition lives in one place.
+
+   Order matters: this section is appended last, exactly where the in-body
+   block used to sit in the cascade, so computed styles are unchanged.
+   ========================================================================== */
+
+/* ---------- Detached tooltips ----------------------------------------- */
+/* The tooltip section above styles `.tooltip .tooltiptext` (a tooltip nested
+   inside its trigger). Tooltips that JS reparents to document.body are direct
+   children of body, so that descendant selector no longer matches them and
+   they need their own rule. The two selectors are disjoint by construction -
+   a detached tooltip is never inside .tooltip - so neither overrides the
+   other; the duplicated declarations are the price of that split. */
+body > .tooltiptext {
+    visibility: hidden; opacity: 0; transition: opacity .2s;
+    position: fixed; z-index: 10000; width: 320px;
+    background: var(--bg-elevated); color: var(--fg);
+    border: 1px solid var(--rule); box-shadow: var(--shadow-2);
+    border-radius: var(--r-3); padding: 11px 13px;
+    text-align: left; font-size: .76rem; line-height: 1.5; font-weight: 400;
+    text-transform: none; letter-spacing: normal;
+}
+body > .tooltiptext.right   { left: auto; right: 0; }
+body > .tooltiptext.visible { visibility: visible; opacity: 1; }
+body > .tooltiptext a       { color: var(--accent); }
+
+/* ---------- Settings cards -------------------------------------------- */
+/* Used by the swarm/analysis option panels; no earlier rule defines these. */
+.settings-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 14px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+.card-header {
+    margin-top: 0;
+    margin-bottom: 14px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ---------- Stale-map affordance ---------------------------------------- */
+/* Set on the Calculate Map button by markMapStale() when a synthesis or
+   peak-search setting has been changed but not yet applied. A quiet ring
+   rather than a colour change, so it reads as "pending" without competing
+   with the primary-button fill or the warning status message. */
+.btn.needs-run {
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--warning) 55%, transparent);
+}
+.btn.needs-run:disabled { box-shadow: none; }
+
+/* ---------- Collapsible panel sections ---------------------------------- */
+/* The four left-panel cards are <details>/<summary> rather than div/h3 with a
+   JS toggle: the element already provides click and keyboard activation, the
+   expanded/collapsed state is exposed to assistive tech without any aria
+   bookkeeping, and find-in-page can open a closed section on its own. The
+   cards keep their .settings-card / .card-header classes, so everything the
+   old markup styled still applies. */
+
+.settings-card > .card-header {
+    cursor: pointer;
+    list-style: none;                 /* Firefox default triangle */
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    user-select: none;
+    /* The rule under the header belongs to the open state; when collapsed it
+       reads as a stray line under a title, so it is moved to [open] below. */
+    border-bottom: none;
+    padding-bottom: 0;
+    margin-bottom: 0;
+    transition: color .12s;
+}
+.settings-card[open] > .card-header {
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 6px;
+    margin-bottom: 14px;
+}
+.settings-card > .card-header::-webkit-details-marker { display: none; }
+.settings-card > .card-header:hover { color: var(--accent-hover, var(--accent)); }
+
+/* Disclosure caret, drawn from a border so it needs no font or image. */
+.settings-card > .card-header::before {
+    content: '';
+    flex: 0 0 auto;
+    width: 0; height: 0;
+    border-left: 7px solid currentColor;
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+    transform: rotate(0deg);
+    transform-origin: 35% 50%;
+    transition: transform .15s ease;
+}
+.settings-card[open] > .card-header::before { transform: rotate(90deg); }
+
+/* Keyboard focus has to stay visible: the summary is the control now. */
+.settings-card > .card-header:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: var(--r-1);
+}
+
+/* A collapsed card is just its title bar, so the padding that framed a full
+   card of controls is too generous. */
+.settings-card:not([open]) { padding-bottom: 14px; }
+
+@media (prefers-reduced-motion: reduce) {
+    .settings-card > .card-header,
+    .settings-card > .card-header::before { transition: none; }
+}

@@ -39,10 +39,18 @@ struct Params {
 
 const WG: u32 = 64u;
 
-// 384 covers 8 atoms in a 48-operator group, or 2 in a 192-operator cubic one.
 // Separate f32 arrays rather than array<vec3<f32>>: vec3 is padded to a
 // 16-byte stride in workgroup storage, which would waste a third of the budget.
-const MAX_GEN_ATOMS: u32 = 384u;
+//
+// This value is INJECTED by the host at shader-compile time (see
+// applyGpuParticleLimit / the __MAX_GEN_ATOMS__ replacement in Harko.html): it
+// is sized to the device's maxComputeWorkgroupStorageSize so capable GPUs can
+// track more symmetry-expanded atoms than the conservative floor. The literal
+// below is only the standalone fallback used when the file is compiled without
+// injection - it must stay a plain u32 literal so the array declarations that
+// follow remain compile-time sized. 384 covers 8 atoms in a 48-operator group,
+// or 2 in a 192-operator cubic one, and fits the 16 KB WebGPU guarantees.
+const MAX_GEN_ATOMS: u32 = 384u; //__MAX_GEN_ATOMS__
 
 var<workgroup> gx: array<f32, MAX_GEN_ATOMS>;
 var<workgroup> gy: array<f32, MAX_GEN_ATOMS>;
