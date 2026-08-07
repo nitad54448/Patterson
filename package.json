@@ -18,6 +18,9 @@
   },
   "homepage": "https://github.com/nitad54448/Patterson#readme",
   "devDependencies": {
-    "tailwindcss": "^3.4.18"
+    "tailwindcss": "^3.4.19"
+  },
+  "dependencies": {
+    "@tailwindcss/cli": "^4.3.3"
   }
 }
