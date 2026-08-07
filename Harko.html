@@ -38,7 +38,7 @@
 
 <body>
 <div id="top-right-controls" style="position: fixed; top: 1rem; right: 1rem; z-index: 9999; display: flex; align-items: center; background: var(--bg-elevated); border: 1px solid var(--rule); border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-    <button id="info-btn" title="swarm-Harko, 06 aug 2026" aria-label="Info" style="position: static; margin: 0; width: 28px; height: 28px; border: none; border-right: 1px solid var(--rule); border-radius: 6px 0 0 6px; background: transparent; padding: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--fg);">
+    <button id="info-btn" title="swarm-Harko, 07 aug 2026" aria-label="Info" style="position: static; margin: 0; width: 28px; height: 28px; border: none; border-right: 1px solid var(--rule); border-radius: 6px 0 0 6px; background: transparent; padding: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--fg);">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
     </button>
     <button id="theme-toggle" title="Toggle light / dark theme" aria-label="Toggle theme" style="position: static; margin: 0; width: 28px; height: 28px; border: none; border-right: 1px solid var(--rule); border-radius: 0; background: transparent; padding: 0; display: flex; align-items: center; justify-content: center; cursor: pointer;">
@@ -54,29 +54,58 @@
 <!-- ================= LEFT: CONTROLS ================= -->
 <div id="controls-panel">
 
-    <div class="control-group">
-        <button id="open-file-btn" class="btn btn-primary btn-full">Select Data File</button>
-        <input type="file" id="data-file-input" class="hidden"/>
-    </div>
 
-    <div id="status-message"></div>
 
-    <div class="left-tabs">
-        <button class="left-tab-button left-tab-active" data-tab="map-controls-tab">Map</button>
-        <button class="left-tab-button" data-tab="swarm-controls-tab" disabled>Swarm</button>
-    </div>
 
-    <div id="panel-scroll">
 
-        <!-- ---------- MAP CONTROLS ---------- -->
-    <div id="map-controls-tab" class="left-tab-content active">
-        <div class="control-group">
-            <label class="control-label">Crystal &amp; Refinement Data</label>
-            <div id="crystal-info-box" class="info-box">Upload a file to see data.</div>
-        </div>
-        
-        <div class="control-group">
-            <label class="control-label">Intensity Correction</label>
+
+<style>
+        .settings-card {
+            background: var(--bg-elevated);
+            border: 1px solid var(--rule);
+            border-radius: 6px;
+            padding: 14px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .card-header {
+            margin-top: 0;
+            margin-bottom: 14px;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--accent);
+            border-bottom: 1px solid var(--rule);
+            padding-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        #status-message:empty {
+            display: none;
+        }
+    </style>
+
+    <!-- STATUS MESSAGE: PERMANENTLY DOCKED AT THE TOP -->
+    <div id="status-message" style="margin: 8px 0; flex-shrink: 0;"></div>
+
+    <div id="panel-scroll" style="padding-top: 0px;">
+
+        <!-- CARD 1: DATA INPUT -->
+        <div class="settings-card">
+            <h3 class="card-header">1. Data Input</h3>
+            <button id="open-file-btn" class="btn btn-primary btn-full" style="margin-bottom: 8px;">Select Data File</button>
+            <input type="file" id="data-file-input" class="hidden"/>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">      
+              
+              
+                <label class="control-label" style="align-self: center; margin: 0;">Wavelength (Å)</label>
+                <input type="number" id="wavelength" value="1.54056" step="0.0001" class="control-input">
+            </div>
+            
+            <label class="control-label" style="margin-top: 0;">Intensity Correction</label>
+
+
+
             <label class="check-row">
                 <input type="checkbox" id="lp-correction-toggle" class="check" checked>
                 <span>Divide out Lorentz-polarisation</span>
@@ -84,37 +113,47 @@
                     <span class="tooltiptext">Used only when the file supplies neither |Fo| nor an Lp column and sHarko has to compute Lp itself.</span>
                 </span>
             </label>
+ 
+
             <div id="lp-status" class="readout" style="margin-top:6px; margin-bottom:0px;"></div>
         </div>
 
-        <div class="control-group">
-            <label class="control-label">Patterson Map Calculation</label>
+        <!-- CARD 2: STRUCTURE -->
+        <div class="settings-card">
+            <h3 class="card-header">2. Structure</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                <button type="button" id="space-group-open-modal" class="btn btn-full" style="grid-column: 1 / -1;">Select Space Group &raquo;</button>
+            </div>
+            <div id="space-group-info" class="readout" style="margin-bottom: 12px;">Group unspecified</div>
+            <div id="lattice-parameters-container"></div>
+            <div id="crystal-info-box" class="info-box" style="margin-top: 12px;">Upload a file to see data.</div>
+        </div>
 
-<label class="field-label" for="lorch-slider">Lorch filter strength:
+        <!-- CARD 3: PATTERSON MAP -->
+        <div class="settings-card">
+            <h3 class="card-header">3. Patterson Map Synthesis</h3>
+
+            <label class="check-row" style="margin-bottom:12px">
+
+                <input type="checkbox" id="high-res-toggle" class="check" disabled>
+                <span>High resolution grid</span>
+                <span class="tooltip"><span class="help-dot">?</span>
+                    <span class="tooltiptext">Off: 64&sup3; grid. On: 128&sup3; &mdash; eight times the voxels,
+                    memory and time.<br><br>The transform needs a power-of-two grid, so these are the only two
+                    useful settings. sHarko raises the grid further on its own if the data reach an index high
+                    enough that 128 would alias one reflection onto another; the grid actually used is shown
+                    below.</span></span>
+            </label>
+            <div id="resolution-readout" class="readout" style="margin-bottom:12px">Grid: 64&sup3; (not yet calculated)</div>
+
+            <label class="field-label" for="lorch-slider" style="display: block; margin-bottom: 6px;">Lorch filter strength:
                 <span id="lorch-value" class="mono">0.000</span>
                 <span class="tooltip"><span class="help-dot">?</span>
                     <span class="tooltiptext">Suppresses series termination ripples in the Patterson map. 0 is off, 1 is a full Lorch modification. Since this broadens the peaks, use just enough to tame the ripples.</span></span>
             </label>
-            <input type="range" id="lorch-slider" min="0" max="1" value="0" step="0.01" disabled>
+            <input type="range" id="lorch-slider" min="0" max="1" value="0" step="0.01" disabled style="margin-bottom: 16px;">
 
-            <div style="margin-bottom:12px"></div>
-
-<label class="check-row" style="margin-bottom:5px">
-    <input type="checkbox" id="high-res-toggle" class="check" disabled>
-    <span>High resolution grid</span>
-    <span class="tooltip"><span class="help-dot">?</span>
-        <span class="tooltiptext">Off: 64&sup3; grid. On: 128&sup3; &mdash; eight times the voxels,
-        memory and time.<br><br>The transform needs a power-of-two grid, so these are the only two
-        useful settings. sHarko raises the grid further on its own if the data reach an index high
-        enough that 128 would alias one reflection onto another; the grid actually used is shown
-        below.</span></span>
-</label>
-
-
-
-            <div id="resolution-readout" class="readout" style="margin-bottom:12px">Grid: 64&sup3; (not yet calculated)</div>
-
-            <label class="field-label" for="sigma-input">Peak width &sigma; (&#8491;):
+            <label class="field-label" for="sigma-input" style="display: block; margin-bottom: 6px;">Peak width &sigma; (&#8491;):
                 <span id="sigma-value" class="mono">0.00</span>
                 <span class="tooltip"><span class="help-dot">?</span>
                     <span class="tooltiptext">Gaussian width used to broaden the <b>calculated</b> map so it can be
@@ -124,10 +163,9 @@
                     if your sample is heavily thermally smeared, lower it to sharpen the model.
                     Affects only the calculated map &mdash; not the observed map, not the swarm fitness.</span></span>
             </label>
-            <input type="range" id="sigma-input" min="0" max="2" value="0" step="0.01" disabled>
-            <div style="margin-bottom:12px"></div>
+            <input type="range" id="sigma-input" min="0" max="2" value="0" step="0.01" disabled style="margin-bottom: 16px;">
 
-            <label class="field-label" for="temp-factor-input">Overall temperature factor B (&#8491;&sup2;):
+            <label class="field-label" for="temp-factor-input" style="display: block; margin-bottom: 6px;">Overall temperature factor B (&#8491;&sup2;):
                 <span id="temp-factor-value" class="mono">0.00</span>
                 <span class="tooltip"><span class="help-dot">?</span>
                     <span class="tooltiptext">Thermal motion smears atoms, and the observed Patterson &mdash; computed from
@@ -139,96 +177,115 @@
                     on the Swarm Results page to have it refined against the observed map. Affects only the calculated
                     and difference maps &mdash; not the observed map, and not the swarm fitness.</span></span>
             </label>
-            <input type="range" id="temp-factor-input" min="0" max="3" value="0" step="0.05" disabled>
-            <div id="temp-factor-note" class="readout" style="margin-bottom:12px"></div>
+            <input type="range" id="temp-factor-input" min="0" max="3" value="0" step="0.05" disabled style="margin-bottom: 4px;">
+            <div id="temp-factor-note" class="readout" style="margin-bottom: 24px;"></div>
+
+            <label class="control-label" style="display: block; margin-bottom: 12px;">Peak Search Filters</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                <div>
+                    <label class="field-label" for="max-peaks-input" style="display: block; margin-bottom: 6px;">Max Peaks:</label>
+                    <input type="number" id="max-peaks-input" value="50" min="10" max="500" step="10" class="control-input">
+                </div>
+                <div>
+                    <label class="field-label" for="min-sigma-input" style="display: block; margin-bottom: 6px;">Min &sigma; Threshold:</label>
+                    <input type="number" id="min-sigma-input" value="3.0" min="0.0" max="20.0" step="0.5" class="control-input">
+                </div>
+            </div>
+
+            <button id="calculate-map-btn" class="btn btn-primary btn-full" style="margin-bottom: 4px;">Calculate Map</button>
+
+            <!-- Combination tolerance retired: consolidated peaks now come
 
             <!-- Combination tolerance retired: consolidated peaks now come
                  solely from the superposition map (a single, data-driven
                  source), so a Harker-clustering tolerance no longer applies.
                  The control is kept in the DOM (hidden) so existing references
                  stay valid, but it drives nothing. -->
+
             <label class="field-label" for="tolerance-slider" style="display:none">Combination tolerance:
                 <span id="tolerance-value" class="mono">0.030</span></label>
             <input type="range" id="tolerance-slider" min="0.01" max="0.10" value="0.03" step="0.005" disabled style="display:none">
         </div>
-    </div>
 
-    <!-- ---------- SWARM CONTROLS ---------- -->
-    <div id="swarm-controls-tab" class="left-tab-content">
-
-        <div class="control-group">
-            <label class="control-label">Asymmetric Unit Contents</label>
+        <!-- CARD 4: SWARM OPTIMIZATION -->
+        <div class="settings-card">
+            <h3 class="card-header">4. Swarm Optimization</h3>
+            
+            <label class="control-label" style="display: block; margin-bottom: 8px;">Asymmetric Unit Contents</label>
             <div id="atom-list-container" class="info-box scroll" style="padding:0;margin-bottom:9px">
+                
+                
+                
+                
+                
                 <div class="table-empty">No atoms added.</div>
             </div>
-            <div class="row">
+            <div class="row" style="margin-bottom: 12px;">
                 <input type="text" id="new-element" class="control-input" placeholder="Element" style="text-transform:uppercase">
                 <input type="number" id="new-quantity" class="control-input input-narrow" value="1" min="1">
                 <button id="add-atom-btn" class="btn">Add</button>
             </div>
-        </div>
 
 
 
-        <div class="control-group">
-            <label class="control-label">Contact Filter
+<label class="control-label" style="display: block; margin-bottom: 8px;">Contact Filter
                 <span class="tooltip"><span class="help-dot">?</span>
                     <span class="tooltiptext">Audits the structure for unfeasibly short contacts and penalizes configurations where atoms sit closer than this minimum distance.</span>
                 </span>
             </label>
-            <label class="field-label" for="min-contact-input">Minimum contact distance (&#8491;):
+            <label class="field-label" for="min-contact-input" style="display: block; margin-bottom: 6px;">Minimum contact distance (&#8491;):
                 <span id="min-contact-value" class="mono">0.00</span>
             </label>
+            <input type="range" id="min-contact-input" min="0" max="3" value="0.00" step="0.05" disabled style="margin-bottom: 10px;">
+            <div id="contact-report" class="readout" style="margin-bottom: 0;"></div>
 
+            <hr style="border: 0; border-top: 1px solid var(--rule); margin: 20px 0 16px 0;">
 
-
-            <input type="range" id="min-contact-input" min="0" max="3" value="0.00" step="0.05" disabled>
-            <div id="contact-report" class="readout" style="margin-top:8px"></div>
-        </div>
-
-        <div class="control-group grow">
-            <label class="control-label">WebGPU Global Optimization
+            <label class="control-label" style="display: block; margin-bottom: 12px;">WebGPU Global Optimization
                 <span class="tooltip"><span class="help-dot">?</span>
                     <span class="tooltiptext" id="swarm-particles-limit">Calculating GPU limits...</span>
                 </span>
             </label>
 
-            <label class="field-label" for="swarm-particles">Configurations: <span id="swarm-particles-value" class="mono">512</span></label>
-            <input type="range" id="swarm-particles" min="64" max="2048" value="512" step="64">
-            <!-- The old standalone div has been removed -->
+            <label class="field-label" for="swarm-particles" style="display: block; margin-bottom: 6px;">Configurations: <span id="swarm-particles-value" class="mono">512</span>
+                <span class="tooltip"><span class="help-dot">?</span>
+                    <span class="tooltiptext">The number of independent trial structures (particles) searching the unit cell simultaneously. Larger numbers explore more space but increase the memory and compute load.</span></span>
+            </label>
+            <input type="range" id="swarm-particles" min="64" max="2048" value="512" step="64" style="margin-bottom: 16px;">
 
+            <label class="field-label" for="swarm-iterations" style="display: block; margin-bottom: 6px;">Iterations: <span id="swarm-iterations-value" class="mono">100</span>
+                <span class="tooltip"><span class="help-dot">?</span>
+                    <span class="tooltiptext">How many steps the swarm takes to converge. If the fitness chart is still climbing steeply when the run stops, increase this value to give the structures more time to settle.</span></span>
+            </label>
+            <input type="range" id="swarm-iterations" min="10" max="1000" value="100" step="10" style="margin-bottom: 16px;">
 
-            <label class="field-label" for="swarm-iterations">Iterations: <span id="swarm-iterations-value" class="mono">100</span></label>
-            <input type="range" id="swarm-iterations" min="10" max="1000" value="100" step="10">
-
-            <label class="field-label" for="swarm-restarts" style="margin-top:9px">Restarts: <span id="swarm-restarts-value" class="mono">4</span>
+            <label class="field-label" for="swarm-restarts" style="display: block; margin-bottom: 6px;">Restarts: <span id="swarm-restarts-value" class="mono">4</span>
                 <span class="tooltip"><span class="help-dot">?</span>
                     <span class="tooltiptext">A single PSO run can get trapped fitting one atom onto a
                     comfortable-but-wrong spot. Restarts run several independent searches from fresh random positions
                     and keep the best structure found across all of them.</span></span>
             </label>
+            <input type="range" id="swarm-restarts" min="1" max="20" value="4" step="1" style="margin-bottom: 16px;">
 
-
-            
-            <input type="range" id="swarm-restarts" min="1" max="20" value="4" step="1">
-
-            <label class="field-label" for="swarm-w" style="margin-top:9px">Inertia (w): <span id="swarm-w-value" class="mono">0.50</span>
+            <label class="field-label" for="swarm-w" style="display: block; margin-bottom: 6px;">Inertia (w): <span id="swarm-w-value" class="mono">0.50</span>
                 <span class="tooltip"><span class="help-dot">?</span>
                     <span class="tooltiptext">Maintains the particle's current momentum. Higher values help search the whole cell (global search); lower values help it converge (local search).</span></span>
             </label>
-            <input type="range" id="swarm-w" min="0.1" max="1.5" value="0.5" step="0.05">
+            <input type="range" id="swarm-w" min="0.1" max="1.5" value="0.5" step="0.05" style="margin-bottom: 16px;">
             
-            <label class="field-label" for="swarm-c1" style="margin-top:9px">Cognitive (c1): <span id="swarm-c1-value" class="mono">1.50</span>
+            <label class="field-label" for="swarm-c1" style="display: block; margin-bottom: 6px;">Cognitive (c1): <span id="swarm-c1-value" class="mono">1.50</span>
                 <span class="tooltip"><span class="help-dot">?</span>
                     <span class="tooltiptext">Controls how strongly a particle is pulled back toward its own personal best position.</span></span>
             </label>
-            <input type="range" id="swarm-c1" min="0.1" max="3.0" value="1.5" step="0.05">
+            <input type="range" id="swarm-c1" min="0.1" max="3.0" value="1.5" step="0.05" style="margin-bottom: 16px;">
             
-            <label class="field-label" for="swarm-c2" style="margin-top:9px">Social (c2): <span id="swarm-c2-value" class="mono">1.50</span>
+            <label class="field-label" for="swarm-c2" style="display: block; margin-bottom: 6px;">Social (c2): <span id="swarm-c2-value" class="mono">1.50</span>
                 <span class="tooltip"><span class="help-dot">?</span>
                     <span class="tooltiptext">Controls how strongly a particle is pulled toward the global best position found by the entire swarm.</span></span>
             </label>
-            <input type="range" id="swarm-c2" min="0.1" max="3.0" value="1.5" step="0.05">
+            <input type="range" id="swarm-c2" min="0.1" max="3.0" value="1.5" step="0.05" style="margin-bottom: 16px;">
+
+
 
             <label class="check-row" style="margin-top:12px">
                 <input type="checkbox" id="seed-heavy-toggle" class="check">
@@ -247,8 +304,6 @@
 
             <div class="row" style="margin:12px 0 10px">
                 <button id="run-swarm-btn" class="btn btn-primary" style="flex:1 1 auto">Run Swarm</button>
-            
-                
                 <button id="stop-swarm-btn" class="btn btn-danger" disabled>Stop</button>
             </div>
 
@@ -262,18 +317,13 @@
 
             <div id="gpu-info" class="readout" style="margin-top:9px">GPU: not initialized</div>
             <div id="swarm-log" class="info-box scroll hidden" style="margin-top:6px"></div>
-        </div>
-    </div>
+            
+        </div> <!-- /CLOSE CARD 4 -->
 
     </div><!-- /#panel-scroll -->
 
-    <!-- Pinned to the bottom of the panel, outside the scrolling area.
-         It used to sit inside the scroll flow with margin-top:auto, which only
-         reaches the bottom when the content is shorter than the panel - so on
-         the Swarm tab it came to rest in the middle of the controls.
-         Save CIF has moved to the Swarm Results tab, next to the structure it
-         actually exports. -->
     <div id="panel-footer">
+
         <button id="generate-report-btn" class="btn btn-primary btn-full" disabled>PDF Report</button>
     </div>
 </div>
@@ -545,10 +595,322 @@
     </div>
 
 </div><!-- /#app-container -->
+<!-- SPACE GROUP MODAL -->
+<div id="sg-modal-overlay" class="modal-overlay" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 10000; align-items: center; justify-content: center;">
+    <div class="modal-content" style="background: var(--bg-elevated); padding: 20px; border-radius: 8px; width: 800px; max-width: 90vw; display: flex; flex-direction: column; max-height: 90vh; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+        <h2 style="margin-top: 0;">Select Space Group</h2>
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <input type="text" id="sg-search-number" class="control-input" placeholder="Number (e.g., 14)" style="width: 120px;">
+            <input type="text" id="sg-search-text" class="control-input" placeholder="Symbol (e.g., P 21/c)" style="flex-grow: 1;">
+        </div>
+        <div class="sg-chip-group" style="margin-bottom: 10px;">
+            <div id="sg-chip-row-system" class="sg-chip-row" style="display: flex; gap: 4px; flex-wrap: wrap;"></div>
+            <div id="sg-chip-row-centering" class="sg-chip-row" style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px;"></div>
+            <div id="sg-chip-row-axes-label" style="display:none; font-size:12px; margin-top: 4px;">Axes:</div>
+            <div id="sg-chip-row-axes" class="sg-chip-row" style="display:none; gap: 4px; flex-wrap: wrap;"></div>
+        </div>
+        <div style="display: flex; gap: 10px; flex-grow: 1; min-height: 0;">
+            <div id="sg-list-wrap" class="scroll info-box" style="flex: 1; overflow-y: auto;"></div>
+            <div id="sg-explain" class="info-box" style="flex: 1; overflow-y: auto;"></div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 15px;">
+            <button id="sg-btn-reset" class="btn">Reset</button>
+            <button id="sg-btn-cancel" class="btn">Cancel</button>
+            <button id="sg-btn-apply" class="btn btn-primary" disabled>Apply</button>
+        </div>
+    </div>
+</div>
 <script>
 
     document.addEventListener('DOMContentLoaded', () => {
         
+        let SGM = null;
+        const MONOCLINIC_ANGLE_FOR_AXIS = { a: 'alpha', b: 'beta', c: 'gamma' };
+        
+        function monoclinicUniqueAxis(sg) {
+            const desc = sg?.setting_description;
+            const m = (typeof desc === 'string') ? desc.match(/^-?([abc])/i) : null;
+            return m ? m[1].toLowerCase() : 'b';
+        }
+
+        function updateSpaceGroupInfo() {
+            const el = document.getElementById('space-group-info');
+            if (!el) return;
+            if (!currentSG) {
+                el.textContent = 'Group unspecified';
+                el.style.color = 'var(--system-secondary-label)';
+                return;
+            }
+            const isStd = currentSG.setting_description === 'standard';
+            const settingInfo = !isStd ? ` · ( setting ${currentSG.setting_description}, ${currentSG.symbol} )` : '';
+            el.textContent = `#${currentSG.number} · ${currentSG.standard_symbol}${settingInfo} · Laue ${currentSG.laue_class}`;
+            el.style.color = 'var(--system-secondary-label)';
+        }
+
+        function updateLatticeParamUI() {
+            const currentValues = {}; 
+            const container = document.getElementById('lattice-parameters-container');
+            container.querySelectorAll('input[type="number"]').forEach(input => { 
+                const name = input.id.replace('lattice-param-', ''); 
+                if (input.value) currentValues[name] = input.value; 
+            });
+            const system = currentSG ? currentSG.system : null; 
+            container.innerHTML = '';
+            if (!system) return;
+            
+            const createInput = (name, label, defaultValue, step, isAngle = false) => {
+                const valueToUse = currentValues[name] !== undefined ? currentValues[name] : defaultValue; 
+                const id_base = `lattice-param-${name}`; const unit = isAngle ? '°' : 'Å';
+                const minMaxAttrs = isAngle ? 'min="1" max="179"' : 'min="0.001"';
+                const row = document.createElement('div'); 
+                row.style.display = 'grid'; row.style.gridTemplateColumns = '1fr 1fr'; row.style.gap = '8px'; row.style.marginBottom = '6px';
+                row.innerHTML = `<label for="${id_base}" class="control-label" style="align-self: center; margin: 0;">${label} (${unit})</label>
+                                 <input type="number" id="${id_base}" value="${valueToUse}" step="${step}" class="control-input" ${minMaxAttrs}>`; 
+                container.appendChild(row);
+
+                // Update the grey info box instantly when the user types a new lattice parameter
+                document.getElementById(id_base).addEventListener('input', () => {
+                    if (state.crystalData) {
+                        state.crystalData.cell = getUI_Cell();
+                        updateCrystalInfo();
+                    }
+                });
+            };
+            
+            const params = {
+                triclinic:   [{ name: 'a', label: 'a', value: 5.0, step: 0.001 }, { name: 'b', label: 'b', value: 6.0, step: 0.001 }, { name: 'c', label: 'c', value: 7.0, step: 0.001 }, { name: 'alpha', label: 'α', value: 90.0, step: 0.01, isAngle: true }, { name: 'beta', label: 'β', value: 95.0, step: 0.01, isAngle: true }, { name: 'gamma', label: 'γ', value: 100.0, step: 0.01, isAngle: true }],
+                monoclinic:  [{ name: 'a', label: 'a', value: 4.0, step: 0.001 }, { name: 'b', label: 'b', value: 5.0, step: 0.001 }, { name: 'c', label: 'c', value: 6.0, step: 0.001 }, { name: 'beta', label: 'β', value: 105.0, step: 0.01, isAngle: true }],
+                orthorhombic:[{ name: 'a', label: 'a', value: 8.478, step: 0.001 }, { name: 'b', label: 'b', value: 5.397, step: 0.001 }, { name: 'c', label: 'c', value: 6.958, step: 0.001 }],
+                tetragonal:  [{ name: 'a', label: 'a', value: 4.0, step: 0.001 }, { name: 'c', label: 'c', value: 5.0, step: 0.001 }],
+                hexagonal:   [{ name: 'a', label: 'a', value: 4.0, step: 0.001 }, { name: 'c', label: 'c', value: 6.0, step: 0.001 }],
+                trigonal:    [{ name: 'a', label: 'a', value: 4.0, step: 0.001 }, { name: 'c', label: 'c', value: 6.0, step: 0.001 }],
+                rhombohedral:[{ name: 'a', label: 'a', value: 5.5, step: 0.001 }, { name: 'c', label: 'c', value: 15.0, step: 0.001 }],
+                cubic:       [{ name: 'a', label: 'a', value: 4.23, step: 0.001 }]
+            };
+
+            if (system === 'monoclinic') {
+                const monoAngle = MONOCLINIC_ANGLE_FOR_AXIS[monoclinicUniqueAxis(currentSG)];
+                const LABEL = { alpha: 'α', beta: 'β', gamma: 'γ' };
+                const carried = ['alpha', 'beta', 'gamma'].map(k => currentValues[k]).find(v => v !== undefined && parseFloat(v) !== 90);
+                params.monoclinic[3] = { name: monoAngle, label: LABEL[monoAngle], value: carried !== undefined ? parseFloat(carried) : 105.0, step: 0.01, isAngle: true };
+            }
+            if(params[system]) params[system].forEach(p => createInput(p.name, p.label, p.value, p.step, p.isAngle));
+        }
+
+        function handleSpaceGroupApplied(rec) {
+            currentSG = rec;
+            updateSpaceGroupInfo();
+            updateLatticeParamUI();
+            
+            // Sync the chosen Space Group and generated Cell immediately to the grey box
+            if (state.crystalData) {
+                state.crystalData.spaceGroup = { number: currentSG.number, name: currentSG.symbol };
+                state.crystalData.cell = getUI_Cell();
+                updateCrystalInfo();
+            }
+        }
+
+        function initSpaceGroupModal() {
+            SGM = (() => {
+                const SYSTEMS = ['cubic','hexagonal','trigonal','tetragonal','orthorhombic','monoclinic','triclinic'];
+                const CENTERINGS = ['P','A','B','C','I','F','R'];
+                const ALL_SETTINGS = [];
+                for (let n = 1; n <= 230; n++) {
+                    SG_ENGINE.listSettings(n).forEach(rec => {
+                        const lbl = rec.display_label || '';
+                        if (/rhomb\. axes/.test(lbl)) return;
+                        if (/hex\. axes/.test(lbl)) rec = { ...rec, display_label: lbl.replace(/\s*\[hex\. axes\]\s*/, '').trim() };
+                        ALL_SETTINGS.push(rec);
+                    });
+                }
+                
+                let nodes = null;
+                function grabNodes() {
+                    if (nodes) return nodes;
+                    nodes = {
+                        overlay: document.getElementById('sg-modal-overlay'),
+                        systemRow: document.getElementById('sg-chip-row-system'),
+                        centRow:   document.getElementById('sg-chip-row-centering'),
+                        axesLabel: document.getElementById('sg-chip-row-axes-label'),
+                        axesRow:   document.getElementById('sg-chip-row-axes'),
+                        numInput:  document.getElementById('sg-search-number'),
+                        txtInput:  document.getElementById('sg-search-text'),
+                        listWrap:  document.getElementById('sg-list-wrap'),
+                        explain:   document.getElementById('sg-explain'),
+                        btnCancel: document.getElementById('sg-btn-cancel'),
+                        btnReset:  document.getElementById('sg-btn-reset'),
+                        btnApply:  document.getElementById('sg-btn-apply')
+                    };
+                    return nodes;
+                }
+
+                const state = { system: null, centering: null, axis: null, numText: '', txtText: '', selected: null };
+                function resetState() { state.system = null; state.centering = null; state.axis = null; state.numText = ''; state.txtText = ''; state.selected = null; }
+
+                function mkChip(label, active, disabled, onClick) {
+                    const chip = document.createElement('button');
+                    chip.type = 'button';
+                    chip.className = 'btn' + (active ? ' btn-primary' : '');
+                    chip.style.padding = '4px 8px'; chip.style.fontSize = '12px';
+                    chip.textContent = label;
+                    chip.disabled = !!disabled;
+                    if (!disabled) chip.addEventListener('click', onClick);
+                    return chip;
+                }
+
+                function availableCenteringsGiven(exclSystem) {
+                    const out = new Set();
+                    ALL_SETTINGS.forEach(rec => { if (!exclSystem || rec.system === exclSystem) out.add(rec.centering); });
+                    return out;
+                }
+
+                function axisChoiceApplies() {
+                    return ALL_SETTINGS.some(rec => {
+                        if (!rec.axis) return false;
+                        if (state.system && rec.system !== state.system) return false;
+                        if (state.centering && rec.centering !== state.centering) return false;
+                        return true;
+                    });
+                }
+
+                function renderChips() {
+                    const n = grabNodes();
+                    n.systemRow.innerHTML = '';
+                    SYSTEMS.forEach(sys => {
+                        n.systemRow.appendChild(mkChip(sys.charAt(0).toUpperCase() + sys.slice(1), state.system === sys, false, () => {
+                            state.system = state.system === sys ? null : sys;
+                            const avail = availableCenteringsGiven(state.system);
+                            if (state.centering && !avail.has(state.centering)) state.centering = null;
+                            if (!axisChoiceApplies()) state.axis = null;
+                            renderAll();
+                        }));
+                    });
+
+                    n.centRow.innerHTML = '';
+                    const avail = availableCenteringsGiven(state.system);
+                    CENTERINGS.forEach(c => {
+                        const enabled = avail.has(c);
+                        n.centRow.appendChild(mkChip(c, state.centering === c, !enabled, () => {
+                            state.centering = state.centering === c ? null : c;
+                            if (!axisChoiceApplies()) state.axis = null;
+                            renderAll();
+                        }));
+                    });
+
+                    const axisShown = axisChoiceApplies();
+                    n.axesLabel.style.display = axisShown ? '' : 'none';
+                    n.axesRow.style.display   = axisShown ? 'flex' : 'none';
+                    n.axesRow.innerHTML = '';
+                    if (axisShown) {
+                        [['hex','Hex. axes'],['rhomb','Rhomb. axes']].forEach(([key, label]) => {
+                            n.axesRow.appendChild(mkChip(label, state.axis === key, false, () => {
+                                state.axis = state.axis === key ? null : key;
+                                renderAll();
+                            }));
+                        });
+                    }
+                }
+
+                function applyFilters() {
+                    const numQ = (state.numText || '').trim();
+                    const txtQ = (state.txtText || '').trim().toLowerCase();
+                    return ALL_SETTINGS.filter(rec => {
+                        if (state.system && rec.system !== state.system) return false;
+                        if (state.centering && rec.centering !== state.centering) return false;
+                        if (state.axis && rec.axis !== state.axis) return false;
+                        if (numQ && String(rec.number) !== numQ) return false;
+                        if (txtQ) {
+                            const hay = (rec.symbol + ' ' + rec.standard_symbol + ' ' + (rec.hall || '') + ' ' + (rec.display_label || '')).toLowerCase();
+                            if (hay.indexOf(txtQ) === -1) return false;
+                        }
+                        return true;
+                    });
+                }
+
+                function escapeHtml(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+                function renderList(list) {
+                    const n = grabNodes();
+                    if (list.length === 0) { n.listWrap.innerHTML = '<div style="padding:10px;">No space groups match.</div>'; return; }
+                    if (state.selected && !list.some(r => r.number === state.selected.number && r.hall === state.selected.hall)) state.selected = null;
+                    const frag = document.createDocumentFragment();
+                    list.slice(0, 600).forEach(rec => {
+                        const row = document.createElement('div');
+                        const isSel = state.selected && rec.number === state.selected.number && rec.hall === state.selected.hall;
+                        row.style.padding = '8px'; row.style.cursor = 'pointer'; row.style.borderBottom = '1px solid var(--rule)';
+                        if (isSel) row.style.background = 'var(--system-fill)';
+                        row.innerHTML = `<span style="display:inline-block;width:40px;color:var(--system-secondary-label);">#${rec.number}</span> <span style="font-weight:500;">${escapeHtml(rec.display_label || rec.symbol)}</span> <span style="float:right;font-size:11px;color:var(--system-secondary-label);">${rec.system}</span>`;
+                        row.addEventListener('click', () => { state.selected = rec; renderAll(); });
+                        frag.appendChild(row);
+                    });
+                    n.listWrap.innerHTML = ''; n.listWrap.appendChild(frag);
+                }
+
+                function renderExplain(list) {
+                    const n = grabNodes();
+                    if (list.length === 0) { n.explain.innerHTML = '<div style="padding:10px;">No match. Adjust filters.</div>'; return; }
+                    if (!state.selected) { n.explain.innerHTML = `<div style="padding:10px;"><strong>${list.length}</strong> settings match. Pick one.</div>`; return; }
+                    const rec = state.selected;
+                    let condHtml = '<div style="font-size:12px;color:var(--system-secondary-label);">No reflection conditions.</div>';
+                    if (rec.reflection_conditions && Object.keys(rec.reflection_conditions).length) {
+                        condHtml = '<table style="width:100%;font-size:12px;border-collapse:collapse;"><thead><tr style="text-align:left;border-bottom:1px solid var(--rule);"><th>Family</th><th>Rule</th></tr></thead><tbody>';
+                        Object.keys(rec.reflection_conditions).forEach(fam => {
+                            rec.reflection_conditions[fam].forEach(rule => { condHtml += `<tr><td>${escapeHtml(fam)}</td><td>${escapeHtml(rule)}</td></tr>`; });
+                        });
+                        condHtml += '</tbody></table>';
+                    }
+                    n.explain.innerHTML = `<div style="padding:10px;">
+                        <h3 style="margin-top:0;">${escapeHtml(rec.display_label || rec.symbol)}</h3>
+                        <div style="display:grid;grid-template-columns:100px 1fr;gap:4px;font-size:13px;margin-bottom:15px;">
+                            <strong>Number:</strong> <span>#${rec.number}</span>
+                            <strong>Symbol:</strong> <span>${escapeHtml(rec.standard_symbol)}</span>
+                            <strong>Setting:</strong> <span>${escapeHtml(rec.setting_description || '(default)')}</span>
+                            <strong>System:</strong> <span>${escapeHtml(rec.system)}</span>
+                            <strong>Laue:</strong> <span>${escapeHtml(rec.laue_class)}</span>
+                            <strong>Hall:</strong> <span>${escapeHtml(rec.hall || '—')}</span>
+                        </div>
+                        <div style="font-size:11px;text-transform:uppercase;color:var(--system-secondary-label);margin-bottom:4px;">Reflection conditions</div>
+                        ${condHtml}
+                    </div>`;
+                }
+
+                function renderAll() {
+                    renderChips(); renderList(applyFilters()); renderExplain(applyFilters());
+                    grabNodes().btnApply.disabled = !state.selected;
+                }
+
+                function open(prefill) {
+                    const n = grabNodes();
+                    if (prefill) {
+                        state.system = null; state.centering = null; state.axis = null; state.numText = ''; state.txtText = '';
+                        state.selected = ALL_SETTINGS.find(r => r.number === prefill.number && r.hall === prefill.hall) || null;
+                    } else resetState();
+                    n.numInput.value = state.numText; n.txtInput.value = state.txtText;
+                    renderAll();
+                    n.overlay.style.display = 'flex';
+                }
+                
+                function close() { grabNodes().overlay.style.display = 'none'; }
+
+                function wire(onApply) {
+                    const n = grabNodes();
+                    n.numInput.addEventListener('input', e => { state.numText = e.target.value; renderAll(); });
+                    n.txtInput.addEventListener('input', e => { state.txtText = e.target.value; renderAll(); });
+                    n.btnCancel.addEventListener('click', close);
+                    n.btnReset.addEventListener('click', () => { resetState(); n.numInput.value = ''; n.txtInput.value = ''; renderAll(); });
+                    n.btnApply.addEventListener('click', () => { if (!state.selected) return; onApply(state.selected); close(); });
+                    n.overlay.addEventListener('click', e => { if (e.target === n.overlay) close(); });
+                }
+                
+                const api = { open, close, wire };
+                api.wire(handleSpaceGroupApplied);
+                return api;
+            })();
+            
+            document.getElementById('space-group-open-modal').addEventListener('click', () => {
+                SGM.open(currentSG);
+            });
+        }
 
         // --- PERIODIC TABLE & SWARM HELPERS ---
         // r = van der Waals radius (Å), m = standard atomic weight (g/mol, for density calc)
@@ -891,24 +1253,35 @@
         }
 
         // --- Fetch Harker data (main thread) ---
+
         fetch('lib/cctbx_space_groups_all_settings_v6.json')
-                    .then(response => {
-                if (!response.ok) {
-                    if (response.status === 404) {
-                         throw new Error("lib/cctbx_space_groups_all_settings_v6.json not found. Place it in the lib/ folder.");
-                    }
-                    throw new Error(`HTTP error ${response.status} loading space_groups_harker.json`);
-                }
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP error ${response.status}`);
                 return response.json();
             })
-            .then(data => {
+            .then(async data => {
+                globalThis.SG_DATABASE = data;
                 state.spaceGroups = data.space_groups || data;
-                console.log("Harker data v5 loaded.");
-                 statusMessage.textContent = "Harker definitions loaded.";
-                 statusMessage.classList.remove('is-error');
-                 statusMessage.classList.add('is-success');
-                 setTimeout(() => { if (statusMessage.textContent === "Harker definitions loaded.") statusMessage.textContent = ''; }, 3000);
+                
+                // Load sg_engine.js AFTER database is in memory:
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = 'sg_engine.js';
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
+
+
+                console.log("Harker data v7 and sg_engine loaded.");
+                statusMessage.textContent = "Harker definitions loaded.";
+                statusMessage.classList.remove('is-error');
+                statusMessage.classList.add('is-success');
+                setTimeout(() => { if (statusMessage.textContent === "Harker definitions loaded.") statusMessage.textContent = ''; }, 3000);
+                
+                initSpaceGroupModal();
             })
+
             .catch(error => {
                 console.error("Error loading space_groups_harker.json:", error);
                 statusMessage.textContent = `Error: ${error.message}`;
@@ -1221,6 +1594,9 @@ function nearestSymmetryImage(gBest, pos, off, nAtoms, symOps, orth, out) {
             // Check if worker is busy (by checking if cursor is 'wait')
             const isBusy = document.body.style.cursor === 'wait';
 
+const calcMapBtn = document.getElementById('calculate-map-btn');
+            if (calcMapBtn) calcMapBtn.disabled = !hasCrystalData || isBusy;
+            
             setCheckDisabled(highResToggle, !hasCrystalData || isBusy);
             if (lorchSlider) lorchSlider.disabled = !hasCrystalData || isBusy;
             sigmaInput.disabled = !hasMap || isBusy;
@@ -1244,18 +1620,7 @@ function nearestSymmetryImage(gBest, pos, off, nAtoms, symOps, orth, out) {
             minContactInput.disabled = isBusy;
             toleranceSlider.disabled = state.harkerAnalysisResults.length < 2 || isBusy;
 
-leftTabButtons.forEach(btn => {
-                const tab = btn.dataset.tab;
-                if (isBusy) {
-                    btn.disabled = true; // Disable all tabs while busy
-                } else {
-                    // Enable/disable based on state
-                    if (tab.includes('map')) { btn.disabled = !hasCrystalData; } 
-                    else if (tab.includes('slices')) { btn.disabled = !hasMap; }
-                    else if (tab.includes('peaks')) { btn.disabled = !hasMap || !hasHarkerData; }
-                    else if (tab.includes('swarm')) { btn.disabled = !hasMap; }
-                }
-            });
+
 
             generateReportBtn.disabled = !hasCrystalData || isBusy;
         }
@@ -1289,7 +1654,9 @@ leftTabButtons.forEach(btn => {
          * buffers come out of the same budget.
          */
 
-        function applyGpuParticleLimit(device) {
+
+         
+         function applyGpuParticleLimit(device) {
             try {
                 const lim = device.limits || {};
                 const maxBinding = lim.maxStorageBufferBindingSize || (128 << 20);
@@ -1298,7 +1665,6 @@ leftTabButtons.forEach(btn => {
 
                 const atoms = Math.max(1, countRequestedAtoms() || 1);
                 const bytesPerParticle = atoms * 3 * 4;          // one of the three big buffers
-
 
                 const usable = Math.min(maxBinding, maxBuf) * 0.6;  // leave room for map + staging
                 let cap = Math.floor(usable / bytesPerParticle);
@@ -1313,8 +1679,8 @@ leftTabButtons.forEach(btn => {
                 }
                 const mb = n => `${(n / (1 << 20)).toFixed(0)} MB`;
                 swarmParticlesLimit.textContent =
-                    `max ${cap} on this GPU (storage binding ${mb(maxBinding)}, ` +
-                    `${maxWg.toLocaleString()} workgroups)`;
+                    `Max ${cap} configurations on this GPU (storage binding ${mb(maxBinding)}, ` +
+                    `${maxWg.toLocaleString()} workgroups limit). Limit varies with the number of atoms.`;
             } catch (e) {
                 console.warn('Could not read GPU limits; leaving the particle cap alone.', e);
                 swarmParticlesLimit.textContent = 'GPU limits unavailable - using defaults.';
@@ -1324,6 +1690,21 @@ leftTabButtons.forEach(btn => {
         /** Atoms requested in the asymmetric unit, before the GPU buffers exist. */
         function countRequestedAtoms() {
             return swarmAtoms.reduce((n, a) => n + (a.q || 0), 0);
+        }
+
+        let cachedGpuDevice = null;
+        if (navigator.gpu) {
+            navigator.gpu.requestAdapter().then(adapter => {
+                if (adapter) return adapter.requestDevice();
+                throw new Error("No WebGPU adapter");
+            }).then(device => {
+                cachedGpuDevice = device;
+                applyGpuParticleLimit(cachedGpuDevice);
+            }).catch(e => {
+                swarmParticlesLimit.textContent = 'WebGPU is not available or disabled.';
+            });
+        } else {
+            swarmParticlesLimit.textContent = 'WebGPU is not supported by this browser.';
         }
 
         swarmParticlesSlider.addEventListener('input', () => {
@@ -1405,9 +1786,11 @@ leftTabButtons.forEach(btn => {
             `).join('');
         }
 
+
         window.removeAtom = function(i) {
             swarmAtoms.splice(i, 1);
             renderAtomList();
+            if (cachedGpuDevice) applyGpuParticleLimit(cachedGpuDevice);
         };
 
         addAtomBtn.addEventListener('click', () => {
@@ -1422,8 +1805,10 @@ leftTabButtons.forEach(btn => {
             document.getElementById('new-element').value = '';
             document.getElementById('new-quantity').value = '1';
             renderAtomList();
+            if (cachedGpuDevice) applyGpuParticleLimit(cachedGpuDevice);
             statusMessage.textContent = "";
         });
+
 
         const yieldToEventLoop = () => new Promise(resolve => requestAnimationFrame(resolve));
         const MAX_GEN_ATOMS = 256; // must match swarm_compute.wgsl's MAX_GEN_ATOMS
@@ -1903,31 +2288,36 @@ runSwarmBtn.addEventListener('click', async () => {
                             }
                         }
                         readBuffer.unmap();
-
+                        let newBestFound = false;
                         if (gBestFitness > overallBestFitness) {
                             overallBestFitness = gBestFitness;
                             overallBestPosition.set(gBestPosition);
+                            newBestFound = true;
                         }
 
                         gen++;
                         overallGenCount++;
                         const elapsed = (performance.now() - startTime) / 1000;
+                        
+                        // Always update fast UI counters (progress, gen/sec) so it doesn't look frozen
                         document.getElementById('swarm-gen').textContent = `${gen} / ${maxGen} (restart ${restart + 1}/${numRestarts})`;
-                        // Fitness is now the Z-weighted mean observed map value at
-                        // the predicted vectors, so it is quoted in map sigma -
-                        // the same scale the colour bar and the 3D isolevel use.
-                        {
-                            const el = document.getElementById('swarm-fitness');
-                            el.textContent = formatFitness(overallBestFitness);
-                            el.title = `Z-weighted mean observed Patterson value at the predicted interatomic `
-                                     + `vectors, minus the anti-bump penalty. Raw value ${overallBestFitness.toPrecision(6)} `
-                                     + `in map units.`;
-                        }
                         swarmProgressBar.style.width = `${Math.round(overallGenCount / totalPlannedGen * 100)}%`;
                         swarmRateEl.textContent = `${elapsed.toFixed(1)}s / ${(overallGenCount / elapsed).toFixed(2)} gen/s`;
 
-                        costHistory.push({ gen: overallGenCount, fitness: overallBestFitness });
-                        drawCostChart();
+                        // ONLY update the heavy UI elements (Charts, 3D structures, Tables) when we actually find a better structure
+                        if (newBestFound) {
+                            const el = document.getElementById('swarm-fitness');
+                            el.textContent = formatFitness(overallBestFitness);
+                            el.title = `Z-weighted mean observed Patterson value at the predicted interatomic vectors, minus the anti-bump penalty. Raw value ${overallBestFitness.toPrecision(6)} in map units.`;
+                            
+                            costHistory.push({ gen: overallGenCount, fitness: overallBestFitness });
+                            drawCostChart();
+
+                            // Live-update the 3D Structure, Contact limits, and Asymmetric unit table!
+                            state.swarmBest = { coords: overallBestPosition.slice(), zArray: buffers.zArray, rArray: buffers.rArray, symOps };
+                            renderFinalResults(overallBestPosition, symOps, orthMatArray);
+                            reportContacts();
+                        }
 
                         // The calc and diff panes are now always on screen, so
                         // refresh the model map periodically to animate them as
@@ -2045,9 +2435,8 @@ runSwarmBtn.addEventListener('click', async () => {
             resizeCanvas();
             drawCostChart();
         }
+       
         rightTabButtons.forEach(b => b.addEventListener('click', () => { if (!b.disabled) selectRightTab(b); }));
-        leftTabButtons.forEach(b => b.addEventListener('click', () => { if (!b.disabled) showLeftTab(b.dataset.tab); }));
-
 
         /**
          * Model Patterson map for a trial structure.
@@ -2252,12 +2641,6 @@ runSwarmBtn.addEventListener('click', async () => {
 
 
 
-        function showLeftTab(tabId) {
-            leftTabContents.forEach(content => content.classList.remove('active'));
-            leftTabButtons.forEach(button => button.classList.remove('left-tab-active'));
-            document.getElementById(tabId).classList.add('active');
-            document.querySelector(`.left-tab-button[data-tab="${tabId}"]`).classList.add('left-tab-active');
-        }
 
         // --- PARSING (Main Thread) ---
      
@@ -2302,149 +2685,98 @@ runSwarmBtn.addEventListener('click', async () => {
             if (n === 'i_hkl' || n === 'i_refined' || n.startsWith('i_')) return 'Ihkl';
             return null;
         }
-
-        function parsePawleyFile(text) {
-            console.log("Parsing file...");
+function parsePeakFile(text) {
+            console.log("Parsing peak file...");
             const data = {
-                cell: {}, reflections: [], spaceGroup: null, harkerSections: [],
-                declaredReflections: null,   // the count in the statistics block
-                lpModel: null,               // the model line from the Lorentz-Polarisation block
-                polarisationK: null,         // K in P = (1 + K cos^2 2th)/(1 + K)
-                reflectionColumns: null,     // column names as found in the table header
-                intensitySource: null,       // 'Fo' | 'm_lp' | 'lp_computed' | 'raw'
-                perReflection: false,        // true when intensity is |F|^2 for ONE reflection
-                parseWarnings: []
+                reflections: [],
+                reflectionColumns: null,
+                intensitySource: null,
+                perReflection: false,
+                parseWarnings: [],
+                cell: {},
+                spaceGroup: null
             };
-            const cellRegex = /^\s*([a-zA-Z]+)\s*\(.*\)\s+([\d.eE+-]+)/;
-            const spaceGroupRegex = /Space Group:\s+(\d+)\s*[-–]\s*(.+)/;
-            const reflCountRegex = /^Reflections:\s+(\d+)/;
-            const harkerRegex = /^(plane|line)\s+([uvw])\s+([0-9.-]+)\s+(\S+)\s+(\S+)\s+(\S+)/;
-            const lpModelRegex = /^(?:Model|Lp model)\s*:\s*(.+)$/;
-            const kRegex = /\bK\s*=\s*([\d.eE+-]+)/;
-            const polarKRegex = /^Polarisation K\s+\(?.*?\)?\s*([\d.eE+-]+)/;
-            // A data row starts with a bracketed hkl triple; everything after
-            // it is read positionally using the header map.
-            const rowStartRegex = /^\(\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*\)\s+(.*)$/;
 
-            let inReflectionsSection = false;
-            let inHarkerSection = false;
-            let colMap = null;   // index -> field name, built from the table header
+            const cellRegex = /^(a|b|c|alpha|beta|gamma)\b\s*(?:\(.*\))?\s*[=:]?\s*([\d.eE+-]+)/i;
+            const spaceGroupRegex = /^Space Group\s*:\s*(?:#)?(\d+)(?:\s*[-–]\s*(.+))?/i;
+
+            // Matches (h,k,l) OR h,k,l OR h k l at the start of a row
+            const rowStartRegex = /^(?:\(\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*\)|(-?\d+)[\s,]+(-?\d+)[\s,]+(-?\d+))\s+(.*)$/;
+            let colMap = null;
             const lines = text.split('\n');
 
             for (let i = 0; i < lines.length; i++) {
-                const originalLine = lines[i]; const line = originalLine.trim();
+                const originalLine = lines[i]; 
+                // Strip leading comment markers for metadata checks
+                const line = originalLine.trim().replace(/^#\s*/, '');
 
-                if (line.includes('--- Harker Sections ---')) { inHarkerSection = true; inReflectionsSection = false; continue; }
-                if (line.includes('--- Reflections List')) { inReflectionsSection = true; inHarkerSection = false; continue; }
-                if (line.includes('--- Point-by-Point Intensity Data')) { break; }
+                if (line === '' || line.startsWith('---') || line.startsWith('===')) continue;
+                if (line.includes('--- Point-by-Point Intensity Data')) break;
 
-                // The Lorentz-Polarisation block and the reflection-table
-                // preamble both state the model and K; either will do.
-                if (!data.lpModel) { const m = line.match(lpModelRegex); if (m) data.lpModel = m[1].trim(); }
-                if (data.polarisationK === null) {
-                    const pk = line.match(polarKRegex);
-                    if (pk) data.polarisationK = parseFloat(pk[1]);
-                    else if (/P\(2th\)/.test(line)) { const km = line.match(kRegex); if (km) data.polarisationK = parseFloat(km[1]); }
+                if (!data.spaceGroup) {
+                    const sgMatch = line.match(spaceGroupRegex);
+                    if (sgMatch) {
+                        data.spaceGroup = { number: parseInt(sgMatch[1]), name: sgMatch[2] ? sgMatch[2].trim() : '' };
+                        continue;
+                    }
                 }
 
-                if (inHarkerSection) {
-                    if (line.startsWith('---') || line.startsWith('Type') || line === '') continue;
-                    const hMatch = line.match(harkerRegex);
-                    if (hMatch) {
-                        data.harkerSections.push({
-                            type: hMatch[1],
-                            coordinate: hMatch[2],
-                            value: parseFloat(hMatch[3]),
-                            solver: { x: hMatch[4], y: hMatch[5], z: hMatch[6] }
-                        });
-                    }
-                } else if (!inReflectionsSection) {
-                    const countMatch = line.match(reflCountRegex);
-                    if (countMatch) { data.declaredReflections = parseInt(countMatch[1], 10); continue; }
-                    let cellMatch = line.match(cellRegex);
-                    if (cellMatch && CELL_KEYS.includes(cellMatch[1].toLowerCase())) {
-                        data.cell[cellMatch[1].toLowerCase()] = parseFloat(cellMatch[2]);
-                        continue;
-                    }
-                    if (!data.spaceGroup) {
-                         let spaceGroupMatch = line.match(spaceGroupRegex);
-                        if (spaceGroupMatch) { data.spaceGroup = { number: parseInt(spaceGroupMatch[1]), name: spaceGroupMatch[2].trim() }; console.log(` Found space group: ${data.spaceGroup.number}`); }
-                    }
-                } else {
-                    // Table header: build the column map once.
-                    if (!colMap && /^h\s*,\s*k\s*,\s*l\b/i.test(line)) {
-                        const cols = parseReflectionHeader(line);
-                        data.reflectionColumns = cols;
-                        colMap = cols.map(classifyReflectionColumn);
-                        console.log(' Reflection columns:', cols.join(' | '));
-                        continue;
-                    }
+                const cellMatch = line.match(cellRegex);
+                if (cellMatch && ['a','b','c','alpha','beta','gamma'].includes(cellMatch[1].toLowerCase())) {
+                    data.cell[cellMatch[1].toLowerCase()] = parseFloat(cellMatch[2]);
+                    continue;
+                }
 
-                    const rowMatch = line.match(rowStartRegex);
-                    if (!rowMatch) continue;
-                    try {
-                        const h = parseInt(rowMatch[1]), k = parseInt(rowMatch[2]), l = parseInt(rowMatch[3]);
-                        if (isNaN(h) || isNaN(k) || isNaN(l)) continue;
-                        const values = rowMatch[4].trim().split(/\s+/).map(parseFloat);
-                        const ref = { h, k, l };
+                if (!colMap && (line.toLowerCase().startsWith('h,k,l') || line.toLowerCase().startsWith('h k l') || line.toLowerCase().startsWith('hkl'))) {         
+                   
+                    const cols = parseReflectionHeader(line);
+                    data.reflectionColumns = cols;
+                    colMap = cols.map(classifyReflectionColumn);
+                    console.log(' Reflection columns:', cols.join(' | '));
+                    continue;
+                }
 
-                        if (colMap) {
-                            // Positional read using the header. Column 0 is the
-                            // hkl triple, already consumed.
-                            for (let c = 1; c < colMap.length; c++) {
-                                const field = colMap[c];
-                                const v = values[c - 1];
-                                if (!field || !Number.isFinite(v)) continue;
-                                if (field === 'twoTheta') ref.twoTheta = v;
-                                else if (field === 'd') ref.d = v;
-                                else if (field === 'multiplicity') ref.multiplicity = v;
-                                else if (field === 'lp') ref.lp = v;
-                                else if (field === 'Ihkl') ref.Ihkl = v;
-                                else if (field === 'sigma') ref.sigma = v;
-                                else if (field === 'Fo') ref.Fo = v;
-                                else if (field === 'Iobs') ref.Iobs = v;
-                            }
-                        } else {
-                            // No header found: fall back to the pre-v144 layout
-                            // h,k,l | 2th_corr | I_refined | sigma | I_obs.
-                            ref.twoTheta = values[0];
-                            ref.Ihkl = values[1];
-                            ref.sigma = values[2];
-                            ref.Iobs = values[3];
+                const rowMatch = line.match(rowStartRegex);
+                if (!rowMatch) continue;
+
+                try {
+                    const h = parseInt(rowMatch[1] !== undefined ? rowMatch[1] : rowMatch[4]);
+                    const k = parseInt(rowMatch[2] !== undefined ? rowMatch[2] : rowMatch[5]);
+                    const l = parseInt(rowMatch[3] !== undefined ? rowMatch[3] : rowMatch[6]);
+                    
+                    if (isNaN(h) || isNaN(k) || isNaN(l)) continue;
+                    
+                    const values = rowMatch[7].trim().split(/\s+/).map(parseFloat);
+                    const ref = { h, k, l };
+
+                    if (colMap) {
+                        for (let c = 1; c < colMap.length; c++) {
+                            const field = colMap[c];
+                            const v = values[c - 1];
+                            if (!field || !Number.isFinite(v)) continue;
+                            if (field === 'twoTheta') ref.twoTheta = v;
+                            else if (field === 'd') ref.d = v;
+                            else if (field === 'multiplicity') ref.multiplicity = v;
+                            else if (field === 'lp') ref.lp = v;
+                            else if (field === 'Ihkl') ref.Ihkl = v;
+                            else if (field === 'sigma') ref.sigma = v;
+                            else if (field === 'Fo') ref.Fo = v;
+                            else if (field === 'Iobs') ref.Iobs = v;
                         }
-                        if (Number.isFinite(ref.Ihkl) || Number.isFinite(ref.Fo)) data.reflections.push(ref);
-                    } catch (parseError) { console.error(`Error parsing reflection: "${originalLine}"`, parseError); }
+                    } else {
+                        const pos = values[0];
+                        if (pos < 20) ref.d = pos; else ref.twoTheta = pos;
+                        ref.Ihkl = values[1];
+                        if (values.length > 2) ref.sigma = values[2];
+                    }
+                    if (Number.isFinite(ref.Ihkl) || Number.isFinite(ref.Fo)) data.reflections.push(ref);
+                } catch (parseError) { 
+                    console.error(`Error parsing reflection: "${originalLine}"`, parseError); 
                 }
             }
 
-            if (!data.cell.hasOwnProperty('alpha')) data.cell.alpha = 90;
-            if (!data.cell.hasOwnProperty('beta')) data.cell.beta = 90;
-            if (!data.cell.hasOwnProperty('gamma')) data.cell.gamma = 90;
-            if (data.cell.hasOwnProperty('a') && !isNaN(data.cell.a)) {
-                if (!data.cell.hasOwnProperty('b') || isNaN(data.cell.b)) { data.cell.b = data.cell.a; console.log(` Inferred b=a`); }
-                if (!data.cell.hasOwnProperty('c') || isNaN(data.cell.c)) { data.cell.c = data.cell.a; console.log(` Inferred c=a`); }
-            }
-
-            if (!data.spaceGroup) { throw new Error("Could not parse Space Group."); }
-            if (!data.cell.a || isNaN(data.cell.a) || !data.cell.b || isNaN(data.cell.b) || !data.cell.c || isNaN(data.cell.c)) { throw new Error("Could not determine cell parameters (a, b, c)."); }
-            if (!data.reflections.length) { throw new Error("No reflections found in the reflection list."); }
-
-            // Cross-check against the count in the statistics block. Powder 5
-            // writes only the reflections inside the fitted 2theta range, so a
-            // shortfall is expected when the fit does not span the pattern -
-            // but it should be visible rather than silent.
-            if (Number.isFinite(data.declaredReflections) &&
-                data.declaredReflections !== data.reflections.length) {
-                const msg = `The header declares ${data.declaredReflections} reflection(s); the list ` +
-                            `contains ${data.reflections.length}. Powder 5 writes only the reflections ` +
-                            `inside the fitted 2theta range, so this is expected if the fit did not ` +
-                            `span the whole pattern.`;
-                data.parseWarnings.push(msg);
-                console.warn(msg);
-            }
-
-            if (data.lpModel) console.log(` Lp model: ${data.lpModel}` + (data.polarisationK !== null ? ` (K = ${data.polarisationK})` : ''));
-            console.log(`Parsed ${data.reflections.length} reflections and ${data.harkerSections.length} Harker sections.`);
+            if (!data.reflections.length) { throw new Error("No valid reflections found in the file."); }
+            console.log(`Parsed ${data.reflections.length} reflections.`);
             return data;
         }
 
@@ -2568,11 +2900,14 @@ runSwarmBtn.addEventListener('click', async () => {
             raw:         ['amber',  'Raw peak areas (m\u00b7Lp\u00b7|F|\u00b2). Low-angle reflections will dominate the map.']
         };
 
-        function updateCrystalInfo() {
-            if (!state.crystalData) { crystalInfoBox.innerHTML = 'Upload file.'; return; }
+function updateCrystalInfo() {
+            const infoBox = document.getElementById('crystal-info-box');
+            if (!infoBox) return; // Prevent crashes if UI is missing
+            
+            if (!state.crystalData) { infoBox.innerHTML = 'Upload file.'; return; }
             const { cell, spaceGroup, reflections } = state.crystalData;
             const sgInfo = spaceGroup ? `${spaceGroup.number} (${spaceGroup.name})` : '<span class="is-error">N/A</span>';
-            const V = computeCellVolume(cell);
+            const V = cell ? computeCellVolume(cell) : NaN;
             const sym = state.expansionSymmetry;
             const symLine = sym
                 ? `<strong>Expansion symmetry:</strong> ${sym.description}` +
@@ -2586,9 +2921,10 @@ runSwarmBtn.addEventListener('click', async () => {
             const warn = (state.crystalData.parseWarnings || [])
                 .concat(sym?.warnings || [])
                 .map(w => `<div class="warn-line">\u26a0 ${w}</div>`).join('');
-            crystalInfoBox.innerHTML = `<strong>SG:</strong> ${sgInfo}<br>
-            <strong>Cell:</strong> a=${cell.a?.toFixed(4)}, b=${cell.b?.toFixed(4)}, c=${cell.c?.toFixed(4)}<br>
-            <strong>Ang:</strong> α=${cell.alpha?.toFixed(1)}°, β=${cell.beta?.toFixed(1)}°, γ=${cell.gamma?.toFixed(1)}°<br>
+            
+            infoBox.innerHTML = `<strong>SG:</strong> ${sgInfo}<br>
+            <strong>Cell:</strong> a=${cell?.a?.toFixed(4) || '?'}, b=${cell?.b?.toFixed(4) || '?'}, c=${cell?.c?.toFixed(4) || '?'}<br>
+            <strong>Ang:</strong> α=${cell?.alpha?.toFixed(1) || '?' }°, β=${cell?.beta?.toFixed(1) || '?' }°, γ=${cell?.gamma?.toFixed(1) || '?' }°<br>
             <strong>V:</strong> ${isFinite(V) ? V.toFixed(2) + ' Å³' : 'n/a'}<br>
             <strong>Refls:</strong> ${reflections?.length || 0}${
                 Number.isFinite(state.crystalData.declaredReflections) ? ` of ${state.crystalData.declaredReflections} declared` : ''}<br>
@@ -3065,7 +3401,30 @@ runSwarmBtn.addEventListener('click', async () => {
         // and the sizing above bails out. A ResizeObserver re-runs it the
         // moment a pane gains a size, which also covers dragging the divider.
         if (typeof ResizeObserver !== 'undefined') {
-            const ro = new ResizeObserver(() => resizeCanvas());
+            let roTimer = null;
+            let lastWidths = new Map();
+            
+            const ro = new ResizeObserver((entries) => {
+                let significantChange = false;
+                for (const entry of entries) {
+                    const oldW = lastWidths.get(entry.target) || 0;
+                    const newW = entry.contentRect.width;
+                    // Ignore width changes smaller than 20px to prevent infinite loops 
+                    // caused by vertical scrollbars appearing and disappearing
+                    if (Math.abs(oldW - newW) > 20) {
+                        significantChange = true;
+                        lastWidths.set(entry.target, newW);
+                    }
+                }
+                
+                if (significantChange) {
+                    if (roTimer) clearTimeout(roTimer);
+                    roTimer = setTimeout(() => {
+                        requestAnimationFrame(resizeCanvas);
+                    }, 50); // Debounce to smooth out layout shifts
+                }
+            });
+            
             const mapGridEl = document.getElementById('map-grid');
             if (mapGridEl) ro.observe(mapGridEl);
             [structureWrapper, costWrapper].forEach(el => {
@@ -3805,9 +4164,16 @@ function exportGRD() {
         
         function resetAnalysis(isNewFile = false) {
              console.log(`Resetting. New file: ${isNewFile}`);
-            if(isNewFile) { state.crystalData = null; updateCrystalInfo(); }
+            if(isNewFile) { 
+                state.crystalData = null; 
+                currentSG = null;
+                updateSpaceGroupInfo();
+                const latCont = document.getElementById('lattice-parameters-container');
+                if (latCont) latCont.innerHTML = '';
+                updateCrystalInfo(); 
+            }
             state.pattersonMap3D=null; state.superpositionMap3D=null; state.foundPeaks=[]; state.harkerAnalysisResults=[]; state.consolidatedSites=[];
-            // The solution belongs to the map it was found in. This used to be
+        // The solution belongs to the map it was found in. This used to be
             // done only for a brand-new file, so any other recompute - a
             // resolution change, a sigma change - kept the previous run's
             // sites. Save CIF stayed enabled and wrote coordinates fitted to a
@@ -3833,14 +4199,11 @@ function exportGRD() {
             state.mapStats=null;
             
             updateAllTables(); 
-            
+          
             try {
                 MAP_MODES.forEach(m => blankMapPane(m));
             } catch (e) {}
 
-
-
-            showLeftTab('map-controls-tab');
              statusMessage.textContent = isNewFile ? '' : (statusMessage.textContent.startsWith("Error:") ? statusMessage.textContent : '');
 
             if (isNewFile) {
@@ -4118,13 +4481,66 @@ function exportGRD() {
         generateReportBtn?.addEventListener('click', generatePdfReport);
 
 
+
+function getUI_Cell() {
+            if (!currentSG) return null;
+            let a = parseFloat(document.getElementById('lattice-param-a')?.value);
+            let b = parseFloat(document.getElementById('lattice-param-b')?.value);
+            let c = parseFloat(document.getElementById('lattice-param-c')?.value);
+            let alpha = parseFloat(document.getElementById('lattice-param-alpha')?.value);
+            let beta = parseFloat(document.getElementById('lattice-param-beta')?.value);
+            let gamma = parseFloat(document.getElementById('lattice-param-gamma')?.value);
+
+            const sys = currentSG.system;
+            if (sys === 'cubic') {
+                b = a; c = a; alpha = 90; beta = 90; gamma = 90;
+            } else if (sys === 'tetragonal') {
+                b = a; alpha = 90; beta = 90; gamma = 90;
+            } else if (sys === 'hexagonal' || sys === 'trigonal' || sys === 'rhombohedral') {
+                b = a; alpha = 90; beta = 90; gamma = 120;
+            } else if (sys === 'orthorhombic') {
+                alpha = 90; beta = 90; gamma = 90;
+            } else if (sys === 'monoclinic') {
+                if (isNaN(alpha)) alpha = 90;
+                if (isNaN(beta)) beta = 90;
+                if (isNaN(gamma)) gamma = 90;
+            } else {
+                if (isNaN(alpha)) alpha = 90;
+                if (isNaN(beta)) beta = 90;
+                if (isNaN(gamma)) gamma = 90;
+            }
+
+            if (isNaN(a) || isNaN(b) || isNaN(c)) return null;
+            return { a, b, c, alpha, beta, gamma };
+        }
+
+        // --- Event Handlers ---
+        document.getElementById('calculate-map-btn')?.addEventListener('click', runMapCalculationAndAnalysis);
+
         // --- MAIN ANALYSIS FUNCTION (NOW SENDS TO WORKER) ---
         async function runMapCalculationAndAnalysis() {
-            if (!state.crystalData) { console.error("Run Skip: No data."); statusMessage.textContent = "Error: Load data."; return; }
+            if (!state.crystalData) { console.error("Run Skip: No data."); statusMessage.textContent = "Error: Load data first."; return; }
+            if (!currentSG) { console.error("Run Skip: No SG."); statusMessage.textContent = "Error: Select Space Group."; return; }
             if (!state.spaceGroups) { console.error("Run Skip: No Harker defs."); statusMessage.textContent = "Error: Harker defs missing."; return; }
-             if (!pattersonWorker) { console.error("Run Skip: Worker not initialized."); statusMessage.textContent = "Error: Worker not ready."; return; }
+            if (!pattersonWorker) { console.error("Run Skip: Worker not initialized."); statusMessage.textContent = "Error: Worker not ready."; return; }
+
+            const cell = getUI_Cell();
+            if (!cell) { 
+                statusMessage.textContent = "Error: Invalid cell parameters."; 
+                statusMessage.classList.remove('is-success', 'is-warn');
+                statusMessage.classList.add('is-error');
+                return; 
+            }
+
+
+
             
-             console.log("=== Starting Full Analysis ===");
+            
+            state.crystalData.cell = cell;
+            state.crystalData.spaceGroup = { number: currentSG.number, name: currentSG.symbol };
+            updateCrystalInfo();
+
+            console.log("=== Starting Full Analysis ===");
              
              setBusy(true);
              statusMessage.textContent = `Calculating ${state.mapResolution}^3 map...`; 
@@ -4170,6 +4586,9 @@ function exportGRD() {
              // the old GPU summation was, so there is nothing left to fall
              // back from.
 
+             const maxPeaks = parseInt(document.getElementById('max-peaks-input')?.value) || 50;
+             const minSigma = parseFloat(document.getElementById('min-sigma-input')?.value) || 3.0;
+
              pattersonWorker.postMessage({
                 type: 'CALCULATE',
                 payload: {
@@ -4177,7 +4596,9 @@ function exportGRD() {
                     spaceGroups: state.spaceGroups,
                     mapResolution: state.mapResolution,
                     harkerTolerance: state.harkerTolerance,
-                    lorchStrength: state.lorchStrength
+                    lorchStrength: state.lorchStrength,
+                    maxPeaks: maxPeaks,
+                    minSigma: minSigma
                 }
              });
         }
@@ -4216,6 +4637,8 @@ function exportGRD() {
 
         openFileBtn.addEventListener('click',()=>fileInput.click());
         
+let currentSG = null; // Will hold the selected Space Group from UI
+
         fileInput.addEventListener('change', async e => {
              const f = e.target.files[0]; if(!f) return; 
              console.clear(); 
@@ -4225,38 +4648,73 @@ function exportGRD() {
              
              r.onload = ev => {
                  try{ 
-                     resetAnalysis(true); // Full reset for new file
+                    
+                    resetAnalysis(true); // Full reset for new file
                      state.expansionSymmetry = null;
-                     state.crystalData = parsePawleyFile(ev.target.result);
-                     if (lpToggle) lpToggle.disabled = !!state.crystalData.lpApplied;
+                     
+                     const parsedData = parsePeakFile(ev.target.result);
+
+                     // Auto-populate Space Group from file if present
+                     if (parsedData.spaceGroup && typeof SG_ENGINE !== 'undefined') {
+                         const sgNum = parsedData.spaceGroup.number;
+                         const settings = SG_ENGINE.listSettings(sgNum);
+                         if (settings && settings.length > 0) {
+                             const parsedName = parsedData.spaceGroup.name.replace(/\s+/g, '').toUpperCase();
+                             currentSG = settings.find(s => (s.symbol || '').replace(/\s+/g, '').toUpperCase() === parsedName) || settings[0];
+                             updateSpaceGroupInfo();
+                             updateLatticeParamUI();
+                         }
+                     }
+
+                     // Auto-populate Cell parameters from file if present
+                     if (parsedData.cell && Object.keys(parsedData.cell).length > 0) {
+                         ['a', 'b', 'c', 'alpha', 'beta', 'gamma'].forEach(param => {
+                             if (parsedData.cell[param] !== undefined) {
+                                 const input = document.getElementById(`lattice-param-${param}`);
+                                 if (input) input.value = parsedData.cell[param];
+                             }
+                         });
+                     }
+
+                     state.crystalData = {
+                         reflections: parsedData.reflections,
+                         reflectionColumns: parsedData.reflectionColumns,
+                         intensitySource: parsedData.intensitySource,
+                         perReflection: parsedData.perReflection,
+                         parseWarnings: parsedData.parseWarnings,
+                         spaceGroup: currentSG ? { number: currentSG.number, name: currentSG.symbol } : null,
+                         cell: getUI_Cell()
+                     };
+
+                     if (lpToggle) lpToggle.disabled = false;
                      applyIntensityCorrections(state.crystalData);
+                    
+
+
                      (state.crystalData.parseWarnings || []).forEach(w => console.warn('[parse] ' + w));
                      
-                     if (!state.crystalData || !state.crystalData.spaceGroup || !state.crystalData.cell.a || !state.crystalData.cell.b || !state.crystalData.cell.c) { 
-                         throw new Error("Parsing failed (SG or Cell). Check logs."); 
-                     }
-                     
                      if (!state.crystalData.reflections || state.crystalData.reflections.length === 0) { 
-                         console.warn("No reflections parsed."); 
                          statusMessage.textContent = `Warn: ${f.name} loaded, no reflections.`; 
                          statusMessage.classList.remove('is-success'); 
                          statusMessage.classList.add('is-warn');
-                     }
-                     else { 
-                         statusMessage.textContent=`${f.name} loaded. Ready.`; 
+                     } else { 
+                         statusMessage.textContent = currentSG ? `${f.name} loaded. Ready to calculate.` : `${f.name} loaded. Please select a Space Group and enter Cell parameters.`; 
                          statusMessage.classList.remove('is-error','is-warn'); 
                          statusMessage.classList.add('is-success'); 
                      }
                      
                      updateCrystalInfo();
                      
-                     // --- AUTO-CALCULATE LOGIC ---
-                     // Default grid. The FFT will raise it if the data reach a
-                     // high enough index that 64 would alias.
                      state.mapResolution = state.highRes ? 128 : 64;
-                     
-                     // Run initial calculation
-                     runMapCalculationAndAnalysis(); 
+
+
+
+
+
+
+
+
+
 
                  } catch(err) { 
                      console.error("File processing error:", err); 

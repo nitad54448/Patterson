@@ -155,7 +155,7 @@ const result = sharkoPattersonFFT(centrosymmetricReflections, cell, mapResolutio
 /**
  * Finds peaks in the calculated 3D map.
  */
-function findPeaks(pattersonMap3D, mapResolution, cell) {
+function findPeaks(pattersonMap3D, mapResolution, cell, maxPeaks = 50, minSigma = 3.0) {
     const res = mapResolution, map = pattersonMap3D;
     if (!map) { return []; }
 
@@ -165,16 +165,30 @@ function findPeaks(pattersonMap3D, mapResolution, cell) {
     // every peak on those three faces unfindable by construction. Neighbour
     // indices wrap instead.
     const mask = cell ? buildOriginMask(res, cell) : null;
-    const { minVal, maxVal } = maskedExtrema(map, mask);
-    if (!isFinite(maxVal) || !isFinite(minVal) || maxVal === minVal) {
+    const { minVal, maxVal, count } = maskedExtrema(map, mask);
+    if (!isFinite(maxVal) || !isFinite(minVal) || maxVal === minVal || count === 0) {
         console.warn(`[Worker] Map flat/invalid outside the origin. Skipping peaks.`);
         return [];
     }
 
-    // Threshold and normalisation are now set by the interatomic vectors, not
-    // by the origin peak (which is the sum of all intensities and would push
-    // the 15% cut above every real feature).
-    const threshold = minVal + (maxVal - minVal) * 0.15;
+    // Calculate Map Mean and Sigma (Standard Deviation)
+    let sum = 0;
+    for (let i = 0; i < map.length; i++) {
+        if (mask && mask[i]) continue;
+        if (isFinite(map[i])) sum += map[i];
+    }
+    const mean = sum / count;
+    
+    let sqDiff = 0;
+    for (let i = 0; i < map.length; i++) {
+        if (mask && mask[i]) continue;
+        if (isFinite(map[i])) sqDiff += (map[i] - mean) * (map[i] - mean);
+    }
+    const sigma = Math.sqrt(sqDiff / count);
+
+    // Apply the user's Minimum Sigma Threshold
+    // If sigma is zero (flat map), fallback to the old 15% rule to prevent crashes
+    const threshold = sigma > 0 ? mean + (minSigma * sigma) : minVal + (maxVal - minVal) * 0.15;
     const peaks = [];
 
     for (let iw = 0; iw < res; iw++) {
@@ -217,8 +231,9 @@ function findPeaks(pattersonMap3D, mapResolution, cell) {
     }
 
     peaks.sort((a, b) => b.height - a.height);
-    const foundPeaks = peaks.slice(0, 50);
-    console.log(`[Worker] Found ${peaks.length} peaks (origin masked to ${ORIGIN_MASK_ANGSTROM} A). Kept ${foundPeaks.length}.`);
+    // Apply the user's Max Peaks cap
+    const foundPeaks = peaks.slice(0, maxPeaks);
+    console.log(`[Worker] Found ${peaks.length} peaks above ${minSigma}σ. Kept top ${foundPeaks.length}.`);
     return foundPeaks;
 }
 
@@ -432,7 +447,7 @@ function computeSymmetryMinimumFunction(map, res, symOps) {
  * necessarily the one the user requested - every index computed below depends
  * on getting that right.
  */
-function runAnalysisSteps(pattersonMap3D, crystalData, spaceGroups, mapResolution, harkerTolerance, dMin) {
+function runAnalysisSteps(pattersonMap3D, crystalData, spaceGroups, mapResolution, harkerTolerance, dMin, maxPeaks, minSigma) {
     // Fallback for the case where the symmetry was resolved elsewhere and
     // calculatePattersonMap never ran in this worker.
     if (!lastExpansionSymmetry && crystalData?.spaceGroup) {
@@ -456,7 +471,7 @@ function runAnalysisSteps(pattersonMap3D, crystalData, spaceGroups, mapResolutio
     }
 
     postMessage({ type: 'status', payload: 'Finding peaks...' });
-    const foundPeaks = findPeaks(pattersonMap3D, mapResolution, crystalData?.cell);
+    const foundPeaks = findPeaks(pattersonMap3D, mapResolution, crystalData?.cell, maxPeaks, minSigma);
     postMessage({ type: 'status', payload: 'Analyzing Harker sections...' });
     const harkerAnalysisResults = analyzeHarkerPeaks(foundPeaks, crystalData, spaceGroups, mapResolution);
 
@@ -496,7 +511,7 @@ function runAnalysisSteps(pattersonMap3D, crystalData, spaceGroups, mapResolutio
 
     // 3. Extract the peaks from the resulting map
     if (superMap) {
-        const superPeaks = findPeaks(superMap, mapResolution, null);
+        const superPeaks = findPeaks(superMap, mapResolution, null, maxPeaks, minSigma);
         consolidatedSites = superPeaks.map((p) => ({
             x: p.u, y: p.v, z: p.w, 
             count: symOps && symOps.length > 1 ? 'SMF' : 'Super',
@@ -518,7 +533,7 @@ self.onmessage = (e) => {
     
         if (type === 'CALCULATE') {
         try {
-            const { crystalData, spaceGroups, mapResolution, harkerTolerance, lorchStrength } = payload;
+            const { crystalData, spaceGroups, mapResolution, harkerTolerance, lorchStrength, maxPeaks, minSigma } = payload;
 
             // Step 1: Calculate the map by FFT.
             postMessage({ type: 'status', payload: `Transforming ${mapResolution}^3 map...` });
@@ -533,7 +548,7 @@ self.onmessage = (e) => {
             // not the one that was requested.
 
             const { foundPeaks, harkerAnalysisResults, consolidatedSites, finalMessage, superMap } =
-                runAnalysisSteps(pattersonMap3D, crystalData, spaceGroups, actualRes, harkerTolerance, dMin);
+                runAnalysisSteps(pattersonMap3D, crystalData, spaceGroups, actualRes, harkerTolerance, dMin, maxPeaks, minSigma);
 
             const transferList = [pattersonMap3D.buffer];
             if (superMap) transferList.push(superMap.buffer);
