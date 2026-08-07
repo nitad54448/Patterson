@@ -89,17 +89,15 @@
 
     <div id="panel-scroll" style="padding-top: 0px;">
 
-        <!-- CARD 1: DATA INPUT -->
+<!-- CARD 1: DATA INPUT -->
         <div class="settings-card">
             <h3 class="card-header">1. Data Input</h3>
-            <button id="open-file-btn" class="btn btn-primary btn-full" style="margin-bottom: 8px;">Select Data File</button>
+            <button id="open-file-btn" class="btn btn-primary btn-full" style="margin-bottom: 12px;">Select Data File</button>
             <input type="file" id="data-file-input" class="hidden"/>
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">      
-              
-              
-                <label class="control-label" style="align-self: center; margin: 0;">Wavelength (Å)</label>
-                <input type="number" id="wavelength" value="1.54056" step="0.0001" class="control-input">
+            <div style="margin-bottom: 12px;">      
+                <label class="control-label" style="display: block; margin-bottom: 6px;">Wavelength (Å)</label>
+                <input type="number" id="wavelength" value="1.54056" step="0.0001" class="control-input" style="width: 100%;">
             </div>
             
             <label class="control-label" style="margin-top: 0;">Intensity Correction</label>
