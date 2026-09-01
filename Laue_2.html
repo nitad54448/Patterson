@@ -1,0 +1,3406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Laue Diagram Simulator & Indexer</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="./dist/output.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --dark-bg: #0d1117;
+            --medium-bg: #161b22;
+            --light-bg: #232b38;
+            --card-bg: #151b26;
+            --border-color: #2d3648;
+            --primary-accent: #2f8fef;
+            --primary-accent-hover: #1f7ce0;
+            --phosphor: #35d488;
+            --phosphor-dim: #1f8a58;
+            --amber: #f0a63b;
+            --text-light: #eef1f6;
+            --text-medium: #b9c2d0;
+            --text-dark: #7c8798;
+            --success-green: #35d488;
+            --error-red: #e5484d;
+            --led-gray: #6b7280;
+            --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+        }
+        html[data-theme="light"] {
+            --dark-bg: #f4f6f9;
+            --medium-bg: #e7ebf0;
+            --light-bg: #ffffff;
+            --card-bg: #ffffff;
+            --border-color: #d3d9e2;
+            --primary-accent: #1a73e8;
+            --primary-accent-hover: #1560c7;
+            --phosphor: #0f8a54;
+            --phosphor-dim: #0c6d43;
+            --amber: #b5720a;
+            --text-light: #131a24;
+            --text-medium: #3c4658;
+            --text-dark: #6b7688;
+            --success-green: #0f8a54;
+            --error-red: #d13438;
+            --led-gray: #9aa3b0;
+        }
+        html[data-theme="light"] body { background-color: var(--dark-bg); }
+
+        /* Simple transition for tab content */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .hidden { display: none !important; }
+
+        #appHeader {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid var(--border-color);
+            background: linear-gradient(180deg, var(--medium-bg), var(--dark-bg));
+        }
+        #appHeaderIcon {
+            width: 34px; height: 34px;
+            flex-shrink: 0;
+            border-radius: 8px;
+            background: radial-gradient(circle at 35% 30%, var(--primary-accent), #14335c 75%);
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 2px 6px rgba(0,0,0,0.4);
+        }
+        #appHeaderIcon svg { width: 19px; height: 19px; }
+        #appHeaderText { line-height: 1.15; overflow: hidden; }
+        #appHeaderTitle {
+            font-weight: 700;
+            font-size: 0.98rem;
+            color: var(--text-light);
+            letter-spacing: 0.01em;
+            white-space: nowrap;
+        }
+        #appHeaderSubtitle {
+            font-size: 0.72rem;
+            color: var(--text-dark);
+            font-family: var(--font-mono);
+            letter-spacing: 0.02em;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Slim dark scrollbars throughout, to match the instrument aesthetic */
+        * { scrollbar-width: thin; scrollbar-color: var(--border-color) transparent; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background-color: var(--border-color); border-radius: 8px; }
+        ::-webkit-scrollbar-thumb:hover { background-color: var(--light-bg); }
+        
+
+        /* For Chrome, Safari, Edge, Opera */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        /* For Firefox */
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+        
+
+
+        body {
+            font-family: var(--font-ui);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            background-color: var(--dark-bg);
+        }
+        #appContainer { 
+            display: flex; 
+            flex-direction: row; 
+            width: 100%; 
+            height: 100%; 
+            background-color: var(--dark-bg);
+        }
+        #controlsPanel {
+            width: 33%;
+            min-width: 260px;
+            max-width: 65%;
+            flex-shrink: 0;
+            background-color: var(--dark-bg);
+            color: var(--text-medium);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        #resizeHandle {
+            width: 5px;
+            flex-shrink: 0;
+            cursor: col-resize;
+            background-color: var(--border-color);
+            transition: background-color 0.15s ease;
+        }
+        #resizeHandle:hover, #resizeHandle.dragging {
+            background-color: var(--primary-accent);
+        }
+        #controlsHeader { 
+            padding: 0;
+            border-bottom: none;
+        }
+        #tabNav { 
+            display: flex; 
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 1rem;
+        }
+        .tab-link {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            font-weight: 600;
+            color: var(--text-dark);
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+        .tab-link:hover { 
+            color: var(--text-light);
+        }
+        .tab-link.active {
+            color: var(--primary-accent);
+            border-bottom-color: var(--primary-accent);
+        }
+        #controlsBody { 
+            flex-grow: 1; 
+            min-height: 0;
+            overflow-y: auto; 
+            padding: 1.25rem; 
+        }
+        #controlsFooter {
+            padding: 1rem;
+            border-top: 1px solid var(--border-color);
+            background-color: var(--dark-bg);
+        }
+        #statusInfo { color: var(--text-dark); font-family: var(--font-mono); font-size: 0.82rem; }
+        #fomInfo { color: var(--phosphor); font-family: var(--font-mono); }
+        
+        #mainView { 
+            flex-grow: 1; 
+            display: flex; 
+            position: relative; 
+            background-color: var(--medium-bg);
+        }
+        #detectorContainer {
+            width: 100%; height: 100%; position: relative;
+            cursor: default;
+           background-color: var(--dark-bg);
+        }
+        #experimentCanvas, #detectorCanvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            transition: filter 0.1s ease;
+        }
+        #experimentCanvas { z-index: 0; }
+        #detectorCanvas { z-index: 1; background: transparent; }
+        #detectorContainer.setting-mode { cursor: none; }
+
+        /* Custom cursor for setting modes */
+        #customCursor {
+            position: absolute; 
+            width: 30px; 
+            height: 30px;
+            border: 2px solid var(--primary-accent);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 1000; display: none;
+            box-shadow: 0 0 10px var(--primary-accent); 
+        }
+        
+                #zoomCanvas {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            border-radius: 6px;
+            border: 2px solid var(--primary-accent);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            display: none; /* Hidden by default */
+            pointer-events: none; /* Pass clicks through */
+            background-color: #000; /* Fallback */
+            /* Crispy pixels for magnification */
+            image-rendering: pixelated;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: crisp-edges;
+            z-index: 999;
+        }
+
+
+        #topRightControls {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            gap: 10px;
+            z-index: 1001;
+        }
+        .icon-btn {
+            width: 32px;
+            height: 32px;
+            background-color: var(--primary-accent);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            padding: 0;
+        }
+        .icon-btn svg { width: 18px; height: 18px; }
+        .icon-btn:hover {
+            background-color: var(--primary-accent-hover);
+        }
+
+        #creditNote {
+            position: fixed;
+            bottom: 8px;
+            right: 12px;
+            font-size: 0.7rem;
+            color: var(--text-dark);
+            opacity: 0.7;
+            pointer-events: none;
+            z-index: 1000;
+            font-family: 'Inter', sans-serif;
+            letter-spacing: 0.02em;
+        }
+  
+
+        /* Form Elements (Re-styled to match combs) */
+        .form-label {
+            display: block;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .form-input, .form-select {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.35rem;
+            background-color: var(--light-bg);
+            color: var(--text-light);
+            box-shadow: none;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .form-select { font-family: var(--font-ui); }
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--primary-accent);
+            box-shadow: 0 0 0 2px rgba(47, 143, 239, 0.35);
+        }
+    
+        .form-input-output {
+             width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.35rem;
+            background-color: var(--dark-bg); /* Darker background */
+            color: var(--phosphor);
+            font-family: var(--font-mono);
+            cursor: default;
+        }
+        
+        .form-input-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem 1rem;
+            align-items: center;
+        }
+        .form-input-grid > .span-2 { grid-column: span 2; }
+        
+    
+        .form-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 32px; /* generous click target, but the visible track is a thinner groove below */
+            background: linear-gradient(var(--border-color), var(--border-color)) no-repeat center / 100% 6px;
+            background-color: transparent;
+            border-radius: 6px; 
+            outline: none;
+            padding: 0; 
+            margin: 0; 
+        }
+        .form-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 15px; 
+            height: 15px; 
+            background: var(--primary-accent);
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid var(--text-light); 
+            box-sizing: border-box; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+        }
+        .form-slider::-moz-range-thumb {
+            width: 15px;
+            height: 15px;
+            background: var(--primary-accent);
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid var(--text-light); 
+            box-sizing: border-box;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+        }
+        .form-slider:disabled {
+            background: linear-gradient(var(--medium-bg), var(--medium-bg)) no-repeat center / 100% 6px;
+            background-color: transparent;
+        }
+        .form-slider:disabled::-webkit-slider-thumb {
+            background: var(--border-color); 
+        }
+        .form-slider:disabled::-moz-range-thumb {
+            background: var(--border-color); 
+        }
+    
+
+
+        /* Buttons (Re-styled to match combs) */
+        .btn {
+            width: 100%;
+            padding: 0.6rem 1rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            border-radius: 0.375rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn:hover:not(:disabled) { transform: translateY(-1px); }
+        .btn:active:not(:disabled) { transform: translateY(0); }
+        .btn-primary { 
+            background-color: var(--primary-accent);
+            color: white; 
+        }
+        .btn-primary:hover:not(:disabled) { 
+            background-color: var(--primary-accent-hover);
+        }
+        .btn-primary:disabled { 
+            background-color: var(--border-color);
+            opacity: 0.7;
+            cursor: not-allowed; 
+        }
+        .btn-secondary { 
+            background-color: var(--light-bg);
+            color: var(--text-light);
+        }
+        .btn-secondary:hover:not(:disabled) { 
+            background-color: #4a5568;
+        }
+        .btn-secondary:disabled { 
+            background-color: var(--border-color);
+            color: var(--text-dark);
+            opacity: 0.7;
+            cursor: not-allowed; 
+        }
+        .btn-danger { 
+            background-color: var(--error-red);
+            color: var(--text-light);
+        }
+        .btn-danger:hover { 
+            background-color: #b91c1c;
+        }
+        .btn-inline-reset {
+            padding: 0.2rem 0.6rem;
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            border-radius: 0.3rem;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            color: var(--text-dark);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn-inline-reset:hover {
+            color: var(--text-light);
+            border-color: var(--primary-accent);
+        }
+
+       
+        .info-section {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+        }
+        .info-section:first-child {
+            margin-top: 0;
+        }
+        
+    
+        #peakList { list-style-type: none; padding: 0; margin: 0; max-height: 200px; overflow-y: auto; }
+        #peakList li {
+            display: grid;
+            grid-template-columns: 18px 1fr 1fr 22px;
+            gap: 4px;
+            align-items: center;
+            padding: 4px;
+            border-radius: 4px;
+        }
+        #peakList li.selected { 
+            background-color: var(--light-bg);
+        }
+        #peakList li label { 
+            font-weight: bold; 
+            cursor: pointer; 
+            text-align: center; 
+            color: var(--text-medium);
+        }
+        #peakList input { 
+            width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+            font-size: 0.8em; 
+            font-family: var(--font-mono);
+            padding: 4px 2px; 
+            text-align: center; 
+            border: 1px solid var(--border-color);
+            border-radius: 4px; 
+            background-color: var(--medium-bg);
+            color: var(--text-light);
+        }
+        #peakList input:focus {
+            background-color: var(--light-bg);
+            border-color: var(--primary-accent);
+            outline: none;
+        }
+        #peakList button { 
+            padding: 2px 0; 
+            font-size: 0.85em; 
+            color: var(--error-red);
+            background-color: var(--light-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px; 
+        }
+        
+        
+        #solutionsList { display: flex; flex-direction: column; gap: 0.5rem; }
+        .solution-item {
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.375rem;
+            background: var(--medium-bg);
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            color: var(--text-medium);
+        }
+        .solution-item:hover { 
+            background-color: var(--light-bg);
+        }
+        .solution-item.selected { 
+            background-color: var(--primary-accent);
+            border-color: var(--primary-accent);
+            color: var(--text-light);
+        }
+        .solution-item .text-sm { /* Override tailwind gray */
+            color: var(--text-dark) !important;
+        }
+        .solution-item.selected .text-sm {
+            color: var(--text-light) !important;
+        }
+
+    </style>
+
+</head>
+<body>
+    <div id="appContainer">
+        <div id="controlsPanel">
+
+            <div id="appHeader">
+                <div id="appHeaderIcon">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="1.6" fill="#eef1f6"/>
+                        <ellipse cx="12" cy="12" rx="9.5" ry="4" stroke="#eef1f6" stroke-width="1.2" opacity="0.9"/>
+                        <ellipse cx="12" cy="12" rx="9.5" ry="4" stroke="#eef1f6" stroke-width="1.2" opacity="0.9" transform="rotate(60 12 12)"/>
+                        <ellipse cx="12" cy="12" rx="9.5" ry="4" stroke="#eef1f6" stroke-width="1.2" opacity="0.9" transform="rotate(120 12 12)"/>
+                    </svg>
+                </div>
+                <div id="appHeaderText">
+                    <div id="appHeaderTitle">Laue Diffraction Simulator</div>
+                    <div id="appHeaderSubtitle">orientation indexer · X-ray crystallography</div>
+                </div>
+            </div>
+
+<div id="tabNav">
+                <span class="tab-link active" data-tab="system">System</span>
+                <span class="tab-link" data-tab="sample">Sample</span>
+                <span class="tab-link" data-tab="measure">Measure</span>
+                <span class="tab-link" data-tab="search">Search</span>
+                <span class="tab-link" data-tab="orient">Orient</span>
+            </div>
+
+            <div id="controlsBody">
+
+                <div id="systemTabContent" class="tab-content active">
+                    <div class="info-section">
+                        <span class="form-label">X-Ray Source (Laue)</span>
+                        <div class="form-input-grid" style="grid-template-columns: auto 1fr 65px;">
+                            <label for="lambda_min">λ_min (Å)</label>
+                            <input type="range" id="lambda_min_slider" value="0.2" min="0.1" max="2.0" step="0.1" class="form-slider">
+                            <input type="number" id="lambda_min" value="0.2" min="0.1" max="2.0" step="0.1" class="form-input">
+                            
+                            <label for="lambda_max">λ_max (Å)</label>
+                            <input type="range" id="lambda_max_slider" value="3.0" min="0.2" max="5.0" step="0.1" class="form-slider">
+                            <input type="number" id="lambda_max" value="3.0" min="0.2" max="5.0" step="0.1" class="form-input">
+                        </div>
+                    </div>
+
+                    <div class="info-section">
+                        <span class="form-label">Detector Geometry</span>
+                        <div class="form-input-grid" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="span-2">
+                                <label for="detectorAngle" class="form-label text-sm">Angle (°) <span class="font-normal text-gray-400">(0=Trans, 180=Back)</span></label>
+                                <div class="grid grid-cols-[1fr,65px] gap-2 items-center">
+                                    <input type="range" id="detectorAngle_slider" value="180" min="0" max="180" step="1" class="form-slider">
+                                    <input type="number" id="detectorAngle" value="180" min="0" max="180" step="1" class="form-input">
+                                </div>
+                            </div>
+                            <div class="span-2">
+                                <label for="detectorDistance" class="form-label text-sm">Dist. (mm)</label>
+                                <div class="grid grid-cols-[1fr,65px] gap-2 items-center">
+                                    <input type="range" id="detectorDistance_slider" value="36" min="5" max="200" step="1" class="form-slider">
+                                    <input type="number" id="detectorDistance" value="36" min="5" max="200" step="1" class="form-input">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="info-section">
+                        <div class="flex items-center justify-between" style="margin-bottom: 0.5rem;">
+                            <span class="form-label" style="margin-bottom:0;">Goniometer Angles (°)</span>
+                            <button id="resetGonioBtn" class="btn-inline-reset" title="Reset to 0,0,0">Reset</button>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-3" style="color: var(--text-dark);">
+                            Physical goniometer controls, relative to the orientation selected in the 'Search' tab.
+                        </p>
+                        <div class="form-input-grid" style="grid-template-columns: auto 1fr 60px;">
+                            <label for="rotX">X:</label>
+                            <input type="range" id="rotX_slider" value="0" min="-90" max="90" step="1" class="form-slider">
+                            <input type="number" id="rotX" value="0" min="-90" max="90" step="1" class="form-input">
+                            
+                            <label for="rotY">Y:</label>
+                            <input type="range" id="rotY_slider" value="0" min="-90" max="90" step="1" class="form-slider">
+                            <input type="number" id="rotY" value="0" min="-90" max="90" step="1" class="form-input">
+                            
+                            <label for="rotZ">Z:</label>
+                            <input type="range" id="rotZ_slider" value="0" min="-90" max="90" step="1" class="form-slider">
+                            <input type="number" id="rotZ" value="0" min="-90" max="90" step="1" class="form-input">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="sampleTabContent" class="tab-content">
+                    <div class="info-section">
+                        <label for="bravaisLattice" class="form-label">Lattice</label>
+                        <select id="bravaisLattice" class="form-select"></select>
+                    </div>
+
+                    <div class="info-section">
+                        <span class="form-label">Lattice Parameters</span>
+                        <div id="latticeParamsContainer" class="form-input-grid">
+                            <div id="row_a" style="display: contents;">
+                                <label for="a">a (Å)</label> <input type="number" id="a" value="6.0" step="0.1" min="1" class="form-input">
+                            </div>
+                            <div id="row_b" style="display: contents;">
+                                <label for="b">b (Å)</label> <input type="number" id="b" value="7.0" step="0.1" min="1" class="form-input">
+                            </div>
+                            <div id="row_c" style="display: contents;">
+                                <label for="c">c (Å)</label> <input type="number" id="c" value="8.0" step="0.1" min="1" class="form-input">
+                            </div>
+                            <div id="row_alpha" style="display: contents;">
+                                <label for="alpha">α (°)</label> <input type="number" id="alpha" value="90.0" step="0.1" class="form-input">
+                            </div>
+                            <div id="row_beta" style="display: contents;">
+                                <label for="beta">β (°)</label> <input type="number" id="beta" value="90.0" step="0.1" class="form-input">
+                            </div>
+                            <div id="row_gamma" style="display: contents;">
+                                <label for="gamma">γ (°)</label> <input type="number" id="gamma" value="90.0" step="0.1" class="form-input">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="info-section">
+                        <div class="form-input-grid">
+                            <label for="calcSpotSize_slider" class="span-2" style="margin-bottom: 0;">Calc. Spot Size: <span id="calcSpotSizeValue">0.3</span> mm <span style="color: var(--text-dark); font-weight:400;">(0 = hidden)</span></label>
+                            <input type="range" id="calcSpotSize_slider" value="0.3" min="0" max="1" step="0.05" class="form-slider span-2">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="measureTabContent" class="tab-content">
+                    <div class="info-section">
+                        <label for="imageLoader" class="form-label">Load Image</label>
+                        <input type="file" id="imageLoader" accept="image/*" class="form-input">
+                        <div id="loadedFileName" class="text-sm mt-2" style="color: var(--text-dark); font-family: var(--font-mono);">No file loaded.</div>
+
+                        <div class="flex items-center mt-4">
+                            <input type="checkbox" id="invertContrast" class="mr-2">
+                            <label for="invertContrast">Invert Image</label>
+                        </div>
+
+                        <button id="setCenterBtn" class="btn btn-secondary mt-4" disabled>1. Set Center</button>
+                        <button id="cancelModeBtn" class="btn btn-danger mt-2" style="display: none;">Cancel</button>
+                    </div>
+
+                    <div id="scaleControls" class="info-section" style="display: none;">
+                        <span class="form-label">Set Scale</span>
+                        <p class="text-sm text-gray-600 mb-2">Move the blue dot to a known reference point. Then enter its coordinates relative to the center.</p>
+                        <div class="form-input-grid">
+                            <label for="scalePointX_mm">U (mm)</label>
+                            <input type="number" id="scalePointX_mm" value="50" step="1" class="form-input">
+                            <label for="scalePointY_mm">V (mm)</label>
+                            <input type="number" id="scalePointY_mm" value="0" step="1" class="form-input">
+                        </div>
+                    </div>
+
+                    <div class="info-section">
+                        <span class="form-label">Experimental Peaks (U, V)</span>
+                        <div id="peakList"></div>
+
+                        <div class="form-input-grid mt-4">
+                            <button id="findPeaksBtn" class="btn btn-primary" disabled>Find Peaks</button>
+                            <button id="addPeakBtn" class="btn btn-secondary" disabled>+ Add Peaks…</button>
+                        </div>
+
+                        <div class="form-input-grid mt-4">
+                            <label for="peakThreshold" class="span-2" style="margin-bottom: 0;">Peak Threshold: <span id="peakThresholdValue">80</span>%</label>
+                            <input type="range" id="peakThreshold_slider" value="80" min="20" max="90" step="1" class="form-slider span-2">
+                        </div>
+
+                        <div class="form-input-grid mt-4">
+                            <label for="markerSize_slider" class="span-2" style="margin-bottom: 0;">Peak Marker Size: <span id="markerSizeValue">0.3</span> mm <span style="color: var(--text-dark); font-weight:400;">(0 = hidden)</span></label>
+                            <input type="range" id="markerSize_slider" value="0.3" min="0" max="1" step="0.05" class="form-slider span-2">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="searchTabContent" class="tab-content">
+                    <div class="info-section">
+                        <button id="searchOrientBtn" class="btn btn-primary" disabled>Search Orientation</button>
+                        <p id="searchHint" class="text-sm mt-2" style="color: var(--text-dark);">Load an image, set center and scale, and add at least 4 peaks to enable search.</p>
+                    </div>
+                    <div class="info-section">
+                        <span class="form-label">Solutions</span>
+                        <div id="solutionsList">
+                            <div style="color: var(--text-dark);">Run a search to see solutions here.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="orientTabContent" class="tab-content">
+                    <div id="orientDisabledNotice" class="info-section">
+                        <p class="text-sm" style="color: var(--text-dark);">Select a solution in the "Search" tab first to enable orienting to a target (h,k,l).</p>
+                    </div>
+
+                    <div id="orientToHKLSection" style="display:none;">
+                        <div class="info-section">
+                            <span class="form-label">Orient to (h,k,l)</span>
+                            <p class="text-sm text-gray-600 mb-3" style="color: var(--text-dark);">
+                                Align a specific (h,k,l) plane parallel to the detector.
+                            </p>
+                            <div class="form-input-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                                <div>
+                                    <label for="orient_h" class="form-label text-sm">h</label>
+                                    <input type="number" id="orient_h" value="1" step="1" class="form-input">
+                                </div>
+                                <div>
+                                    <label for="orient_k" class="form-label text-sm">k</label>
+                                    <input type="number" id="orient_k" value="0" step="1" class="form-input">
+                                </div>
+                                <div>
+                                    <label for="orient_l" class="form-label text-sm">l</label>
+                                    <input type="number" id="orient_l" value="0" step="1" class="form-input">
+                                </div>
+                            </div>
+                            <button id="orientToHKLBtn" class="btn btn-primary mt-4">Calculate Goniometer Angles</button>
+                        </div>
+
+                        <div class="info-section">
+                            <span class="form-label">Required Goniometer Angles (°)</span>
+                            <div class="form-input-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                                 <div>
+                                    <label for="orient_X_out" class="form-label text-sm">X</label>
+                                    <input type="text" id="orient_X_out" class="form-input-output" readonly>
+                                </div>
+                                 <div>
+                                    <label for="orient_Y_out" class="form-label text-sm">Y</label>
+                                    <input type="text" id="orient_Y_out" class="form-input-output" readonly>
+                                </div>
+                                 <div>
+                                    <label for="orient_Z_out" class="form-label text-sm">Z</label>
+                                    <input type="text" id="orient_Z_out" class="form-input-output" readonly>
+                                </div>
+                            </div>
+                            <button id="setOrientationBtn" class="btn btn-secondary mt-4" disabled>Set Orientation</button>
+                            <div id="orientStatus" class="text-sm mt-3" style="color: var(--text-medium);"></div>
+                        </div>
+                        
+                        <div class="info-section">
+                             <span class="form-label">Note</span>
+                             <p class="text-sm text-gray-600" style="color: var(--text-dark);">
+                                This calculates the goniometer angles (in the 'System' tab) required to rotate from the currently selected solution's orientation to the new target. Angles are only applied to the goniometer once you press "Set Orientation".
+                                <br><br>
+                                • The (h,k,l) plane is parallel to the detector. A (h,k,l) spot will only be visible if its required wavelength is within the "X-Ray Source" range specified in the 'System' tab.
+                             </p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div id="controlsFooter">
+                <div id="statusInfo" class="text-sm text-gray-700 h-10 mb-2">Please load an image to begin.</div>
+                <div id="fomInfo" class="text-sm font-bold text-green-700 h-6" style="display: none;">Figure of Merit will be shown here.</div>
+            </div>
+        </div>
+
+        <div id="resizeHandle"></div>
+
+        <div id="mainView">
+            <div id="detectorContainer">
+                <canvas id="experimentCanvas"></canvas>
+                <canvas id="detectorCanvas"></canvas>
+                <canvas id="zoomCanvas"></canvas>
+                <div id="customCursor"></div>
+                
+                <div id="topRightControls">
+                    <button id="themeToggleBtn" class="icon-btn" title="Toggle dark/light mode" aria-label="Toggle theme">
+                        <svg id="themeIconMoon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+                        <svg id="themeIconSun" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:none;"><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.6"/><path d="M12 2.5v2.5M12 19v2.5M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2.5 12H5M19 12h2.5M4.2 19.8L6 18M18 6l1.8-1.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+                    </button>
+                    <button id="printReportBtn" class="icon-btn" title="Generate PDF report" aria-label="Generate report">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-2M6 14h12v7H6z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+                    </button>
+                    <a href="Laue_2_help.html" target="_blank" id="helpButton" class="icon-btn" title="Help" aria-label="Help">?</a>
+                </div>
+
+            </div>
+        </div>
+
+
+    </div>
+        
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+       
+        let reciprocalMatrix = new THREE.Matrix3();
+        let baseOrientationMatrix = new THREE.Matrix4(); // Stores the result of the search (the "unknown" orientation)
+        
+        let statusInfoDiv, peakListEl, fomInfoDiv, solutionsListDiv, orientStatusDiv;
+        let detectorCanvas, detectorCtx, detectorContainer, customCursor;
+        let detectorSpots = [];
+        let isPanning = false, isDragging = false;
+        let mouseDownPosition = new THREE.Vector2(0, 0);
+        let highlightedSpot = null;
+        let experimentCanvas, experimentCtx;
+        
+            let zoomCanvas, zoomCtx;
+        const ZOOM_LEVEL = 4; // 4 fois, depuis le 1er nov
+        const ZOOM_WINDOW_SIZE = 180; // in pixels
+
+        let experimentalImage = null;
+        let experimentalSpots = [];
+        let orientationSolutions = []; 
+        
+        let imageCenter = null; 
+        let scalePoint = null;  
+
+        let pixels_per_mm_x = -1; 
+        let pixels_per_mm_y = -1; 
+
+        let imageTransform = { scale: 1, offsetX: 0, offsetY: 0 };
+        
+        let isSettingCenter = false, isAddingPeak = false;
+        let hasSelectedSolution = false;
+        let pendingOrientAngles = null;
+        let peakMarkerSizeMm = 0.3;
+        let calcSpotSizeMm = 0.3;
+        let isDraggingScalePoint = false;
+        let selectedPeakIndex = null, isDraggingPeak = false;
+        let editingPeakIndex = null;
+
+        const HKL_RANGE = 12;
+        const PEAK_COUNT = 12; // Find top 12 peaks
+        
+        const bravaisLatticeOptions = {
+            'Cubic (P)': { system: 'cubic', type: 'P' },
+            'Cubic (I)': { system: 'cubic', type: 'I' },
+            'Cubic (F)': { system: 'cubic', type: 'F' },
+            'Tetragonal (P)': { system: 'tetragonal', type: 'P' },
+            'Tetragonal (I)': { system: 'tetragonal', type: 'I' },
+            'Orthorhombic (P)': { system: 'orthorhombic', type: 'P' },
+            'Orthorhombic (C)': { system: 'orthorhombic', type: 'C' },
+            'Orthorhombic (I)': { system: 'orthorhombic', type: 'I' },
+            'Orthorhombic (F)': { system: 'orthorhombic', type: 'F' },
+            'Hexagonal (P)': { system: 'hexagonal', type: 'P' },
+            'Trigonal (P, hex axes)': { system: 'trigonal_hex', type: 'P' },
+            'Trigonal (R, rhomb. axes)': { system: 'rhombohedral', type: 'R' },
+            'Monoclinic (P)': { system: 'monoclinic', type: 'P' },
+            'Monoclinic (C)': { system: 'monoclinic', type: 'C' },
+            'Triclinic (P)': { system: 'triclinic', type: 'P' },
+        };
+        
+
+        /**
+         * Reads, validates, and corrects a numeric input field.
+         * @param {string} id - The ID of the input field.
+         * @param {number} min - The minimum allowed value.
+         * @param {number} max - The maximum allowed value.
+         * @param {number} defaultValue - The value to use if the current one is invalid.
+         * @returns {number} The validated number.
+         */
+        function getValidatedNumericInput(id, min, max, defaultValue) {
+            const el = document.getElementById(id);
+            if (!el) return defaultValue; // Safety check
+            
+            let val = parseFloat(el.value);
+            
+            if (isNaN(val) || val < min || val > max) {
+                val = defaultValue;
+                el.value = val; // Write the correction back to the UI
+              
+                const slider = document.getElementById(id + '_slider');
+                if (slider) {
+                    slider.value = val;
+                }
+            }
+            return val;
+        }
+
+
+
+        // --- UI & TAB FUNCTIONS ---
+        
+        function setupTabs() {
+            document.querySelectorAll('.tab-link').forEach(link => {
+                link.addEventListener('click', () => {
+                    const tabName = link.dataset.tab;
+                    setActiveTab(tabName);
+                });
+            });
+        }
+        
+        function setActiveTab(tabName) {
+            document.querySelectorAll('.tab-link').forEach(link => {
+                link.classList.toggle('active', link.dataset.tab === tabName);
+            });
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.toggle('active', content.id === `${tabName}TabContent`);
+            });
+        }
+
+        function initLatticeDropdown() {
+            const select = document.getElementById('bravaisLattice');
+            select.innerHTML = '';
+            for (const key in bravaisLatticeOptions) {
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = key;
+                select.appendChild(option);
+            }
+            select.addEventListener('change', handleLatticeChange);
+            handleLatticeChange(); // Call once to init
+        }
+
+        function handleLatticeChange() {
+            const key = document.getElementById('bravaisLattice').value;
+            const { system } = bravaisLatticeOptions[key];
+            
+     
+            const inputs = {
+                a: document.getElementById('a'),
+                b: document.getElementById('b'),
+                c: document.getElementById('c'),
+                alpha: document.getElementById('alpha'),
+                beta: document.getElementById('beta'),
+                gamma: document.getElementById('gamma')
+            };
+
+    
+            // This ensures that when 'a' changes in cubic, 'b' and 'c' are updated
+            switch (system) {
+                case 'cubic':
+                    inputs.b.value = inputs.a.value;
+                    inputs.c.value = inputs.a.value;
+                    inputs.alpha.value = 90;
+                    inputs.beta.value = 90;
+                    inputs.gamma.value = 90;
+                    break;
+                case 'tetragonal':
+                    inputs.b.value = inputs.a.value;
+                    inputs.alpha.value = 90;
+                    inputs.beta.value = 90;
+                    inputs.gamma.value = 90;
+                    break;
+                case 'orthorhombic':
+                    inputs.alpha.value = 90;
+                    inputs.beta.value = 90;
+                    inputs.gamma.value = 90;
+                    break;
+                case 'hexagonal':
+                    inputs.b.value = inputs.a.value;
+                    inputs.alpha.value = 90;
+                    inputs.beta.value = 90;
+                    inputs.gamma.value = 120;
+                    break;
+                case 'trigonal_hex':
+                    inputs.b.value = inputs.a.value;
+                    inputs.alpha.value = 90;
+                    inputs.beta.value = 90;
+                    inputs.gamma.value = 120;
+                    break;
+                case 'rhombohedral':
+                    inputs.b.value = inputs.a.value;
+                    inputs.c.value = inputs.a.value;
+                    inputs.beta.value = inputs.alpha.value;
+                    inputs.gamma.value = inputs.alpha.value;
+                    break;
+                case 'monoclinic':
+                    inputs.alpha.value = 90;
+                    inputs.gamma.value = 90;
+                    break;
+            }
+          
+
+            const visibleRows = {
+                'triclinic': ['a', 'b', 'c', 'alpha', 'beta', 'gamma'],
+                'monoclinic': ['a', 'b', 'c', 'beta'],
+                'orthorhombic': ['a', 'b', 'c'],
+                'tetragonal': ['a', 'c'],
+                'trigonal_hex': ['a', 'c'],
+                'rhombohedral': ['a', 'alpha'],
+                'hexagonal': ['a', 'c'],
+                'cubic': ['a']
+            };
+            ['a', 'b', 'c', 'alpha', 'beta', 'gamma'].forEach(p => {
+                document.getElementById(`row_${p}`).style.display = 'none';
+            });
+            visibleRows[system].forEach(p => {
+                document.getElementById(`row_${p}`).style.display = 'contents';
+            });
+            
+            updateVisualization();
+        }
+
+
+
+        function setUIMode(mode) {
+            isSettingCenter = (mode === 'center');
+            isAddingPeak = (mode === 'add-peak');
+            
+            const cancelBtn = document.getElementById('cancelModeBtn');
+            const setCenterBtn = document.getElementById('setCenterBtn');
+            const addPeakBtn = document.getElementById('addPeakBtn');
+            
+            if (isSettingCenter || isAddingPeak) {
+                setCenterBtn.disabled = true;
+                detectorContainer.classList.add('setting-mode');
+
+                 if ((isAddingPeak || isSettingCenter) && experimentalImage) { 
+                    zoomCanvas.style.display = 'block';
+                }
+
+                if (isSettingCenter) {
+                    detectorContainer.style.cursor = 'none';
+                    customCursor.style.display = 'block';
+                    cancelBtn.style.display = 'block';
+                    cancelBtn.textContent = 'Cancel';
+                    statusInfoDiv.textContent = 'Click on the image to set the beam center.';
+                } else if (isAddingPeak) {
+                    // A native crosshair gives more precise visual feedback for point
+                    // placement than the circular custom cursor used elsewhere.
+                    detectorContainer.style.cursor = 'crosshair';
+                    customCursor.style.display = 'none';
+                    // The Add Peaks button itself becomes the cancel control while active,
+                    // so the separate generic cancel button stays hidden here.
+                    cancelBtn.style.display = 'none';
+                    addPeakBtn.textContent = 'Cancel';
+                    addPeakBtn.disabled = false;
+                    statusInfoDiv.textContent = 'Click to add peaks (one after another). Press "Cancel" when done.';
+                }
+            } else { // Idle mode
+                cancelBtn.style.display = 'none';
+                addPeakBtn.textContent = '+ Add Peaks…';
+                detectorContainer.classList.remove('setting-mode');
+                detectorContainer.style.cursor = '';
+                customCursor.style.display = 'none';
+                zoomCanvas.style.display = 'none';
+                statusInfoDiv.textContent = 'Ready.';
+                setCenterBtn.disabled = !experimentalImage;
+                
+                const scale_valid = pixels_per_mm_x > 0 && pixels_per_mm_y > 0;
+                addPeakBtn.disabled = !scale_valid;
+            }
+        }
+
+
+      
+
+        function updateScale() {
+            if (!imageCenter || !scalePoint) {
+                pixels_per_mm_x = -1;
+                pixels_per_mm_y = -1;
+                return;
+            }
+            
+            const u_mm = parseFloat(document.getElementById('scalePointX_mm').value); // Now U
+            const v_mm = parseFloat(document.getElementById('scalePointY_mm').value); // Now V
+            
+            if (isNaN(u_mm) || isNaN(v_mm)) {
+                pixels_per_mm_x = -1;
+                pixels_per_mm_y = -1;
+                return;
+            }
+
+            // 1. Calculate pixel deltas from center
+            const delta_raw_x = scalePoint.raw_x - imageCenter.raw_x;
+            const delta_raw_y = scalePoint.raw_y - imageCenter.raw_y; // raw_y is "down"
+
+            // 2. Calculate separate scale factors
+            // We assume the image X-axis corresponds to the detector U-axis
+            if (Math.abs(u_mm) < 1e-6) {
+                pixels_per_mm_x = -1;
+            } else {
+                pixels_per_mm_x = delta_raw_x / u_mm; // pixels_per_mm_U
+            }
+
+            // We assume the image Y-axis corresponds to the detector V-axis
+            if (Math.abs(v_mm) < 1e-6) {
+                pixels_per_mm_y = -1;
+            } else {
+                // Y-axis is inverted: raw_y is "down" (positive), mm_y is "up" (positive)
+                // So we need to negate the pixel delta
+                pixels_per_mm_y = -delta_raw_y / v_mm; // pixels_per_mm_V
+            }
+
+            const scale_valid = pixels_per_mm_x > 0 && pixels_per_mm_y > 0;
+
+            if (!scale_valid) {
+                 statusInfoDiv.textContent = "Error: Scale coordinates must be non-zero.";
+            }
+            
+            // Enable dependent buttons
+            document.getElementById('findPeaksBtn').disabled = !scale_valid;
+            document.getElementById('addPeakBtn').disabled = !scale_valid;
+            
+            // Re-calculate peak list coordinates
+            updatePeakListUI();
+            redrawDetector();
+        }
+
+
+        function updateSearchButtonState() {
+            const scale_valid = pixels_per_mm_x > 0 && pixels_per_mm_y > 0;
+            const ready = !!experimentalImage && !!imageCenter && scale_valid && experimentalSpots.length >= 4;
+            const btn = document.getElementById('searchOrientBtn');
+            const hint = document.getElementById('searchHint');
+            btn.disabled = !ready;
+            if (ready) {
+                hint.textContent = `Ready — ${experimentalSpots.length} peaks available.`;
+            } else if (!experimentalImage) {
+                hint.textContent = 'Load an image in the "Measure" tab to begin.';
+            } else if (!imageCenter || !scale_valid) {
+                hint.textContent = 'Set the beam center and scale in the "Measure" tab.';
+            } else {
+                hint.textContent = `Need at least 4 peaks (currently ${experimentalSpots.length}).`;
+            }
+        }
+
+        function updatePeakListUI() {
+            peakListEl.innerHTML = '';
+            
+            const scale_valid = pixels_per_mm_x > 0 && pixels_per_mm_y > 0;
+            updateSearchButtonState();
+            
+            if (!scale_valid) return;
+            
+            experimentalSpots.forEach((spot, index) => {
+                const li = document.createElement('li');
+                if (index === selectedPeakIndex) li.classList.add('selected');
+                
+                const u_mm = (spot.raw_x - imageCenter.raw_x) / pixels_per_mm_x; // Now U
+                const v_mm = -(spot.raw_y - imageCenter.raw_y) / pixels_per_mm_y; // Now V
+                
+                li.innerHTML = `<label>${index + 1}</label>
+                                <input type="number" step="0.01" value="${u_mm.toFixed(3)}" data-axis="x" class="form-input">
+                                <input type="number" step="0.01" value="${v_mm.toFixed(3)}" data-axis="y" class="form-input">
+                                <button data-index="${index}">X</button>`;
+                
+                li.querySelector('label').onclick = () => {
+                    selectedPeakIndex = index;
+                    updatePeakListUI();
+                    redrawDetector();
+                };
+                
+                li.querySelector('button').onclick = (e) => {
+                    e.stopPropagation();
+                    experimentalSpots.splice(index, 1);
+                    if (selectedPeakIndex === index) selectedPeakIndex = null;
+                    else if (selectedPeakIndex > index) selectedPeakIndex--;
+                    updatePeakListUI();
+                    redrawDetector();
+                };
+                
+                li.querySelectorAll('input').forEach(input => {
+                    input.addEventListener('focus', () => {
+                        editingPeakIndex = index;
+                        redrawDetector();
+                    });
+                    input.addEventListener('blur', () => {
+                        if (editingPeakIndex === index) {
+                            editingPeakIndex = null;
+                            redrawDetector();
+                        }
+                    });
+                    input.addEventListener('change', (e) => {
+                        const new_u_mm = parseFloat(li.querySelector('input[data-axis="x"]').value); // U
+                        const new_v_mm = parseFloat(li.querySelector('input[data-axis="y"]').value); // V
+                        if (!isNaN(new_u_mm) && !isNaN(new_v_mm)) {
+                            spot.raw_x = imageCenter.raw_x + (new_u_mm * pixels_per_mm_x);
+                            spot.raw_y = imageCenter.raw_y - (new_v_mm * pixels_per_mm_y);
+                            redrawDetector();
+                        }
+                    });
+                });
+                peakListEl.appendChild(li);
+            });
+        }
+
+
+        function detectPeaks() {
+            const scale_valid = pixels_per_mm_x > 0 && pixels_per_mm_y > 0;
+            if (!experimentalImage || !imageCenter || !scale_valid) {
+                statusInfoDiv.textContent = "Error: Set center and scale before finding peaks.";
+                return;
+            }
+            
+            statusInfoDiv.textContent = `Finding peaks...`;
+            
+            // Use setTimeout to allow the "Finding peaks..." message to render
+            setTimeout(() => {
+                const shouldInvert = document.getElementById('invertContrast').checked;
+                
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCanvas.width = experimentalImage.width;
+                tempCanvas.height = experimentalImage.height;
+                tempCtx.drawImage(experimentalImage, 0, 0);
+                
+                const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                const data = imageData.data, width = imageData.width, height = imageData.height;
+                const grayscale = new Uint8Array(width * height);
+                let maxIntensity = 0;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    let intensity = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+                    if (shouldInvert) { intensity = 255 - intensity; }
+                    grayscale[i / 4] = intensity;
+                    if (intensity > maxIntensity) { maxIntensity = intensity; }
+                }
+                
+                const thresholdPct = parseFloat(document.getElementById('peakThreshold_slider').value) / 100;
+                const threshold = maxIntensity * thresholdPct;
+                
+                const exclusion_radius_mm_sq = 5**2; // 5mm exclusion radius
+                const peaks = [];
+                
+                const neighborhood = 5; 
+                const n_half = Math.floor(neighborhood / 2);
+
+                for (let y = n_half; y < height - n_half; y++) {
+                    for (let x = n_half; x < width - n_half; x++) {
+                        const index = y * width + x;
+                        const intensity = grayscale[index];
+                        if (intensity < threshold) continue;
+                        
+                        const du_mm = (x - imageCenter.raw_x) / pixels_per_mm_x;
+                        const dv_mm = (y - imageCenter.raw_y) / pixels_per_mm_y;
+                        const dist_mm_sq = du_mm**2 + dv_mm**2;
+                        if (dist_mm_sq <= exclusion_radius_mm_sq) continue;
+                        
+                        let isMax = true;
+                        for (let dy = -n_half; dy <= n_half; dy++) {
+                            for (let dx = -n_half; dx <= n_half; dx++) {
+                                if (dx === 0 && dy === 0) continue;
+                                if (grayscale[(y + dy) * width + (x + dx)] >= intensity) {
+                                    isMax = false;
+                                    break;
+                                }
+                            }
+                            if (!isMax) break;
+                        }
+
+                        if (isMax) {
+                            peaks.push({ x: x, y: y, intensity: intensity });
+                        }
+                    }
+                }
+                
+                peaks.sort((a, b) => b.intensity - a.intensity);
+
+                const quadrants = { q1: [], q2: [], q3: [], q4: [] };
+                const centerX = imageCenter.raw_x;
+                const centerY = imageCenter.raw_y;
+                const MAX_PEAKS_PER_QUADRANT = 50; // threshold is the real limiter now, not this cap
+                const perQuadrant = MAX_PEAKS_PER_QUADRANT;
+
+                for (const peak of peaks) {
+                    if (peak.x > centerX && peak.y < centerY) {
+                        if (quadrants.q1.length < perQuadrant) quadrants.q1.push(peak);
+                    } else if (peak.x < centerX && peak.y < centerY) {
+                        if (quadrants.q2.length < perQuadrant) quadrants.q2.push(peak);
+                    } else if (peak.x < centerX && peak.y > centerY) {
+                        if (quadrants.q3.length < perQuadrant) quadrants.q3.push(peak);
+                    } else if (peak.x > centerX && peak.y > centerY) {
+                        if (quadrants.q4.length < perQuadrant) quadrants.q4.push(peak);
+                    }
+                }
+
+                const finalPeaks = [
+                    ...quadrants.q1,
+                    ...quadrants.q2,
+                    ...quadrants.q3,
+                    ...quadrants.q4
+                ];
+
+                if (finalPeaks.length < 3) {
+                    statusInfoDiv.textContent = `Error: Only found ${finalPeaks.length} peaks. Try inverting contrast.`;
+                    experimentalSpots = [];
+                    updatePeakListUI();
+                    redrawDetector();
+                    return;
+                }
+                
+                experimentalSpots = finalPeaks.map(p => ({ raw_x: p.x, raw_y: p.y }));
+                
+                statusInfoDiv.textContent = `${experimentalSpots.length} peaks found.`;
+                updatePeakListUI();
+                redrawDetector();
+            }, 10); // 10ms delay
+        }
+
+
+
+        // --- CORE LOGIC & SIMULATION ---
+
+        function getLatticeParameters() {
+            const key = document.getElementById('bravaisLattice').value;
+            const { system } = bravaisLatticeOptions[key];
+
+            // Use 0.1 as a minimum to prevent divide-by-zero errors
+            let a = getValidatedNumericInput('a', 1, 100, 6.0);
+            let b = getValidatedNumericInput('b', 1, 100, 7.0);
+            let c = getValidatedNumericInput('c', 1, 100, 8.0);
+            let alpha = getValidatedNumericInput('alpha', 10, 170, 90.0);
+            let beta = getValidatedNumericInput('beta', 10, 170, 90.0);
+            let gamma = getValidatedNumericInput('gamma', 10, 170, 90.0);
+
+            switch (system) {
+                case 'cubic': b = a; c = a; alpha = 90; beta = 90; gamma = 90; break;
+                case 'tetragonal': b = a; alpha = 90; beta = 90; gamma = 90; break;
+                case 'orthorhombic': alpha = 90; beta = 90; gamma = 90; break;
+                case 'hexagonal': b = a; alpha = 90; beta = 90; gamma = 120; break;
+                case 'trigonal_hex': b = a; alpha = 90; beta = 90; gamma = 120; break;
+                case 'rhombohedral': b = a; c = a; beta = alpha; gamma = alpha; break;
+                case 'monoclinic': alpha = 90; gamma = 90; break;
+            }
+            return { a, b, c, alpha, beta, gamma };
+        }
+        
+        function updateReciprocalMatrix(p) {
+            const d2r = Math.PI / 180;
+            const cosA = Math.cos(p.alpha * d2r), sinA = Math.sin(p.alpha * d2r);
+            const cosB = Math.cos(p.beta * d2r), sinB = Math.sin(p.beta * d2r);
+            const cosG = Math.cos(p.gamma * d2r), sinG = Math.sin(p.gamma * d2r);
+            const v_term = 1 - cosA**2 - cosB**2 - cosG**2 + 2 * cosA * cosB * cosG;
+            if (v_term <= 1e-9) return false;
+            const vol = p.a * p.b * p.c * Math.sqrt(v_term);
+            const a_vec = new THREE.Vector3(p.a, 0, 0);
+            const b_vec = new THREE.Vector3(p.b * cosG, p.b * sinG, 0);
+            const c_vec = new THREE.Vector3(p.c * cosB, p.c * (cosA - cosB * cosG) / sinG, vol / (p.a * p.b * sinG));
+            const a_star_vec = new THREE.Vector3().crossVectors(b_vec, c_vec).divideScalar(vol);
+            const b_star_vec = new THREE.Vector3().crossVectors(c_vec, a_vec).divideScalar(vol);
+            const c_star_vec = new THREE.Vector3().crossVectors(a_vec, b_vec).divideScalar(vol);
+            reciprocalMatrix.set(a_star_vec.x, b_star_vec.x, c_star_vec.x,
+                                 a_star_vec.y, b_star_vec.y, c_star_vec.y,
+                                 a_star_vec.z, b_star_vec.z, c_star_vec.z);
+            return true;
+        }
+        
+        function isReflectionAllowed(h, k, l, bravaisType) {
+            switch (bravaisType) {
+                case 'P': return true;
+                case 'I': return (h + k + l) % 2 === 0;
+                case 'F': return ((h + k) % 2 === 0) && ((h + l) % 2 === 0) && ((k + l) % 2 === 0);
+                case 'A': return (k + l) % 2 === 0;
+                case 'B': return (h + l) % 2 === 0;
+                case 'C': return (h + k) % 2 === 0;
+                case 'R': return (-h + k + l) % 3 === 0;
+                default: return true;
+            }
+        }
+
+        // 1. ACCEPT the "detectorAngle" argument here
+        function generateSpotsForOrientation(rotX_deg, rotY_deg, rotZ_deg, detectorAngle) { 
+            const params = getLatticeParameters();
+            if (Object.values(params).some(isNaN) || !updateReciprocalMatrix(params)) return [];
+
+            const bravaisKey = document.getElementById('bravaisLattice').value;
+           
+            let lambda_min_val = getValidatedNumericInput('lambda_min', 0.1, 20.0, 0.2);
+            let lambda_max_val = getValidatedNumericInput('lambda_max', 0.1, 20.0, 3.0);
+            let dist_val = getValidatedNumericInput('detectorDistance', 1, 1000, 36);
+            let angle_deg_val = getValidatedNumericInput('detectorAngle', 0, 180, detectorAngle); // Use passed-in default
+
+            // Cross-check: ensure min is less than max
+            if (lambda_min_val >= lambda_max_val) {
+                lambda_min_val = lambda_max_val - 0.1;
+                if (lambda_min_val < 0.1) lambda_min_val = 0.1;
+                document.getElementById('lambda_min').value = lambda_min_val;
+                const min_slider = document.getElementById('lambda_min_slider');
+                if (min_slider) min_slider.value = lambda_min_val;
+            }
+
+            const detectorParams = {
+                reciprocalMatrix: reciprocalMatrix.clone(),
+                bravaisType: bravaisLatticeOptions[bravaisKey].type,
+                lambda_min: lambda_min_val,
+                lambda_max: lambda_max_val,
+                dist: dist_val,
+                angle_deg: angle_deg_val
+            };
+           
+
+            
+            return getSimulatedSpots(rotX_deg, rotY_deg, rotZ_deg, detectorParams, HKL_RANGE);
+        }
+
+
+        //  general detector plane logic
+        function getSimulatedSpots(rotX_deg, rotY_deg, rotZ_deg, detectorParams, hklRangeVal) {
+            let spots = [];
+            let { // Use 'let' to allow modification
+                reciprocalMatrix,
+                bravaisType,
+                lambda_min,
+                lambda_max,
+                dist,
+                angle_deg 
+            } = detectorParams;
+        
+              // --- 1. Set up Detector Plane ---
+            const phi_D_rad = THREE.MathUtils.degToRad(angle_deg);
+            const cosPhi = Math.cos(phi_D_rad);
+            const sinPhi = Math.sin(phi_D_rad);
+        
+            // Physical normal vector of the detector plane
+            const detectorNormal = new THREE.Vector3(cosPhi, sinPhi, 0);
+            
+            // The detector's horizontal "u-axis"
+            const u_axis = new THREE.Vector3(-sinPhi, cosPhi, 0);
+        
+            // --- 2. Set up Simulation Parameters ---
+            const hkl_range = {
+                h_min: -hklRangeVal, h_max: hklRangeVal,
+                k_min: -hklRangeVal, k_max: hklRangeVal,
+                l_min: -hklRangeVal, l_max: hklRangeVal
+            };
+        
+            const gonioEuler = new THREE.Euler(
+                THREE.MathUtils.degToRad(rotX_deg),
+                THREE.MathUtils.degToRad(rotY_deg),
+                THREE.MathUtils.degToRad(rotZ_deg),
+                'XYZ'
+            );
+        
+            const k_min = 1 / lambda_max;
+            const k_max = 1 / lambda_min;
+        
+            // --- 3. Setup Re-usable THREE objects ---
+            const intersectionPoint = new THREE.Vector3();
+            const k_in_vec = new THREE.Vector3(); // Will be set in loop
+            const k_f_vec = new THREE.Vector3(); // Diffracted beam
+            const g_vec = new THREE.Vector3(); // Reciprocal lattice vector
+        
+            for (let h = hkl_range.h_min; h <= hkl_range.h_max; h++) {
+            for (let k = hkl_range.k_min; k <= hkl_range.k_max; k++) {
+                for (let l = hkl_range.l_min; l <= hkl_range.l_max; l++) {
+                    if ((h === 0 && k === 0 && l === 0) || !isReflectionAllowed(h, k, l, bravaisType))
+                        continue;
+        
+                    // Calculate G-vector in rotated lab frame
+                    g_vec.set(h, k, l).applyMatrix3(reciprocalMatrix);
+                    g_vec.applyMatrix4(baseOrientationMatrix);
+                    g_vec.applyEuler(gonioEuler);
+        
+                    const g_sq = g_vec.lengthSq();
+                    const g_x = g_vec.x; // G-vector component along incident beam
+                   
+                    // Laue condition: k = -|g|^2 / (2 * g_x)
+                    // k must be positive, so g_x must be negative.
+                    if (g_x >= -1e-6) continue;
+        
+                    const k_diff = -g_sq / (2 * g_x);
+                    if (k_diff < k_min || k_diff > k_max) continue;
+        
+                    // k_in = (k, 0, 0)
+                    k_in_vec.set(k_diff, 0, 0);
+                    
+                    // k_f = k_in + g
+                    k_f_vec.addVectors(k_in_vec, g_vec);
+              
+                    
+                    const kf_dot_normal = k_f_vec.dot(detectorNormal);
+
+             
+                    if (kf_dot_normal < 1e-6) {
+                        continue; // Beam is parallel or points away from the detector
+                    }
+
+                    const t = dist / kf_dot_normal;
+                    intersectionPoint.copy(k_f_vec).multiplyScalar(t);
+
+                    // v-coordinate is the Z component
+                    const v = intersectionPoint.z;
+                    const u = intersectionPoint.dot(u_axis);
+
+                    spots.push({
+                        x_2d: u,  // This is our new 'u', version "analytiqué" modifiée
+                        y_2d: v,  // This is our new 'v'
+                        h, k, l
+                    });
+                }
+            }
+        }
+            return spots;
+        }
+    
+
+
+        function updateVisualization() {
+            detectorSpots = [];
+            highlightedSpot = null;
+            
+            const rotX_deg = parseFloat(document.getElementById('rotX').value) || 0;
+            const rotY_deg = parseFloat(document.getElementById('rotY').value) || 0;
+            const rotZ_deg = parseFloat(document.getElementById('rotZ').value) || 0;
+
+
+            // check for NaN
+            let detectorAngle = parseFloat(document.getElementById('detectorAngle').value);
+            if (isNaN(detectorAngle)) {
+                detectorAngle = 180;
+            }
+
+            // 2. PASS the angle 
+            detectorSpots = generateSpotsForOrientation(rotX_deg, rotY_deg, rotZ_deg, detectorAngle); 
+            
+            redrawDetector();
+        }
+
+        //  getScatteringVector function 
+        function getScatteringVector(u_mm, v_mm, D_mm, angle_deg) {
+            
+  
+            const phi_D_rad = THREE.MathUtils.degToRad(angle_deg);
+            const cosPhi = Math.cos(phi_D_rad);
+            const sinPhi = Math.sin(phi_D_rad);
+
+            // Reconstruct the detector's coordinate system in 3D
+            const detectorNormal = new THREE.Vector3(cosPhi, sinPhi, 0);
+            const u_axis = new THREE.Vector3(-sinPhi, cosPhi, 0); // Must match getSimulatedSpots
+            const v_axis = new THREE.Vector3(0, 0, 1);
+
+            // Center of the detector plane in 3D
+            const detectorCenter = detectorNormal.clone().multiplyScalar(D_mm);
+            
+            // 3D position of the spot on the detector plane
+            const detectorPos = new THREE.Vector3()
+                .add(detectorCenter)
+                .addScaledVector(u_axis, u_mm)
+                .addScaledVector(v_axis, v_mm);
+
+            // k_in is always taken along +X (incident beam convention)
+            const k_in = new THREE.Vector3(1, 0, 0); 
+            
+            // k_out is the normalized vector from origin to the detector spot
+            const k_out = detectorPos.clone().normalize();
+            
+            // g = k_out - k_in
+            const g = new THREE.Vector3().subVectors(k_out, k_in);
+            return g.normalize();
+        }
+
+
+        // --- Helpers for proper Kabsch via 3x3 symmetric eigendecomposition ---
+        // Jacobi eigendecomposition for a symmetric 3x3 matrix.
+        // Input: 3x3 array A (will not be modified). Returns { values: [λ1,λ2,λ3], vectors: [[v1],[v2],[v3]] columns }
+        function jacobiEigen3(Ain) {
+            const A = [
+                [Ain[0][0], Ain[0][1], Ain[0][2]],
+                [Ain[1][0], Ain[1][1], Ain[1][2]],
+                [Ain[2][0], Ain[2][1], Ain[2][2]]
+            ];
+            const V = [[1,0,0],[0,1,0],[0,0,1]];
+            for (let sweep = 0; sweep < 50; sweep++) {
+                const off = Math.abs(A[0][1]) + Math.abs(A[0][2]) + Math.abs(A[1][2]);
+                if (off < 1e-14) break;
+                for (let p = 0; p < 2; p++) {
+                    for (let q = p + 1; q < 3; q++) {
+                        const apq = A[p][q];
+                        if (Math.abs(apq) < 1e-18) continue;
+                        const app = A[p][p], aqq = A[q][q];
+                        const theta = (aqq - app) / (2 * apq);
+                        let t;
+                        if (Math.abs(theta) > 1e15) t = 1 / (2 * theta);
+                        else t = (theta >= 0 ? 1 : -1) / (Math.abs(theta) + Math.sqrt(theta*theta + 1));
+                        const c = 1 / Math.sqrt(t*t + 1);
+                        const s = t * c;
+                        A[p][p] = app - t * apq;
+                        A[q][q] = aqq + t * apq;
+                        A[p][q] = 0; A[q][p] = 0;
+                        for (let i = 0; i < 3; i++) {
+                            if (i !== p && i !== q) {
+                                const aip = A[i][p], aiq = A[i][q];
+                                A[i][p] = c * aip - s * aiq; A[p][i] = A[i][p];
+                                A[i][q] = s * aip + c * aiq; A[q][i] = A[i][q];
+                            }
+                            const vip = V[i][p], viq = V[i][q];
+                            V[i][p] = c * vip - s * viq;
+                            V[i][q] = s * vip + c * viq;
+                        }
+                    }
+                }
+            }
+            return { values: [A[0][0], A[1][1], A[2][2]], vectors: V };
+        }
+
+        function kabschRotation(pointsA, pointsB) {
+            if (pointsA.length !== pointsB.length || pointsA.length < 2) return null;
+            
+            if (pointsA.length === 2) {
+                const a1 = pointsA[0].clone().normalize();
+                const a2_raw = pointsA[1].clone();
+                // Guard against collinear / antiparallel vectors that would NaN the Gram-Schmidt
+                const a2_perp_raw = new THREE.Vector3().subVectors(a2_raw, a1.clone().multiplyScalar(a1.dot(a2_raw)));
+                if (a2_perp_raw.lengthSq() < 1e-10) return null;
+                const a2_perp = a2_perp_raw.normalize();
+                const a3 = new THREE.Vector3().crossVectors(a1, a2_perp).normalize();
+                
+                const b1 = pointsB[0].clone().normalize();
+                const b2_raw = pointsB[1].clone();
+                const b2_perp_raw = new THREE.Vector3().subVectors(b2_raw, b1.clone().multiplyScalar(b1.dot(b2_raw)));
+                if (b2_perp_raw.lengthSq() < 1e-10) return null;
+                const b2_perp = b2_perp_raw.normalize();
+                const b3 = new THREE.Vector3().crossVectors(b1, b2_perp).normalize();
+                
+                const matA = new THREE.Matrix4().makeBasis(a1, a2_perp, a3);
+                const matB = new THREE.Matrix4().makeBasis(b1, b2_perp, b3);
+                
+                const matA_inv = new THREE.Matrix4().copy(matA).invert();
+                return new THREE.Matrix4().multiplyMatrices(matB, matA_inv);
+            }
+            
+            // ---- General Kabsch (n >= 3) via SVD of H computed from eigendecomposition of H^T H ----
+            const centroidA = new THREE.Vector3();
+            const centroidB = new THREE.Vector3();
+            for (let i = 0; i < pointsA.length; i++) {
+                centroidA.add(pointsA[i]);
+                centroidB.add(pointsB[i]);
+            }
+            centroidA.divideScalar(pointsA.length);
+            centroidB.divideScalar(pointsA.length);
+            
+            // Build covariance H = sum (a_i - <a>) (b_i - <b>)^T  (3x3 dense array)
+            const H = [[0,0,0],[0,0,0],[0,0,0]];
+            for (let i = 0; i < pointsA.length; i++) {
+                const ax = pointsA[i].x - centroidA.x, ay = pointsA[i].y - centroidA.y, az = pointsA[i].z - centroidA.z;
+                const bx = pointsB[i].x - centroidB.x, by = pointsB[i].y - centroidB.y, bz = pointsB[i].z - centroidB.z;
+                H[0][0] += ax*bx; H[0][1] += ax*by; H[0][2] += ax*bz;
+                H[1][0] += ay*bx; H[1][1] += ay*by; H[1][2] += ay*bz;
+                H[2][0] += az*bx; H[2][1] += az*by; H[2][2] += az*bz;
+            }
+            
+            // SVD: H = U S V^T. Compute V from eigendecomp of H^T H, then U_i = (H v_i) / s_i.
+            const HtH = [[0,0,0],[0,0,0],[0,0,0]];
+            for (let i = 0; i < 3; i++)
+                for (let j = 0; j < 3; j++)
+                    for (let k = 0; k < 3; k++)
+                        HtH[i][j] += H[k][i] * H[k][j];
+            
+            const eig = jacobiEigen3(HtH);
+            // Sort eigenpairs descending
+            const order = [0, 1, 2].sort((i, j) => eig.values[j] - eig.values[i]);
+            const sigma = order.map(idx => Math.sqrt(Math.max(eig.values[idx], 0)));
+            const V = order.map(idx => [eig.vectors[0][idx], eig.vectors[1][idx], eig.vectors[2][idx]]);  // V columns
+            
+            // Compute U columns. If a singular value is ~0, use a fallback orthogonal complement.
+            const U = [[0,0,0],[0,0,0],[0,0,0]];  // U as rows-of-columns: U[col][row]
+            for (let c = 0; c < 3; c++) {
+                if (sigma[c] > 1e-10) {
+                    const Hv = [
+                        H[0][0]*V[c][0] + H[0][1]*V[c][1] + H[0][2]*V[c][2],
+                        H[1][0]*V[c][0] + H[1][1]*V[c][1] + H[1][2]*V[c][2],
+                        H[2][0]*V[c][0] + H[2][1]*V[c][1] + H[2][2]*V[c][2]
+                    ];
+                    U[c] = [Hv[0]/sigma[c], Hv[1]/sigma[c], Hv[2]/sigma[c]];
+                } else if (c === 2) {
+                    // Last column: take cross product of first two to ensure orthonormality
+                    U[c] = [
+                        U[0][1]*U[1][2] - U[0][2]*U[1][1],
+                        U[0][2]*U[1][0] - U[0][0]*U[1][2],
+                        U[0][0]*U[1][1] - U[0][1]*U[1][0]
+                    ];
+                } else {
+                    // Degenerate: not enough rank for a unique fit. Bail out.
+                    return null;
+                }
+            }
+            
+            // R = V * diag(1, 1, det(V * U^T)) * U^T  to avoid reflection
+            // Compute M = V * U^T  as 3x3, then det(M).
+            // V columns are V[c]; U columns are U[c]. (V U^T)_ij = sum_c V_ic * U_jc.
+            const VUt = [[0,0,0],[0,0,0],[0,0,0]];
+            for (let i = 0; i < 3; i++)
+                for (let j = 0; j < 3; j++)
+                    for (let c = 0; c < 3; c++)
+                        VUt[i][j] += V[c][i] * U[c][j];
+            const det = VUt[0][0]*(VUt[1][1]*VUt[2][2] - VUt[1][2]*VUt[2][1])
+                      - VUt[0][1]*(VUt[1][0]*VUt[2][2] - VUt[1][2]*VUt[2][0])
+                      + VUt[0][2]*(VUt[1][0]*VUt[2][1] - VUt[1][1]*VUt[2][0]);
+            const sign = det < 0 ? -1 : 1;
+            
+            // R_ij = sum_c V_ic * D_cc * U_jc, where D = diag(1, 1, sign)
+            const Rm = [[0,0,0],[0,0,0],[0,0,0]];
+            for (let i = 0; i < 3; i++)
+                for (let j = 0; j < 3; j++) {
+                    Rm[i][j] = V[0][i]*U[0][j] + V[1][i]*U[1][j] + sign * V[2][i]*U[2][j];
+                }
+            
+            const R = new THREE.Matrix4();
+            // Three.js Matrix4.set takes row-major arguments
+            R.set(
+                Rm[0][0], Rm[0][1], Rm[0][2], 0,
+                Rm[1][0], Rm[1][1], Rm[1][2], 0,
+                Rm[2][0], Rm[2][1], Rm[2][2], 0,
+                0, 0, 0, 1
+            );
+            return R;
+        }
+
+        // Angle (in degrees) between two candidate orientations, used to tell whether
+        // two search results represent the same physical orientation or genuinely different ones.
+        function misorientationDeg(elementsA, elementsB) {
+            const mA = new THREE.Matrix4().fromArray(elementsA);
+            const mB = new THREE.Matrix4().fromArray(elementsB);
+            const qA = new THREE.Quaternion().setFromRotationMatrix(mA);
+            const qB = new THREE.Quaternion().setFromRotationMatrix(mB);
+            return THREE.MathUtils.radToDeg(qA.angleTo(qB));
+        }
+
+        // --- Cached hkl direction library + per-direction sorted angle index ---
+        // For the Hough-style orientation search below: for each library direction m, we need
+        // to quickly find all other directions n whose angle to m matches some target value.
+        // Precomputing a per-m sorted (angle, n) array once (cached, keyed by lattice/Bravais/
+        // range) turns that into an O(log L) binary search instead of an O(L) linear scan,
+        // which is what makes a large search range computationally feasible.
+        let hklIndexCache = null;
+        let hklIndexCacheKey = null;
+
+        function binaryLowerBound(sortedArr, x) {
+            let lo = 0, hi = sortedArr.length;
+            while (lo < hi) {
+                const mid = (lo + hi) >>> 1;
+                if (sortedArr[mid] < x) lo = mid + 1; else hi = mid;
+            }
+            return lo;
+        }
+
+        function buildHklDirectionIndex(reciprocalMatrix, bravaisType, hklSearchRange) {
+            const key = reciprocalMatrix.elements.join(',') + '|' + bravaisType + '|' + hklSearchRange;
+            if (hklIndexCacheKey === key && hklIndexCache) return hklIndexCache;
+
+            const hklLibrary = [];
+            for (let h = -hklSearchRange; h <= hklSearchRange; h++) {
+                for (let k = -hklSearchRange; k <= hklSearchRange; k++) {
+                    for (let l = -hklSearchRange; l <= hklSearchRange; l++) {
+                        if (h === 0 && k === 0 && l === 0) continue;
+                        if (!isReflectionAllowed(h, k, l, bravaisType)) continue;
+                        const g_vec = new THREE.Vector3(h, k, l).applyMatrix3(reciprocalMatrix).normalize();
+                        hklLibrary.push({ h, k, l, g: g_vec });
+                    }
+                }
+            }
+
+            const L = hklLibrary.length;
+            // Per-m sorted (angle, n) index. Stored as one big flat buffer with offsets to
+            // keep memory contiguous rather than L separate small typed arrays.
+            const offsets = new Int32Array(L + 1);
+            const allAngles = new Float32Array(L * (L - 1));
+            const allIdx = new Int32Array(L * (L - 1));
+            let cursor = 0;
+            const tmpAngle = new Float32Array(L - 1);
+            const tmpIdx = new Int32Array(L - 1);
+            for (let m = 0; m < L; m++) {
+                let cnt = 0;
+                for (let n = 0; n < L; n++) {
+                    if (n === m) continue;
+                    const dot = Math.max(-1, Math.min(1, hklLibrary[m].g.dot(hklLibrary[n].g)));
+                    tmpAngle[cnt] = Math.acos(dot);
+                    tmpIdx[cnt] = n;
+                    cnt++;
+                }
+                const order = new Array(cnt);
+                for (let i = 0; i < cnt; i++) order[i] = i;
+                order.sort((a, b) => tmpAngle[a] - tmpAngle[b]);
+                offsets[m] = cursor;
+                for (let i = 0; i < cnt; i++) {
+                    allAngles[cursor] = tmpAngle[order[i]];
+                    allIdx[cursor] = tmpIdx[order[i]];
+                    cursor++;
+                }
+            }
+            offsets[L] = cursor;
+
+            const result = { hklLibrary, offsets, allAngles, allIdx };
+            hklIndexCache = result;
+            hklIndexCacheKey = key;
+            return result;
+        }
+
+        function alignmentBaseRotation(fromDir, toDir) {
+            const f = fromDir.clone().normalize();
+            const t = toDir.clone().normalize();
+            const dot = Math.max(-1, Math.min(1, f.dot(t)));
+            if (dot > 1 - 1e-9) return new THREE.Matrix4().identity();
+            if (dot < -1 + 1e-9) {
+                let axis = new THREE.Vector3(1, 0, 0).cross(f);
+                if (axis.lengthSq() < 1e-6) axis = new THREE.Vector3(0, 1, 0).cross(f);
+                axis.normalize();
+                return new THREE.Matrix4().makeRotationAxis(axis, Math.PI);
+            }
+            const axis = new THREE.Vector3().crossVectors(f, t).normalize();
+            const angle = Math.acos(dot);
+            return new THREE.Matrix4().makeRotationAxis(axis, angle);
+        }
+
+        // Hough-transform-style orientation search: for a handful of reference experimental
+        // spots, hypothesize each spot's hkl identity against the FULL library, then use exact
+        // geometry (not a scan) to compute the single rotation angle about that spot's axis that
+        // would align each OTHER experimental spot to some library direction, and histogram-vote.
+        // A correct hypothesis gets many distinct spots voting for the same angle; a spurious
+        // "simple-looking" wrong hypothesis (the failure mode of the old priority-based approach)
+        // does not, because it doesn't actually need to explain more than 1-2 points by chance.
+        function houghOrientationSearch(expGVectors, reciprocalMatrix, bravaisType, hklSearchRange) {
+            const { hklLibrary, offsets, allAngles, allIdx } = buildHklDirectionIndex(reciprocalMatrix, bravaisType, hklSearchRange);
+            const L = hklLibrary.length;
+            const N = expGVectors.length;
+            const angleTol = THREE.MathUtils.degToRad(1.0);
+            const thetaBinDeg = 1.0;
+            const nBins = Math.round(360 / thetaBinDeg);
+            const numRefs = Math.min(3, N);
+
+            const candidates = [];
+            const _v = new THREE.Vector3(), _perpV = new THREE.Vector3(), _cross = new THREE.Vector3();
+
+            for (let refIdx = 0; refIdx < numRefs; refIdx++) {
+                const A = expGVectors[refIdx];
+                const betaExp = new Array(N), perpExp = new Array(N);
+                for (let k = 0; k < N; k++) {
+                    if (k === refIdx) continue;
+                    const par = A.dot(expGVectors[k]);
+                    perpExp[k] = expGVectors[k].clone().addScaledVector(A, -par);
+                    betaExp[k] = Math.acos(Math.max(-1, Math.min(1, par)));
+                }
+
+                for (let m = 0; m < L; m++) {
+                    const R_base = alignmentBaseRotation(hklLibrary[m].g, A);
+                    const start = offsets[m], end = offsets[m + 1];
+
+                    // bin -> Set of spot indices supporting it (avoids double-voting when one
+                    // spot matches multiple library directions, common near symmetric axes)
+                    const binSpots = new Map();
+
+                    for (let k = 0; k < N; k++) {
+                        if (k === refIdx) continue;
+                        const lo = start + binaryLowerBound(allAngles.subarray(start, end), betaExp[k] - angleTol);
+                        const hi = start + binaryLowerBound(allAngles.subarray(start, end), betaExp[k] + angleTol);
+                        const seenBinsThisSpot = new Set();
+                        for (let p = lo; p < hi; p++) {
+                            const n = allIdx[p];
+                            _v.copy(hklLibrary[n].g).applyMatrix4(R_base);
+                            const parV = A.dot(_v);
+                            _perpV.copy(_v).addScaledVector(A, -parV);
+                            const perpLen = _perpV.length(), dPerpLen = perpExp[k].length();
+                            if (perpLen < 1e-6 || dPerpLen < 1e-6) continue;
+                            const cosT = _perpV.dot(perpExp[k]) / (perpLen * dPerpLen);
+                            _cross.crossVectors(_perpV, perpExp[k]);
+                            const sinT = A.dot(_cross) / (perpLen * dPerpLen);
+                            let thetaDeg = THREE.MathUtils.radToDeg(Math.atan2(sinT, cosT));
+                            if (thetaDeg < 0) thetaDeg += 360;
+                            const b = Math.floor(thetaDeg / thetaBinDeg) % nBins;
+                            if (seenBinsThisSpot.has(b)) continue;
+                            seenBinsThisSpot.add(b);
+                            if (!binSpots.has(b)) binSpots.set(b, new Set());
+                            binSpots.get(b).add(k);
+                        }
+                    }
+
+                    let bestBin = -1, bestVotes = 0;
+                    for (const [b, spots] of binSpots) {
+                        if (spots.size > bestVotes) { bestVotes = spots.size; bestBin = b; }
+                    }
+                    if (bestVotes >= 2) {
+                        const thetaDeg = (bestBin + 0.5) * thetaBinDeg;
+                        const rotMatrix = new THREE.Matrix4()
+                            .makeRotationAxis(A, THREE.MathUtils.degToRad(thetaDeg))
+                            .multiply(R_base);
+                        candidates.push({ votes: bestVotes, rotMatrix });
+                    }
+                }
+            }
+
+            candidates.sort((a, b) => b.votes - a.votes);
+            return candidates;
+        }
+
+        async function findOrientation() {
+
+            const searchBtn = document.getElementById('searchOrientBtn');
+            searchBtn.disabled = true;
+            searchBtn.textContent = 'Searching…';
+            document.body.style.cursor = 'wait';
+
+            // 1. Get experimental parameters
+            const D = getValidatedNumericInput('detectorDistance', 1, 1000, 36);
+          
+            let angle_deg = getValidatedNumericInput('detectorAngle', 0, 180, 180);
+           
+            const expSpots_mm = experimentalSpots.map(p => ({
+                        x: (p.raw_x - imageCenter.raw_x) / pixels_per_mm_x, // This is U
+                        y: -(p.raw_y - imageCenter.raw_y) / pixels_per_mm_y  // This is V
+                    }));
+
+            const params = getLatticeParameters();
+            if (Object.values(params).some(isNaN) || !updateReciprocalMatrix(params)) {
+                statusInfoDiv.textContent = 'Error: Invalid lattice parameters.';
+                searchBtn.disabled = false;
+                searchBtn.textContent = 'Search Orientation';
+                document.body.style.cursor = 'default';
+                return;
+            }
+
+            const bravaisKey = document.getElementById('bravaisLattice').value;
+            const bravaisType = bravaisLatticeOptions[bravaisKey].type;
+            
+            // 2. Calculate experimental scattering vectors (g-vectors)
+            statusInfoDiv.textContent = 'Calculating experimental scattering vectors...';
+            await new Promise(resolve => setTimeout(resolve, 10));
+            const expGVectors = expSpots_mm.map(spot => getScatteringVector(spot.x, spot.y, D, angle_deg)); // <-- Pass angle
+            
+            // 3. Hough-style orientation search: hypothesize each reference spot's hkl identity
+            // against the full (cached) library, and histogram-vote on the rotation angle that
+            // makes the most OTHER experimental spots align with library directions simultaneously.
+            statusInfoDiv.textContent = 'Building reflection library (cached after first run)...';
+            await new Promise(resolve => setTimeout(resolve, 10));
+
+            const HKL_SEARCH_RANGE = 8; // reaches realistic higher-index reflections near zone axes
+            const { hklLibrary } = buildHklDirectionIndex(reciprocalMatrix, bravaisType, HKL_SEARCH_RANGE);
+            if (hklLibrary.length < 2) {
+                statusInfoDiv.textContent = 'Not enough valid reflections generated.';
+                searchBtn.disabled = false;
+                searchBtn.textContent = 'Search Orientation';
+                document.body.style.cursor = 'default';
+                return;
+            }
+
+            statusInfoDiv.textContent = 'Searching orientations (voting across reference spots)...';
+            await new Promise(resolve => setTimeout(resolve, 10));
+
+            const candidateOrientations = houghOrientationSearch(expGVectors, reciprocalMatrix, bravaisType, HKL_SEARCH_RANGE);
+            if (candidateOrientations.length === 0) {
+                statusInfoDiv.textContent = 'No consistent orientation found — try adding more peaks.';
+                searchBtn.disabled = false;
+                searchBtn.textContent = 'Search Orientation';
+                document.body.style.cursor = 'default';
+                return;
+            }
+            
+            // 4. Refine and score top candidates (by vote count)
+            statusInfoDiv.textContent = `Testing ${Math.min(candidateOrientations.length, 500)} orientation candidates...`;
+            await new Promise(resolve => setTimeout(resolve, 10));
+            
+            const solutions = [];
+            const maxCandidates = Math.min(500, candidateOrientations.length);
+       
+            let lambda_min_val = getValidatedNumericInput('lambda_min', 0.1, 20.0, 0.2);
+            let lambda_max_val = getValidatedNumericInput('lambda_max', 0.1, 20.0, 3.0);
+            
+            // Cross-check: ensure min is less than max
+            if (lambda_min_val >= lambda_max_val) {
+                lambda_min_val = lambda_max_val - 0.1;
+                if (lambda_min_val < 0.1) lambda_min_val = 0.1;
+                document.getElementById('lambda_min').value = lambda_min_val;
+                const min_slider = document.getElementById('lambda_min_slider');
+                if (min_slider) min_slider.value = lambda_min_val;
+            }
+
+            const detectorParams = {
+                reciprocalMatrix: reciprocalMatrix.clone(),
+                bravaisType: bravaisType,
+                lambda_min: lambda_min_val,
+                lambda_max: lambda_max_val,
+                dist: D, 
+                angle_deg: angle_deg // angle_deg is already validated
+            };
+
+            
+            for (let c = 0; c < maxCandidates; c++) {
+                const seedRotMatrix = candidateOrientations[c].rotMatrix;
+                if (!seedRotMatrix) continue;
+
+                // --- Iterative refinement (ICP-style): refit using ALL matched spots,
+                // not just the original 2-point seed. A coincidental angle match on the
+                // seed pair (common near symmetric zone axes) gets corrected here if the
+                // seed was close enough to fall into the true orientation's basin.
+                let rotMatrix = seedRotMatrix;
+                const tolerance_mm = 4.0;
+                let matches = 0, sumSquaredError = 0, simSpots = null;
+
+                for (let iter = 0; iter < 4; iter++) {
+                    baseOrientationMatrix.copy(rotMatrix);
+                    simSpots = getSimulatedSpots(0, 0, 0, detectorParams, HKL_RANGE);
+
+                    const refitA = [], refitB = []; // crystal-frame dirs, lab-frame (experimental) dirs
+                    matches = 0; sumSquaredError = 0;
+                    for (let ei = 0; ei < expSpots_mm.length; ei++) {
+                        const expSpot = expSpots_mm[ei];
+                        let minDist = Infinity, bestSim = null;
+                        for (const simSpot of simSpots) {
+                            const dist = Math.sqrt((expSpot.x - simSpot.x_2d)**2 + (expSpot.y - simSpot.y_2d)**2);
+                            if (dist < minDist) { minDist = dist; bestSim = simSpot; }
+                        }
+                        if (minDist < tolerance_mm) {
+                            matches++;
+                            sumSquaredError += minDist * minDist;
+                            const crystalDir = new THREE.Vector3(bestSim.h, bestSim.k, bestSim.l).applyMatrix3(reciprocalMatrix).normalize();
+                            refitA.push(crystalDir);
+                            refitB.push(expGVectors[ei]);
+                        }
+                    }
+
+                    if (refitA.length < 2) break; // can't refit further; keep current rotMatrix
+                    const refit = kabschRotation(refitA, refitB);
+                    if (!refit) break;
+
+                    const moved = misorientationDeg(rotMatrix.elements, refit.elements);
+                    rotMatrix = refit;
+                    if (moved < 0.05) break; // converged
+                }
+
+
+                baseOrientationMatrix.copy(rotMatrix);
+                const euler = new THREE.Euler().setFromRotationMatrix(rotMatrix, 'XYZ');
+
+                const minRequiredMatches = Math.max(2, Math.ceil(expSpots_mm.length / 2));
+                if (matches >= minRequiredMatches) {
+                    const rmsError = Math.sqrt(sumSquaredError / matches);
+                    const coverage = matches / expSpots_mm.length;
+                    // Stronger penalty: a 50% solution gets 4x worse than a 100% solution.
+                    // Use 1/coverage^2 so the gradient with coverage dominates small RMS differences.
+                    const coveragePenalty = 1.0 / (coverage * coverage);
+                    const score = rmsError * coveragePenalty;
+                    
+                    solutions.push({
+                        euler: { 
+                            rotX: THREE.MathUtils.radToDeg(euler.x), 
+                            rotY: THREE.MathUtils.radToDeg(euler.y), 
+                            rotZ: THREE.MathUtils.radToDeg(euler.z) 
+                        },
+                        // Store the matrix elements — this is the source of truth for re-application.
+                        matrixElements: rotMatrix.elements.slice(),
+                        score: score, matches: matches,
+                        rmsError: rmsError, coverage: coverage
+                    });
+                }
+            }
+            
+            baseOrientationMatrix.identity();
+            
+            solutions.sort((a, b) => a.score - b.score);
+
+            // Many (experimental-pair, hkl-pair) candidates converge on the same true
+            // orientation. Keep only the best-scoring representative of each cluster so
+            // the list shows distinct orientations rather than near-duplicates.
+            const MIN_DISTINCT_ANGLE_DEG = 3.0;
+            const diverseSolutions = [];
+            for (const sol of solutions) {
+                const isDuplicate = diverseSolutions.some(existing =>
+                    misorientationDeg(existing.matrixElements, sol.matrixElements) < MIN_DISTINCT_ANGLE_DEG
+                );
+                if (!isDuplicate) diverseSolutions.push(sol);
+                if (diverseSolutions.length >= 20) break;
+            }
+            orientationSolutions = diverseSolutions;
+            
+            updateSolutionsTab();
+            
+            if (orientationSolutions.length > 0) {
+                const best = orientationSolutions[0];
+                // Apply the stored rotation matrix directly (no Euler round-trip).
+                baseOrientationMatrix.fromArray(best.matrixElements);
+
+                // DO NOT change the sliders.
+                // Update the visualization. This will re-run the simulation 
+                // using the new baseOrientationMatrix and the current (0,0,0) slider values.
+                updateVisualization();
+                
+                // Highlight the first solution in the Solutions tab
+                document.querySelectorAll('.solution-item').forEach((item, i) => {
+                    item.classList.toggle('selected', i === 0);
+                });
+
+                // Update status messages
+                fomInfoDiv.innerHTML = `Best: ${best.matches}/${expSpots_mm.length} matched (${(best.coverage*100).toFixed(0)}%), RMS=${best.rmsError.toFixed(2)}mm`;
+                fomInfoDiv.style.display = 'block';
+                statusInfoDiv.textContent = `Found ${orientationSolutions.length} solutions. Displaying best match at (0,0,0) goniometer.`;
+                
+            } else {
+                fomInfoDiv.innerHTML = 'No valid orientation found. Check console for diagnostics.';
+                fomInfoDiv.style.display = 'block';
+                statusInfoDiv.textContent = 'Search failed. See console for details.';
+            }
+            
+            searchBtn.disabled = false;
+            searchBtn.textContent = 'Search Orientation';
+            document.body.style.cursor = 'default';
+        }
+
+        
+        function updateSolutionsTab() {
+            solutionsListDiv.innerHTML = '';
+            if (orientationSolutions.length === 0) {
+                solutionsListDiv.innerHTML = '<div class="text-gray-600">No solutions found.</div>';
+                return;
+            }
+            
+            orientationSolutions.forEach((sol, index) => {
+                const item = document.createElement('div');
+                item.className = 'solution-item cursor-pointer';
+                item.id = `solution-item-${index}`;
+                
+                item.innerHTML = `
+                    <div class="flex justify-between items-center w-full">
+                        <div>
+                            <div class="font-bold">Solution ${index + 1} (Score: ${sol.score.toFixed(4)})</div>
+                            <div class="text-sm text-gray-700">
+                                X: ${sol.euler.rotX.toFixed(2)}°, 
+                                Y: ${sol.euler.rotY.toFixed(2)}°, 
+                                Z: ${sol.euler.rotZ.toFixed(2)}°
+                            </div>
+                        </div>
+                        
+                        <button class="btn-remove-solution" 
+                                style="width: 24px; height: 24px; font-size: 1em; font-weight: bold;
+                                       line-height: 1; display: flex; align-items: center; justify-content: center; 
+                                       background-color: var(--error-red); color: white; border-radius: 4px; 
+                                       border: none; cursor: pointer; margin-left: 10px; flex-shrink: 0;">
+                            x
+                        </button>
+                    </div>
+                `;
+                
+                item.addEventListener('click', () => { 
+                    selectSolution(index);
+                });
+                
+                item.querySelector('.btn-remove-solution').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    orientationSolutions.splice(index, 1);
+                    updateSolutionsTab();
+                    fomInfoDiv.style.display = 'none';
+                    if (orientationSolutions.length === 0) {
+                        hasSelectedSolution = false;
+                        pendingOrientAngles = null;
+                        document.getElementById('orientDisabledNotice').style.display = 'block';
+                        document.getElementById('orientToHKLSection').style.display = 'none';
+                    }
+                });
+                
+                solutionsListDiv.appendChild(item);
+            });
+        }
+        
+
+        // This function now sets the baseOrientationMatrix and resets goniometer
+        function selectSolution(index) {
+            const sol = orientationSolutions[index];
+            if (!sol) return;
+
+            // Apply the stored rotation matrix directly (no Euler round-trip).
+            if (sol.matrixElements) {
+                baseOrientationMatrix.fromArray(sol.matrixElements);
+            } else {
+                // Fallback for any legacy solution objects
+                const euler = new THREE.Euler(
+                    THREE.MathUtils.degToRad(sol.euler.rotX),
+                    THREE.MathUtils.degToRad(sol.euler.rotY),
+                    THREE.MathUtils.degToRad(sol.euler.rotZ),
+                    'XYZ'
+                );
+                baseOrientationMatrix.makeRotationFromEuler(euler);
+            }
+            
+            // Reset goniometer sliders to 0 ---
+            document.getElementById('rotX').value = 0;
+            document.getElementById('rotY').value = 0;
+            document.getElementById('rotZ').value = 0;
+            document.getElementById('rotX_slider').value = 0;
+            document.getElementById('rotY_slider').value = 0;
+            document.getElementById('rotZ_slider').value = 0;
+
+            // Update the visualization with the new base + 0 goniometer
+            updateVisualization();
+            
+            // Highlight in solutions list... again ?
+            document.querySelectorAll('.solution-item').forEach((item, i) => {
+                item.classList.toggle('selected', i === index);
+            });
+            
+            fomInfoDiv.innerHTML = `Displaying Solution ${index + 1} (Score: ${sol.score.toFixed(4)})`;
+            fomInfoDiv.style.display = 'block';
+
+            // Selecting a solution is what makes "Orient to (h,k,l)" meaningful:
+            // it defines the base orientation the target hkl gets rotated to.
+            hasSelectedSolution = true;
+            document.getElementById('orientDisabledNotice').style.display = 'none';
+            document.getElementById('orientToHKLSection').style.display = 'block';
+        }
+  
+        //  calculates the required goniometer angles
+        // relative to the current base orientation... the orientation required (negative to the position)
+        function orientToHKL() {
+            orientStatusDiv.textContent = 'Calculating...';
+            pendingOrientAngles = null;
+            document.getElementById('setOrientationBtn').disabled = true;
+
+            // 1. Get h, k, l inputs
+            const h = parseInt(document.getElementById('orient_h').value);
+            const k = parseInt(document.getElementById('orient_k').value);
+            const l = parseInt(document.getElementById('orient_l').value);
+            if (isNaN(h) || isNaN(k) || isNaN(l) || (h===0 && k===0 && l===0)) {
+                orientStatusDiv.textContent = 'Error: Invalid (h,k,l).';
+                return;
+            }
+
+            // 2. Get lattice parameters
+            const params = getLatticeParameters();
+            if (Object.values(params).some(isNaN) || !updateReciprocalMatrix(params)) {
+                orientStatusDiv.textContent = 'Error: Invalid lattice parameters.';
+                return;
+            }
+            
+            // 3. Calculate unrotated g-vector
+            const g_unrotated = new THREE.Vector3(h, k, l).applyMatrix3(reciprocalMatrix);
+            const g_length = g_unrotated.length();
+            if (g_length < 1e-9) {
+                orientStatusDiv.textContent = 'Error: Reciprocal vector has zero length.';
+                return;
+            }
+            const vFrom = g_unrotated.clone().normalize();
+
+ 
+// 4. Define target vector
+// Read the current detector angle
+let angle_deg = getValidatedNumericInput('detectorAngle', 0, 180, 180);
+const phi_D_rad = THREE.MathUtils.degToRad(angle_deg);
+const cosPhi = Math.cos(phi_D_rad);
+const sinPhi = Math.sin(phi_D_rad);
+
+// The target vector vTo is now the detector normal itself
+const vTo = new THREE.Vector3(cosPhi, sinPhi, 0);
+
+
+            // 5. Calculate the TOTAL target rotation (R_target)
+            const targetQuaternion = new THREE.Quaternion();
+            if (vFrom.dot(vTo) < -0.999999) {
+                let perpAxis = new THREE.Vector3(0, 1, 0);
+                if (Math.abs(vFrom.y) > 0.99) perpAxis.set(1, 0, 0);
+                targetQuaternion.setFromAxisAngle(perpAxis, Math.PI);
+            } else {
+                targetQuaternion.setFromUnitVectors(vFrom, vTo);
+            }
+            const targetMatrix = new THREE.Matrix4().makeRotationFromQuaternion(targetQuaternion);
+
+            // 6. find R_gonio such that: R_target = R_gonio * U_base
+            // Therefore: R_gonio = R_target * U_base_inverse
+            
+            const baseInverseMatrix = new THREE.Matrix4().copy(baseOrientationMatrix).invert();
+            const gonioMatrix = new THREE.Matrix4().multiplyMatrices(targetMatrix, baseInverseMatrix);
+
+            // 7. Extract Euler angles from the calculated goniometer matrix
+            const gonioEuler = new THREE.Euler().setFromRotationMatrix(gonioMatrix, 'XYZ');
+            const rotX_deg = THREE.MathUtils.radToDeg(gonioEuler.x);
+            const rotY_deg = THREE.MathUtils.radToDeg(gonioEuler.y);
+            const rotZ_deg = THREE.MathUtils.radToDeg(gonioEuler.z);
+            
+            // 8. Populate the read-only output fields only. The actual goniometer
+            // (System tab) is NOT touched until the user presses "Set Orientation".
+            document.getElementById('orient_X_out').value = rotX_deg.toFixed(2);
+            document.getElementById('orient_Y_out').value = rotY_deg.toFixed(2);
+            document.getElementById('orient_Z_out').value = rotZ_deg.toFixed(2);
+            pendingOrientAngles = { rotX_deg, rotY_deg, rotZ_deg, h, k, l, angle_deg };
+            document.getElementById('setOrientationBtn').disabled = false;
+
+            orientStatusDiv.textContent = `Calculated. Press "Set Orientation" to apply to the goniometer.`;
+        }
+
+        // Applies the most recently calculated Orient-to-hkl angles to the actual
+        // goniometer (System tab), only when the user explicitly requests it.
+        function applyCalculatedOrientation() {
+            if (!pendingOrientAngles) return;
+            const { rotX_deg, rotY_deg, rotZ_deg, h, k, l, angle_deg } = pendingOrientAngles;
+
+            document.getElementById('rotX').value = rotX_deg.toFixed(2);
+            document.getElementById('rotY').value = rotY_deg.toFixed(2);
+            document.getElementById('rotZ').value = rotZ_deg.toFixed(2);
+            document.getElementById('rotX_slider').value = rotX_deg;
+            document.getElementById('rotY_slider').value = rotY_deg;
+            document.getElementById('rotZ_slider').value = rotZ_deg;
+
+            updateVisualization();
+
+            orientStatusDiv.textContent = `Goniometer set to align (${h},${k},${l}) normal parallel to the ${angle_deg.toFixed(1)}° detector normal.`;
+
+        }
+
+
+        async function generateReport() {
+            const reportButton = document.getElementById('printReportBtn');
+            reportButton.disabled = true;
+            statusInfoDiv.textContent = 'Generating report...';
+            document.body.style.cursor = 'wait';
+            
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({
+                    orientation: 'p',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+
+                const margin = 15;
+                let yPos = 20;
+                const pdfWidth = doc.internal.pageSize.getWidth();
+                const col1X = margin;
+                const col2X = margin + 85;
+                const paramLabelWidth = 45;
+
+                const FONT = { TITLE: 'helvetica', LABEL: 'helvetica', DATA: 'courier' };
+                const SIZE = { TITLE: 18, H1: 14, H2: 12, BODY: 9, SMALL: 8 };
+
+                const addParamRow = (label, value) => {
+                    if (yPos > 270) { doc.addPage(); yPos = 20; }
+                    doc.setFont(FONT.LABEL, 'normal').setFontSize(SIZE.BODY);
+                    doc.text(label, col1X, yPos);
+                    doc.setFont(FONT.DATA, 'normal').setFontSize(SIZE.BODY);
+                    doc.text(String(value), col1X + paramLabelWidth, yPos);
+                    yPos += 5;
+                };
+                const addParamRowSplit = (label1, value1, label2, value2) => {
+                    if (yPos > 270) { doc.addPage(); yPos = 20; }
+                    doc.setFont(FONT.LABEL, 'normal').setFontSize(SIZE.BODY);
+                    doc.text(label1, col1X, yPos);
+                    doc.setFont(FONT.DATA, 'normal').setFontSize(SIZE.BODY);
+                    doc.text(String(value1), col1X + paramLabelWidth, yPos);
+                    
+                    doc.setFont(FONT.LABEL, 'normal').setFontSize(SIZE.BODY);
+                    doc.text(label2, col2X, yPos);
+                    doc.setFont(FONT.DATA, 'normal').setFontSize(SIZE.BODY);
+                    doc.text(String(value2), col2X + paramLabelWidth, yPos);
+                    yPos += 5;
+                };
+                const addHeader = (text) => {
+                    if (yPos > 260) { doc.addPage(); yPos = 20; }
+                    yPos += 4; // Space before header
+                    doc.setFont(FONT.LABEL, 'bold').setFontSize(SIZE.H1);
+                    doc.text(text, margin, yPos);
+                    yPos += 8;
+                };
+
+                const now = new Date();
+                const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                
+                doc.setFont(FONT.TITLE, 'bold').setFontSize(SIZE.TITLE);
+                doc.text('Laue Indexing Report', pdfWidth / 2, yPos, { align: 'center' });
+                yPos += 10;
+                
+                addParamRow('URL:', window.location.href);
+                addParamRow('Version:', '3.1 (General Detector), November 2, 2025');
+                addParamRow('Generated:', timestamp);
+                const fileName = document.getElementById('imageLoader').files[0]?.name || 'N/A (simulation)';
+                addParamRow('Image File:', fileName);
+                yPos += 5;
+                
+                addHeader('Detector View');
+                const compositeCanvas = document.createElement('canvas');
+                const w = detectorCanvas.width;
+                const h = detectorCanvas.height;
+                compositeCanvas.width = w;
+                compositeCanvas.height = h;
+                const compositeCtx = compositeCanvas.getContext('2d');
+                compositeCtx.fillStyle = '#ffffff';
+                compositeCtx.fillRect(0, 0, w, h);
+                compositeCtx.drawImage(experimentCanvas, 0, 0, w, h);
+                compositeCtx.drawImage(detectorCanvas, 0, 0, w, h);
+                const imgData = compositeCanvas.toDataURL('image/png');
+              
+                const imgProps = doc.getImageProperties(imgData);
+                const availableWidth = pdfWidth - 2 * margin;
+                let imgHeight = (imgProps.height * availableWidth) / imgProps.width;
+                if (yPos + imgHeight > 280) { doc.addPage(); yPos = 20; }
+                
+                doc.addImage(imgData, 'PNG', margin, yPos, availableWidth, imgHeight);
+                yPos += imgHeight + 10;
+
+                addHeader('Simulation Parameters');
+                const lattice = getLatticeParameters();
+                const latticeKey = document.getElementById('bravaisLattice').value;
+                addParamRow('Lattice:', latticeKey);
+                
+                addParamRowSplit('a (Å):', lattice.a.toFixed(4), 'alpha (°):', lattice.alpha.toFixed(2));
+                addParamRowSplit('b (Å):', lattice.b.toFixed(4), 'beta (°):', lattice.beta.toFixed(2));
+                addParamRowSplit('c (Å):', lattice.c.toFixed(4), 'gamma (°):', lattice.gamma.toFixed(2));
+                
+                yPos += 5;
+                addParamRow('Wavelength min (Å):', document.getElementById('lambda_min').value);
+                addParamRow('Wavelength max (Å):', document.getElementById('lambda_max').value);
+                
+                yPos += 5;
+                addParamRow('Detector Angle (°):', document.getElementById('detectorAngle').value);
+                addParamRow('Distance (mm):', document.getElementById('detectorDistance').value);
+                
+                yPos += 5;
+                addParamRow('Goniometer X (°):', document.getElementById('rotX').value);
+                addParamRow('Goniometer Y (°):', document.getElementById('rotY').value);
+                addParamRow('Goniometer Z (°):', document.getElementById('rotZ').value);
+                
+                // Add Orientation Target Section
+                const orientX_out = document.getElementById('orient_X_out').value;
+                const orientY_out = document.getElementById('orient_Y_out').value;
+                const orientZ_out = document.getElementById('orient_Z_out').value;
+        
+                if (orientX_out || orientY_out || orientZ_out) {
+                    addHeader('Orientation Target');
+                    const h = document.getElementById('orient_h').value;
+                    const k = document.getElementById('orient_k').value;
+                    const l = document.getElementById('orient_l').value;
+                    addParamRow('Target (h,k,l):', `(${h}, ${k}, ${l})`);
+                    yPos += 5;
+                    addParamRow('Required Goniometer X (°):', orientX_out);
+                    addParamRow('Required Goniometer Y (°):', orientY_out);
+                    addParamRow('Required Goniometer Z (°):', orientZ_out);
+                }
+                
+                const scale_valid = pixels_per_mm_x > 0 && pixels_per_mm_y > 0;
+                if (imageCenter) {
+                    addHeader('Analysis Parameters');
+                    addParamRow('Center (px):', `x: ${imageCenter.raw_x.toFixed(2)}, y: ${imageCenter.raw_y.toFixed(2)}`);
+                    
+                    if (scalePoint) {
+                        addParamRow('Scale Point (px):', `x: ${scalePoint.raw_x.toFixed(2)}, y: ${scalePoint.raw_y.toFixed(2)}`);
+                        const scale_u_mm = parseFloat(document.getElementById('scalePointX_mm').value);
+                        const scale_v_mm = parseFloat(document.getElementById('scalePointY_mm').value);
+                        addParamRow('Scale Point (mm):', `U: ${scale_u_mm.toFixed(3)}, V: ${scale_v_mm.toFixed(3)}`);
+                    }
+                    
+                    if (scale_valid) {
+                        addParamRow('Scale (px/mm U):', pixels_per_mm_x.toFixed(4));
+                        addParamRow('Scale (px/mm V):', pixels_per_mm_y.toFixed(4));
+                    } else {
+                        addParamRow('Scale (px/mm):', 'Not set or invalid.');
+                    }
+                }
+              
+                if (experimentalSpots.length > 0 && scale_valid) { 
+                    addHeader('Experimental Peaks');
+                    
+                    doc.setFont(FONT.DATA, 'bold').setFontSize(SIZE.SMALL);
+                    doc.text('#', col1X, yPos);
+                    doc.text('U (mm)', col1X + 10, yPos);
+                    doc.text('V (mm)', col1X + 35, yPos);
+                    doc.text('Raw X (px)', col1X + 60, yPos);
+                    doc.text('Raw Y (px)', col1X + 85, yPos);
+                    yPos += 5;
+                    doc.setFont(FONT.DATA, 'normal').setFontSize(SIZE.SMALL);
+                    
+                    for (let i = 0; i < experimentalSpots.length; i++) {
+                        if (yPos > 280) { 
+                            doc.addPage(); yPos = 20; 
+                            doc.setFont(FONT.DATA, 'bold').setFontSize(SIZE.SMALL);
+                            doc.text('#', col1X, yPos);
+                            doc.text('U (mm)', col1X + 10, yPos);
+                            doc.text('V (mm)', col1X + 35, yPos);
+                            doc.text('Raw X (px)', col1X + 60, yPos);
+                            doc.text('Raw Y (px)', col1X + 85, yPos);
+                            yPos += 5;
+                            doc.setFont(FONT.DATA, 'normal').setFontSize(SIZE.SMALL);
+                        }
+                        const spot = experimentalSpots[i];
+                        const u_mm = (spot.raw_x - imageCenter.raw_x) / pixels_per_mm_x;
+                        const v_mm = -(spot.raw_y - imageCenter.raw_y) / pixels_per_mm_y;
+                        doc.text(String(i + 1), col1X, yPos);
+                        doc.text(u_mm.toFixed(3), col1X + 10, yPos);
+                        doc.text(v_mm.toFixed(3), col1X + 35, yPos);
+                        doc.text(spot.raw_x.toFixed(2), col1X + 60, yPos);
+                        doc.text(spot.raw_y.toFixed(2), col1X + 85, yPos);
+                        yPos += 4;
+                    }
+                }
+
+                if (orientationSolutions.length > 0) {
+                    
+                    // --- REORDERED: This "Best Solution Details" (peak list) now comes FIRST ---
+                    const bestSol = orientationSolutions[0];
+                    addHeader(`Best Solution (Solution 1) Details`);
+                    
+                    const D = parseFloat(document.getElementById('detectorDistance').value);
+                    const angle_deg = parseFloat(document.getElementById('detectorAngle').value);
+                    const bravaisKey = document.getElementById('bravaisLattice').value;
+                    const detectorParams = {
+                        reciprocalMatrix: reciprocalMatrix.clone(),
+                        bravaisType: bravaisLatticeOptions[bravaisKey].type,
+                        lambda_min: parseFloat(document.getElementById('lambda_min').value),
+                        lambda_max: parseFloat(document.getElementById('lambda_max').value),
+                        dist: D,
+                        angle_deg: angle_deg 
+                    };
+                    
+                    const expSpots_mm = experimentalSpots.map((p, idx) => ({
+                        x: (p.raw_x - imageCenter.raw_x) / pixels_per_mm_x, // U
+                        y: -(p.raw_y - imageCenter.raw_y) / pixels_per_mm_y, // V
+                        original_index: idx + 1
+                    }));
+                    
+                    // --- GET SIM SPOTS FOR REPORT ---
+                    const tempEuler = new THREE.Euler(
+                        THREE.MathUtils.degToRad(bestSol.euler.rotX),
+                        THREE.MathUtils.degToRad(bestSol.euler.rotY),
+                        THREE.MathUtils.degToRad(bestSol.euler.rotZ), 'XYZ'
+                    );
+                    const tempBase = new THREE.Matrix4().makeRotationFromEuler(tempEuler);
+                    
+                    const gonioX = parseFloat(document.getElementById('rotX').value);
+                    const gonioY = parseFloat(document.getElementById('rotY').value);
+                    const gonioZ = parseFloat(document.getElementById('rotZ').value);
+                    
+                    const oldBase = baseOrientationMatrix.clone();
+                    baseOrientationMatrix.copy(tempBase); 
+                    const simSpots = getSimulatedSpots(gonioX, gonioY, gonioZ, detectorParams, HKL_RANGE);
+                    baseOrientationMatrix.copy(oldBase); // Restore
+                    // --- END ---
+                    
+                    const tolerance_mm = 4.0;
+                    const matches = [];
+                    
+                    for (const expSpot of expSpots_mm) {
+                        let bestMatch = null;
+                        let minDist = Infinity;
+                        for (const simSpot of simSpots) {
+                            const dist = Math.sqrt((expSpot.x - simSpot.x_2d)**2 + (expSpot.y - simSpot.y_2d)**2);
+                            let isNewBest = false;
+                            if (dist < (minDist - 1e-6)) {
+                                isNewBest = true;
+                            } else if (Math.abs(dist - minDist) < 1e-6) {
+                                if (bestMatch) {
+                                    const current_hkl_sq = bestMatch.h**2 + bestMatch.k**2 + bestMatch.l**2;
+                                    const new_hkl_sq = simSpot.h**2 + simSpot.k**2 + simSpot.l**2;
+                                    if (new_hkl_sq < current_hkl_sq) isNewBest = true;
+                                } else {
+                                    isNewBest = true;
+                                }
+                            }
+                            if (isNewBest) {
+                                minDist = dist;
+                                bestMatch = simSpot;
+                            }
+                        }
+                        
+                        if (bestMatch && minDist <= tolerance_mm) {
+                            matches.push({
+                                exp_index: expSpot.original_index, exp_x: expSpot.x, exp_y: expSpot.y,
+                                sim_x: bestMatch.x_2d, sim_y: bestMatch.y_2d, error: minDist,
+                                hkl: `(${bestMatch.h}, ${bestMatch.k}, ${bestMatch.l})`
+                            });
+                        } else {
+                            matches.push({
+                                exp_index: expSpot.original_index, exp_x: expSpot.x, exp_y: expSpot.y,
+                                sim_x: null, sim_y: null, error: null, hkl: 'No match'
+                            });
+                        }
+                    }
+                    
+                    doc.setFont(FONT.DATA, 'bold').setFontSize(SIZE.SMALL);
+                    doc.text('Peak #', col1X, yPos);
+                    doc.text('Exp U (mm)', col1X + 15, yPos);
+                    doc.text('Exp V (mm)', col1X + 35, yPos);
+                    doc.text('Sim U (mm)', col1X + 55, yPos);
+                    doc.text('Sim V (mm)', col1X + 75, yPos);
+                    doc.text('Error (mm)', col1X + 95, yPos);
+                    doc.text('(h k l)', col1X + 115, yPos);
+                    yPos += 5;
+                    doc.setFont(FONT.DATA, 'normal').setFontSize(SIZE.SMALL);
+                    
+                    for (const match of matches) {
+                        if (yPos > 280) { 
+                            doc.addPage(); yPos = 20; 
+                            doc.setFont(FONT.DATA, 'bold').setFontSize(SIZE.SMALL);
+                            doc.text('Peak #', col1X, yPos); doc.text('Exp U (mm)', col1X + 15, yPos); doc.text('Exp V (mm)', col1X + 35, yPos);
+                            doc.text('Sim U (mm)', col1X + 55, yPos); doc.text('Sim V (mm)', col1X + 75, yPos); doc.text('Error (mm)', col1X + 95, yPos);
+                            doc.text('(h k l)', col1X + 115, yPos);
+                            yPos += 5;
+                            doc.setFont(FONT.DATA, 'normal').setFontSize(SIZE.SMALL);
+                        }
+                        doc.text(String(match.exp_index), col1X, yPos);
+                        doc.text(match.exp_x.toFixed(3), col1X + 15, yPos);
+                        doc.text(match.exp_y.toFixed(3), col1X + 35, yPos);
+                        doc.text(match.sim_x !== null ? match.sim_x.toFixed(3) : 'N/A', col1X + 55, yPos);
+                        doc.text(match.sim_y !== null ? match.sim_y.toFixed(3) : 'N/A', col1X + 75, yPos);
+                        doc.text(match.error !== null ? match.error.toFixed(3) : 'N/A', col1X + 95, yPos);
+                        doc.text(match.hkl, col1X + 115, yPos);
+                        yPos += 4;
+                    }
+                  
+
+                    yPos += 10; // Add space before the next section
+                    
+                    addHeader('Analysis Solutions Summary');
+                    doc.setFont(FONT.LABEL, 'normal').setFontSize(SIZE.BODY);
+                    doc.text("These are the calculated 'Base Orientations' relative to the goniometer's (0,0,0) home.", col1X, yPos);
+                    yPos += 8;
+
+                    doc.setFont(FONT.DATA, 'bold').setFontSize(SIZE.SMALL);
+                    doc.text('Score', col1X, yPos);
+                    doc.text('Matches', col1X + 25, yPos);
+                    doc.text('RMS (mm)', col1X + 45, yPos);
+                    doc.text('Rot X (°)', col1X + 70, yPos);
+                    doc.text('Rot Y (°)', col1X + 90, yPos);
+                    doc.text('Rot Z (°)', col1X + 110, yPos);
+                    yPos += 5;
+                    doc.setFont(FONT.DATA, 'normal').setFontSize(SIZE.SMALL);
+
+                    orientationSolutions.slice(0, 20).forEach((sol, index) => {
+                        if (yPos > 280) { 
+                            doc.addPage(); yPos = 20; 
+                            doc.setFont(FONT.DATA, 'bold').setFontSize(SIZE.SMALL);
+                            doc.text('Score', col1X, yPos); doc.text('Matches', col1X + 25, yPos); doc.text('RMS (mm)', col1X + 45, yPos);
+                            doc.text('Rot X (°)', col1X + 70, yPos); doc.text('Rot Y (°)', col1X + 90, yPos); doc.text('Rot Z (°)', col1X + 110, yPos);
+                            yPos += 5;
+                            doc.setFont(FONT.DATA, 'normal').setFontSize(SIZE.SMALL);
+                        }
+                        doc.text(sol.score.toFixed(4), col1X, yPos);
+                        doc.text(`${sol.matches}/${experimentalSpots.length}`, col1X + 25, yPos);
+                        doc.text(sol.rmsError.toFixed(3), col1X + 45, yPos);
+                        doc.text(sol.euler.rotX.toFixed(2), col1X + 70, yPos);
+                        doc.text(sol.euler.rotY.toFixed(2), col1X + 90, yPos);
+                        doc.text(sol.euler.rotZ.toFixed(2), col1X + 110, yPos);
+                        yPos += 4;
+                    });
+                }
+                
+                const pdfFileName = `Laue-Report-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}.pdf`;
+                doc.save(pdfFileName);
+                statusInfoDiv.textContent = `Report saved as ${pdfFileName}`;
+
+            } catch (error) {
+                console.error("Failed to generate PDF:", error);
+                statusInfoDiv.textContent = `Error generating PDF: ${error.message}`;
+            } finally {
+                reportButton.disabled = false;
+                document.body.style.cursor = 'default';
+            }
+        }
+
+
+        function redrawDetector() {
+    if (!detectorCtx) return;
+    const w = detectorCanvas.width, h = detectorCanvas.height;
+    detectorCtx.clearRect(0, 0, w, h);
+    
+    let centerX = w / 2;
+    let centerY = h / 2;
+    
+    if (imageCenter) {
+        centerX = imageCenter.canvas_x;
+        centerY = imageCenter.canvas_y;
+    }
+
+    // Draw image center crosshair
+    if (imageCenter) {
+        detectorCtx.strokeStyle = '#00ff00';
+        detectorCtx.lineWidth = 2;
+        detectorCtx.beginPath();
+        detectorCtx.moveTo(centerX - 10, centerY);
+        detectorCtx.lineTo(centerX + 10, centerY);
+        detectorCtx.moveTo(centerX, centerY - 10);
+        detectorCtx.lineTo(centerX, centerY + 10);
+        detectorCtx.stroke();
+    }
+    
+    // Draw scale point crosshair
+    if (scalePoint) {
+        const crossSize = 15;
+        const x = scalePoint.canvas_x;
+        const y = scalePoint.canvas_y;
+        detectorCtx.strokeStyle = '#00aaff'; 
+        detectorCtx.lineWidth = 1.5; 
+        detectorCtx.beginPath();
+        detectorCtx.moveTo(x, y - crossSize);
+        detectorCtx.lineTo(x, y + crossSize);
+        detectorCtx.moveTo(x - crossSize, y);
+        detectorCtx.lineTo(x + crossSize, y);
+        detectorCtx.stroke();
+        
+        detectorCtx.strokeStyle = 'rgba(0, 170, 255, 0.5)';
+        detectorCtx.lineWidth = 1;
+        detectorCtx.beginPath();
+        detectorCtx.moveTo(centerX, centerY);
+        detectorCtx.lineTo(x, y);
+        detectorCtx.stroke();
+    }
+
+    // Determine pixel/mm scale (needed before drawing markers, since sizes are now in physical mm)
+    const scale_valid = pixels_per_mm_x > 0 && pixels_per_mm_y > 0;
+    let draw_scale_x, draw_scale_y;
+    if (scale_valid) {
+        draw_scale_x = pixels_per_mm_x; // U-scale
+        draw_scale_y = pixels_per_mm_y; // V-scale
+    } else {
+
+        const default_mm_view_width = 100.0;
+        const guess_scale = w / default_mm_view_width;
+        draw_scale_x = guess_scale; 
+        draw_scale_y = guess_scale;
+    }
+    const mmScaleAvg = (draw_scale_x + draw_scale_y) / 2;
+
+    // Draw experimental spots (plain circles, no index numbers — size 0 hides them)
+    if (experimentalSpots.length > 0 && peakMarkerSizeMm > 0) {
+        const peakRadiusPx = peakMarkerSizeMm * mmScaleAvg;
+        experimentalSpots.forEach((spot, index) => {
+            const canvas_x = spot.raw_x * imageTransform.scale + imageTransform.offsetX;
+            const canvas_y = spot.raw_y * imageTransform.scale + imageTransform.offsetY;
+            const isSelected = (index === selectedPeakIndex);
+            const isEditing = (index === editingPeakIndex);
+            const color = isEditing ? '#ff4444' : (isSelected ? '#44aaff' : '#00ff00');
+            detectorCtx.strokeStyle = color;
+            detectorCtx.lineWidth = (isEditing || isSelected) ? 2.5 : 1.5;
+            detectorCtx.beginPath();
+            detectorCtx.arc(canvas_x, canvas_y, peakRadiusPx, 0, 2 * Math.PI);
+            detectorCtx.stroke();
+        });
+    }
+
+    // Draw simulated Laue spots (size 0 hides them — replaces the old "Show Spots" checkbox)
+    if (calcSpotSizeMm > 0) {
+        const spotRadiusPx = calcSpotSizeMm * mmScaleAvg;
+        detectorSpots.forEach(spot => { 
+            const isHighlighted = (highlightedSpot === spot); 
+            let canvasX, canvasY;
+
+            if (imageCenter) {
+                const spot_raw_x = imageCenter.raw_x + (spot.x_2d * draw_scale_x); // u -> raw_x
+                const spot_raw_y = imageCenter.raw_y - (spot.y_2d * draw_scale_y); // v -> raw_y
+                canvasX = spot_raw_x * imageTransform.scale + imageTransform.offsetX;
+                canvasY = spot_raw_y * imageTransform.scale + imageTransform.offsetY;
+            } else {
+                canvasX = centerX + spot.x_2d * draw_scale_x; 
+                canvasY = centerY - spot.y_2d * draw_scale_y; 
+            }
+            
+            if (canvasX < 0 || canvasX > w || canvasY < 0 || canvasY > h) return;
+            
+            let spotColor = isHighlighted ? '#ff4444' : '#ffff00'; 
+            detectorCtx.beginPath();
+            detectorCtx.arc(canvasX, canvasY, isHighlighted ? spotRadiusPx * 1.6 : spotRadiusPx, 0, 2 * Math.PI);
+            detectorCtx.fillStyle = spotColor;
+            detectorCtx.fill(); 
+            detectorCtx.strokeStyle = 'black';
+            detectorCtx.lineWidth = 0.5;
+            detectorCtx.stroke();
+        });
+    }
+
+    // Draw scale bar
+    const scaleBar_mm = 20;
+    const avg_scale = (draw_scale_x + draw_scale_y) / 2.0;
+    const scaleBar_px = scaleBar_mm * avg_scale;
+    
+    if (scaleBar_px > 10 && scaleBar_px < w * 0.8) {
+        const y_pos = h - 30;
+        const startX = (w / 2) - (scaleBar_px / 2);
+        const endX = (w / 2) + (scaleBar_px / 2);
+        
+        const isLightTheme = document.documentElement.getAttribute('data-theme') === 'light';
+        const scaleBarColor = isLightTheme ? '#1a2130' : '#ffffff';
+        detectorCtx.strokeStyle = scaleBarColor;
+        detectorCtx.fillStyle = scaleBarColor;
+        detectorCtx.lineWidth = 2;
+        detectorCtx.font = '14px Arial';
+        detectorCtx.textAlign = 'center';
+        detectorCtx.beginPath();
+        detectorCtx.moveTo(startX, y_pos);
+        detectorCtx.lineTo(endX, y_pos);
+        detectorCtx.moveTo(startX, y_pos - 5);
+        detectorCtx.lineTo(startX, y_pos + 5);
+        detectorCtx.moveTo(endX, y_pos - 5);
+        detectorCtx.lineTo(endX, y_pos + 5);
+        detectorCtx.stroke();
+        
+        detectorCtx.textBaseline = 'bottom'; 
+        detectorCtx.fillText('2 cm', w / 2, y_pos - 8);
+    }
+}
+
+    function identifyDetectorSpot(event, isClick) {
+    if (detectorSpots.length === 0 || calcSpotSizeMm <= 0) return;
+
+    const rect = detectorCanvas.getBoundingClientRect();
+    const canvas_x = event.clientX - rect.left;
+    const canvas_y = event.clientY - rect.top;
+    
+    // Determine scale - same logic as redrawDetector
+    const scale_valid = pixels_per_mm_x > 0 && pixels_per_mm_y > 0;
+    let draw_scale_x, draw_scale_y;
+    if (scale_valid) {
+        draw_scale_x = pixels_per_mm_x;
+        draw_scale_y = pixels_per_mm_y;
+    } else {
+
+        const w = detectorCanvas.width;
+        const default_mm_view_width = 100.0;
+        const guess_scale = w / default_mm_view_width;
+        draw_scale_x = guess_scale;
+        draw_scale_y = guess_scale;
+    }
+    
+    // Determine center position
+    let centerX, centerY;
+    if (imageCenter) {
+        centerX = imageCenter.canvas_x;
+        centerY = imageCenter.canvas_y;
+    } else {
+        centerX = detectorCanvas.width / 2;
+        centerY = detectorCanvas.height / 2;
+    }
+    
+    let closestSpot = null, minDistanceSq = Infinity;
+    
+    for (const spot of detectorSpots) {
+        let spot_canvas_x, spot_canvas_y;
+        
+        if (imageCenter) {
+            const spot_raw_x = imageCenter.raw_x + (spot.x_2d * draw_scale_x);
+            const spot_raw_y = imageCenter.raw_y - (spot.y_2d * draw_scale_y);
+            spot_canvas_x = spot_raw_x * imageTransform.scale + imageTransform.offsetX;
+            spot_canvas_y = spot_raw_y * imageTransform.scale + imageTransform.offsetY;
+        } else {
+            spot_canvas_x = centerX + spot.x_2d * draw_scale_x;
+            spot_canvas_y = centerY - spot.y_2d * draw_scale_y;
+        }
+        
+        const distSq = (canvas_x - spot_canvas_x)**2 + (canvas_y - spot_canvas_y)**2;
+        if (distSq < minDistanceSq) {
+            minDistanceSq = distSq;
+            closestSpot = spot;
+        }
+    }
+    
+    function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+    function gcdOfThree(a, b, c) { return gcd(gcd(Math.abs(a), Math.abs(b)), Math.abs(c)); }
+    
+    if (closestSpot && minDistanceSq < 100) {
+        const { h, k, l } = closestSpot;
+        const commonDivisor = gcdOfThree(h, k, l);
+        const h_r = (commonDivisor === 0) ? h : h / commonDivisor;
+        const k_r = (commonDivisor === 0) ? k : k / commonDivisor;
+        const l_r = (commonDivisor === 0) ? l : l / commonDivisor;
+        const family = (commonDivisor > 1) ? ` (family of ${h},${k},${l})` : '';
+        statusInfoDiv.textContent = `Spot (${h_r},${k_r},${l_r})${family}`;
+        
+        if (isClick || highlightedSpot !== closestSpot) {
+            highlightedSpot = closestSpot;
+            redrawDetector();
+        }
+    } else {
+        if (isClick || highlightedSpot) {
+            highlightedSpot = null;
+            statusInfoDiv.textContent = 'Ready.';
+            redrawDetector();
+        }
+    }
+}
+
+
+   // 
+        /**
+         * Draws a magnified view of the experimental image onto the zoom canvas.
+         * @param {number} raw_x - The X coordinate on the *original* image to center on.
+         * @param {number} raw_y - The Y coordinate on the *original* image to center on.
+         */
+        function updateZoomCanvas(raw_x, raw_y) {
+            if (!experimentalImage || !zoomCtx) return;
+
+            // Clear the zoom canvas
+            zoomCtx.clearRect(0, 0, ZOOM_WINDOW_SIZE, ZOOM_WINDOW_SIZE);
+            
+            // Disable smoothing for a crisp, pixelated look
+            zoomCtx.imageSmoothingEnabled = false;
+
+            // Calculate the source rectangle (on the experimentalImage)
+            const sourcePixelSize = ZOOM_WINDOW_SIZE / ZOOM_LEVEL;
+            const sx = raw_x - sourcePixelSize / 2;
+            const sy = raw_y - sourcePixelSize / 2;
+            const sw = sourcePixelSize;
+            const sh = sourcePixelSize;
+
+            // Define the destination rectangle (the whole zoom canvas)
+            const dx = 0;
+            const dy = 0;
+            const dw = ZOOM_WINDOW_SIZE;
+            const dh = ZOOM_WINDOW_SIZE;
+
+            // Draw the magnified image
+            zoomCtx.drawImage(experimentalImage, sx, sy, sw, sh, dx, dy, dw, dh);
+
+            // Draw crosshairs on the zoom canvas
+            const mid = ZOOM_WINDOW_SIZE / 2;
+            zoomCtx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
+            zoomCtx.lineWidth = 1;
+            zoomCtx.beginPath();
+            zoomCtx.moveTo(mid, 0);
+            zoomCtx.lineTo(mid, ZOOM_WINDOW_SIZE);
+            zoomCtx.moveTo(0, mid);
+            zoomCtx.lineTo(ZOOM_WINDOW_SIZE, mid);
+            zoomCtx.stroke();
+        }
+
+        // --- EVENT HANDLERS & SETUP ---
+ 
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                experimentalImage = new Image();
+                experimentalImage.onload = function() {
+                    // Loading a new image resets the whole analysis state — a different
+                    // image invalidates the center, scale, peaks, and any found solution.
+                    imageCenter = null;
+                    scalePoint = null;
+                    pixels_per_mm_x = -1;
+                    pixels_per_mm_y = -1;
+                    experimentalSpots = [];
+                    selectedPeakIndex = null;
+                    orientationSolutions = [];
+                    hasSelectedSolution = false;
+                    pendingOrientAngles = null;
+                    
+                    baseOrientationMatrix.identity(); // Reset base orientation
+                    document.getElementById('rotX').value = 0;
+                    document.getElementById('rotY').value = 0;
+                    document.getElementById('rotZ').value = 0;
+                    document.getElementById('rotX_slider').value = 0;
+                    document.getElementById('rotY_slider').value = 0;
+                    document.getElementById('rotZ_slider').value = 0;
+                    
+                    document.getElementById('loadedFileName').textContent = file.name;
+                    document.getElementById('setCenterBtn').disabled = false;
+                    document.getElementById('scaleControls').style.display = 'none';
+                    document.getElementById('findPeaksBtn').disabled = true;
+                    document.getElementById('addPeakBtn').disabled = true;
+                    document.getElementById('setOrientationBtn').disabled = true;
+                    document.getElementById('orient_X_out').value = '';
+                    document.getElementById('orient_Y_out').value = '';
+                    document.getElementById('orient_Z_out').value = '';
+                    orientStatusDiv.textContent = '';
+                    document.getElementById('orientDisabledNotice').style.display = 'block';
+                    document.getElementById('orientToHKLSection').style.display = 'none';
+                    fomInfoDiv.style.display = 'none';
+                    
+                    document.getElementById('invertContrast').checked = analyzeImageContrast();
+                    updatePeakListUI();
+                    updateSolutionsTab();
+                    updateSearchButtonState();
+                    onWindowResize(); // This will also call redrawDetector
+                    setUIMode('idle');
+                    
+                    updateVisualization(); 
+                };
+                experimentalImage.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function analyzeImageContrast() {
+            if (!experimentalImage) return false;
+            const tempCanvas = document.createElement('canvas'); const tempCtx = tempCanvas.getContext('2d');
+            const scale = 0.25; tempCanvas.width = experimentalImage.width * scale; tempCanvas.height = experimentalImage.height * scale;
+            tempCtx.drawImage(experimentalImage, 0, 0, tempCanvas.width, tempCanvas.height);
+            const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+            const data = imageData.data; const intensities = [];
+            for (let i = 0; i < data.length; i += 4) { const intensity = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]; intensities.push(intensity); }
+            intensities.sort((a, b) => a - b);
+            const mid = Math.floor(intensities.length / 2);
+            const median = intensities.length % 2 !== 0 ? intensities[mid] : (intensities[mid - 1] + intensities[mid]) / 2;
+            return median > 128;
+        }
+
+        function onDetectorWheel(e) {
+            e.preventDefault();
+            const distInput = document.getElementById('detectorDistance');
+            const currentDist = parseFloat(distInput.value) - Math.sign(e.deltaY) * 2;
+            distInput.value = Math.max(5, Math.min(200, currentDist)).toFixed(0);
+            document.getElementById('detectorDistance_slider').value = distInput.value;
+            updateVisualization();
+        }
+        
+        function onDetectorMouseUp(e) {
+            if (e.button === 0) {
+                if (!isDragging && !isSettingCenter && !isAddingPeak && !isDraggingPeak && !isDraggingScalePoint) {
+                    identifyDetectorSpot(e, true);
+                }
+              
+              
+                if (isDraggingScalePoint) {
+                updateScale();
+                zoomCanvas.style.display = 'none';
+            }
+            isPanning = false;
+
+
+                isDragging = false;
+                isDraggingPeak = false;
+                isDraggingScalePoint = false;
+                if (!isSettingCenter && !isAddingPeak) {
+                    detectorContainer.style.cursor = 'default';
+                }
+            }
+        }
+
+
+        function onDetectorMouseMove(e) {
+            const rect = detectorCanvas.getBoundingClientRect();
+            const canvas_x = e.clientX - rect.left;
+            const canvas_y = e.clientY - rect.top;
+
+            // --- Calculate raw_x/raw_y early ---
+            const raw_x = (canvas_x - imageTransform.offsetX) / imageTransform.scale;
+            const raw_y = (canvas_y - imageTransform.offsetY) / imageTransform.scale;
+
+            if ((isSettingCenter || isAddingPeak || isDraggingScalePoint) && experimentalImage) {                
+                const offset = 25; // Pixel offset from cursor
+                let zoomLeft, zoomTop;
+
+                // Check X position
+                if (canvas_x > detectorCanvas.width / 2) {
+                    // Cursor is on the right half, open zoom to the left
+                    zoomLeft = canvas_x - ZOOM_WINDOW_SIZE - offset;
+                } else {
+                    // Cursor is on the left half, open zoom to the right
+                    zoomLeft = canvas_x + offset;
+                }
+
+                // Check Y position
+                if (canvas_y > detectorCanvas.height / 2) {
+                    // Cursor is on the bottom half, open zoom to the top
+                    zoomTop = canvas_y - ZOOM_WINDOW_SIZE - offset;
+                } else {
+                    // Cursor is on the top half, open zoom to the bottom
+                    zoomTop = canvas_y + offset;
+                }
+                
+                // 1. Update zoom window position
+                zoomCanvas.style.left = `${zoomLeft}px`;
+                zoomCanvas.style.top = `${zoomTop}px`;
+
+                // 2. Update zoom window content
+                updateZoomCanvas(raw_x, raw_y);
+                
+                // 3. Ensure zoom is visible (for dragging scale point)
+                if (isDraggingScalePoint) {
+                    zoomCanvas.style.display = 'block';
+                }
+            }
+
+            if (isSettingCenter || isAddingPeak) {
+                return;
+            }
+            
+            if (isDraggingScalePoint) {
+                scalePoint.canvas_x = canvas_x;
+                scalePoint.canvas_y = canvas_y;
+                scalePoint.raw_x = raw_x;
+                scalePoint.raw_y = raw_y;
+                
+                const scale_valid = pixels_per_mm_x > 0 && pixels_per_mm_y > 0;
+                if (imageCenter && scale_valid) { 
+                     document.getElementById('scalePointX_mm').value = ((raw_x - imageCenter.raw_x) / pixels_per_mm_x).toFixed(2);
+                     document.getElementById('scalePointY_mm').value = (-(raw_y - imageCenter.raw_y) / pixels_per_mm_y).toFixed(2);
+                }
+                updateScale();
+                redrawDetector();
+                return;
+            }
+
+            if (isDraggingPeak && selectedPeakIndex !== null) {
+                experimentalSpots[selectedPeakIndex].raw_x = raw_x;
+                experimentalSpots[selectedPeakIndex].raw_y = raw_y;
+                updatePeakListUI();
+                redrawDetector();
+                return;
+            }
+            
+            if (isPanning) {
+                const cur = new THREE.Vector2(e.clientX, e.clientY);
+                if (mouseDownPosition.distanceTo(cur) > 2) {
+                    isDragging = true;
+                    detectorContainer.style.cursor = 'grabbing';
+                }
+                if (isDragging) {
+                    const dx = e.clientX - mouseDownPosition.x;
+                    const dy = e.clientY - mouseDownPosition.y;
+                    
+                    // This now controls the Goniometer
+                    let newRotZ = parseFloat(document.getElementById('rotZ').value) + dx * 0.25;
+                    let newRotY = parseFloat(document.getElementById('rotY').value) + dy * 0.25;
+                    newRotZ = Math.max(-90, Math.min(90, newRotZ));
+                    newRotY = Math.max(-90, Math.min(90, newRotY));
+                    
+                    document.getElementById('rotZ').value = newRotZ.toFixed(0);
+                    document.getElementById('rotY').value = newRotY.toFixed(0);
+                    document.getElementById('rotZ_slider').value = newRotZ;
+                    document.getElementById('rotY_slider').value = newRotY;
+                    
+                    mouseDownPosition.copy(cur);
+                    updateVisualization(); // Update simulation with new goniometer angles
+                }
+            } else if (!isPanning) {
+                identifyDetectorSpot(e, false);
+            }
+        }
+
+        function onDetectorMouseDown(event) {
+            if (event.button !== 0) return;
+            
+            const rect = detectorCanvas.getBoundingClientRect();
+            const canvas_x = event.clientX - rect.left;
+            const canvas_y = event.clientY - rect.top;
+            const raw_x = (canvas_x - imageTransform.offsetX) / imageTransform.scale;
+            const raw_y = (canvas_y - imageTransform.offsetY) / imageTransform.scale;
+
+            if (isSettingCenter) {
+                imageCenter = { canvas_x, canvas_y, raw_x, raw_y };
+                const default_scale_canvas_x = rect.width - 50;
+                const default_scale_canvas_y = 50;
+                scalePoint = {
+                    canvas_x: default_scale_canvas_x,
+                    canvas_y: default_scale_canvas_y,
+                    raw_x: (default_scale_canvas_x - imageTransform.offsetX) / imageTransform.scale,
+                    raw_y: (default_scale_canvas_y - imageTransform.offsetY) / imageTransform.scale
+                };
+                document.getElementById('scaleControls').style.display = 'block';
+                updateScale();
+                redrawDetector();
+                setUIMode('idle');
+                return;
+            }
+            
+            if (isAddingPeak) {
+                experimentalSpots.push({ raw_x, raw_y });
+                selectedPeakIndex = experimentalSpots.length - 1;
+                updatePeakListUI();
+                redrawDetector();
+                statusInfoDiv.textContent = `${experimentalSpots.length} peaks. Click to add another, or press "Cancel" when done.`;
+                return;
+            }
+
+            if (scalePoint) {
+                const distSq = (canvas_x - scalePoint.canvas_x)**2 + (canvas_y - scalePoint.canvas_y)**2;
+                if (distSq < 100) {
+                    isDraggingScalePoint = true;
+                    return;
+                }
+            }
+            
+            let peakWasClicked = false;
+            selectedPeakIndex = null;
+            for (let i = experimentalSpots.length - 1; i >= 0; i--) {
+                const spot = experimentalSpots[i];
+                const spot_canvas_x = spot.raw_x * imageTransform.scale + imageTransform.offsetX;
+                const spot_canvas_y = spot.raw_y * imageTransform.scale + imageTransform.offsetY;
+                if (((canvas_x - spot_canvas_x)**2 + (canvas_y - spot_canvas_y)**2) < 100) {
+                    selectedPeakIndex = i;
+                    isDraggingPeak = true;
+                    peakWasClicked = true;
+                    break;
+                }
+            }
+            
+            if (!peakWasClicked && !isDraggingScalePoint) {
+                isPanning = true;
+                isDragging = false;
+                mouseDownPosition.set(event.clientX, event.clientY);
+            }
+            updatePeakListUI();
+            redrawDetector();
+        }
+
+        function onWindowResize() { 
+            const cont = document.getElementById('detectorContainer'); 
+            if (!cont) return; 
+            const w = cont.clientWidth, h = cont.clientHeight; 
+            if (w > 0 && h > 0) { 
+                detectorCanvas.width = experimentCanvas.width = w; 
+                detectorCanvas.height = experimentCanvas.height = h; 
+            } 
+
+            experimentCtx.clearRect(0, 0, w, h);
+            
+            if (experimentalImage) { 
+                const MARGIN = 10; // px — keeps edge peaks/scale points clickable, off the container border
+                const availW = Math.max(1, w - 2 * MARGIN);
+                const availH = Math.max(1, h - 2 * MARGIN);
+                const imgAspect = experimentalImage.width / experimentalImage.height;
+                const availAspect = availW / availH; 
+                let drawW, drawH, dx, dy; 
+                if (imgAspect > availAspect) { 
+                    drawW = availW; drawH = availW / imgAspect; dx = MARGIN; dy = MARGIN + (availH - drawH) / 2; 
+                } else { 
+                    drawH = availH; drawW = availH * imgAspect; dy = MARGIN; dx = MARGIN + (availW - drawW) / 2; 
+                } 
+                experimentCtx.drawImage(experimentalImage, dx, dy, drawW, drawH); 
+                imageTransform.scale = drawW / experimentalImage.width; 
+                imageTransform.offsetX = dx; 
+                imageTransform.offsetY = dy; 
+            }
+            
+            if (experimentCanvas) {
+                experimentCanvas.style.filter = document.getElementById('invertContrast').checked ? 'invert(1)' : 'none';
+            }
+            
+            if (imageCenter) { 
+                imageCenter.canvas_x = imageCenter.raw_x * imageTransform.scale + imageTransform.offsetX; 
+                imageCenter.canvas_y = imageCenter.raw_y * imageTransform.scale + imageTransform.offsetY; 
+            } 
+            if (scalePoint) {
+                scalePoint.canvas_x = scalePoint.raw_x * imageTransform.scale + imageTransform.offsetX;
+                scalePoint.canvas_y = scalePoint.raw_y * imageTransform.scale + imageTransform.offsetY;
+            }
+            
+            updateVisualization();
+        }
+        
+        function initSliderLink(sliderId, numberId, callback) {
+            const slider = document.getElementById(sliderId);
+            const number = document.getElementById(numberId);
+            if (slider && number) {
+                slider.addEventListener('input', () => { number.value = slider.value; if(callback) callback(); });
+                number.addEventListener('change', () => { slider.value = number.value; if(callback) callback(); }); 
+            }
+        }
+
+        function resetGoniometer() {
+            document.getElementById('rotX').value = 0;
+            document.getElementById('rotY').value = 0;
+            document.getElementById('rotZ').value = 0;
+            document.getElementById('rotX_slider').value = 0;
+            document.getElementById('rotY_slider').value = 0;
+            document.getElementById('rotZ_slider').value = 0;
+            updateVisualization();
+        }
+
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            document.getElementById('themeIconMoon').style.display = (theme === 'dark') ? 'block' : 'none';
+            document.getElementById('themeIconSun').style.display = (theme === 'light') ? 'block' : 'none';
+            redrawDetector();
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme') || 'dark';
+            const next = (current === 'dark') ? 'light' : 'dark';
+            applyTheme(next);
+            try { localStorage.setItem('laue_theme', next); } catch (e) { /* storage may be unavailable */ }
+        }
+
+        function initResizeHandle() {
+            const handle = document.getElementById('resizeHandle');
+            const panel = document.getElementById('controlsPanel');
+            let dragging = false;
+
+            handle.addEventListener('mousedown', (e) => {
+                dragging = true;
+                handle.classList.add('dragging');
+                document.body.style.userSelect = 'none';
+                e.preventDefault();
+            });
+            window.addEventListener('mousemove', (e) => {
+                if (!dragging) return;
+                const pct = Math.min(65, Math.max(16, (e.clientX / window.innerWidth) * 100));
+                panel.style.width = pct + '%';
+                onWindowResize();
+            });
+            window.addEventListener('mouseup', () => {
+                if (!dragging) return;
+                dragging = false;
+                handle.classList.remove('dragging');
+                document.body.style.userSelect = '';
+            });
+        }
+        
+        function init() {
+            let savedTheme = 'dark';
+            try { savedTheme = localStorage.getItem('laue_theme') || 'dark'; } catch (e) { /* storage may be unavailable */ }
+            applyTheme(savedTheme);
+
+            // Get DOM elements
+            statusInfoDiv = document.getElementById('statusInfo');
+            fomInfoDiv = document.getElementById('fomInfo');
+            peakListEl = document.getElementById('peakList');
+            solutionsListDiv = document.getElementById('solutionsList');
+            orientStatusDiv = document.getElementById('orientStatus');
+            detectorContainer = document.getElementById('detectorContainer');
+            customCursor = document.getElementById('customCursor');
+            detectorCanvas = document.getElementById('detectorCanvas');
+            detectorCtx = detectorCanvas.getContext('2d');
+            experimentCanvas = document.getElementById('experimentCanvas');
+            experimentCtx = experimentCanvas.getContext('2d');
+            
+                     
+            zoomCanvas = document.getElementById('zoomCanvas');
+            zoomCtx = zoomCanvas.getContext('2d');
+            
+            zoomCanvas.width = ZOOM_WINDOW_SIZE;
+            zoomCanvas.height = ZOOM_WINDOW_SIZE;
+            zoomCanvas.style.width = `${ZOOM_WINDOW_SIZE}px`;
+            zoomCanvas.style.height = `${ZOOM_WINDOW_SIZE}px`;
+            baseOrientationMatrix.identity(); // Initialize as no rotation
+
+            // Setup UI
+            setupTabs();
+            initLatticeDropdown();
+            
+            // Link sliders and number inputs
+            initSliderLink('lambda_min_slider', 'lambda_min', updateVisualization);
+            initSliderLink('lambda_max_slider', 'lambda_max', updateVisualization);
+            initSliderLink('detectorAngle_slider', 'detectorAngle', updateVisualization);
+            initSliderLink('detectorDistance_slider', 'detectorDistance', updateVisualization);
+            initSliderLink('rotX_slider', 'rotX', updateVisualization);
+            initSliderLink('rotY_slider', 'rotY', updateVisualization);
+            initSliderLink('rotZ_slider', 'rotZ', updateVisualization);
+            
+            // Link lattice param inputs
+            document.querySelectorAll('#latticeParamsContainer input').forEach(el => {
+                el.addEventListener('change', handleLatticeChange);
+            });
+            
+            // Setup button listeners
+            document.getElementById('imageLoader').addEventListener('change', handleImageUpload);
+            document.getElementById('setCenterBtn').addEventListener('click', () => setUIMode('center'));
+            document.getElementById('cancelModeBtn').addEventListener('click', () => setUIMode('idle'));
+            document.getElementById('invertContrast').addEventListener('change', () => { 
+                if (experimentalImage) onWindowResize(); 
+            });
+            
+            document.getElementById('scalePointX_mm').addEventListener('input', updateScale);
+            document.getElementById('scalePointY_mm').addEventListener('input', updateScale);
+            
+            document.getElementById('findPeaksBtn').addEventListener('click', detectPeaks);
+            document.getElementById('addPeakBtn').addEventListener('click', () => setUIMode(isAddingPeak ? 'idle' : 'add-peak'));
+            document.getElementById('markerSize_slider').addEventListener('input', (e) => {
+                peakMarkerSizeMm = parseFloat(e.target.value);
+                document.getElementById('markerSizeValue').textContent = peakMarkerSizeMm.toFixed(2);
+                redrawDetector();
+            });
+            document.getElementById('calcSpotSize_slider').addEventListener('input', (e) => {
+                calcSpotSizeMm = parseFloat(e.target.value);
+                document.getElementById('calcSpotSizeValue').textContent = calcSpotSizeMm.toFixed(2);
+                redrawDetector();
+            });
+            document.getElementById('peakThreshold_slider').addEventListener('input', (e) => {
+                document.getElementById('peakThresholdValue').textContent = e.target.value;
+            });
+            document.getElementById('peakThreshold_slider').addEventListener('change', () => {
+                // Re-running Find Peaks live when the threshold changes only makes sense
+                // once there's actually something to detect against.
+                if (experimentalImage && imageCenter && pixels_per_mm_x > 0) detectPeaks();
+            });
+            document.getElementById('resetGonioBtn').addEventListener('click', resetGoniometer);
+            
+            document.getElementById('searchOrientBtn').addEventListener('click', findOrientation);
+            document.getElementById('printReportBtn').addEventListener('click', generateReport);
+            document.getElementById('orientToHKLBtn').addEventListener('click', orientToHKL);
+            document.getElementById('setOrientationBtn').addEventListener('click', applyCalculatedOrientation);
+            document.getElementById('themeToggleBtn').addEventListener('click', toggleTheme);
+
+            initResizeHandle();
+
+            // Setup canvas listeners
+            detectorContainer.addEventListener('mousemove', e => {
+                if (isSettingCenter || isAddingPeak) {
+                    const rect = detectorContainer.getBoundingClientRect();
+                    customCursor.style.left = `${e.clientX - rect.left}px`;
+                    customCursor.style.top = `${e.clientY - rect.top}px`;
+                }
+            });
+            detectorContainer.addEventListener('mouseenter', () => { if (isSettingCenter) customCursor.style.display = 'block'; });
+            detectorContainer.addEventListener('mouseleave', () => { if (isSettingCenter) customCursor.style.display = 'none'; });
+            
+            detectorCanvas.addEventListener('contextmenu', e => e.preventDefault());
+            detectorCanvas.addEventListener('wheel', onDetectorWheel, { passive: false });
+            detectorCanvas.addEventListener('mousedown', onDetectorMouseDown);
+            window.addEventListener('mousemove', onDetectorMouseMove);
+            window.addEventListener('mouseup', onDetectorMouseUp);
+            window.addEventListener('resize', onWindowResize);
+            
+            onWindowResize();
+            setActiveTab('system');
+            updateSearchButtonState();
+            statusInfoDiv.textContent = 'Ready. Go to "Measure" tab to load an image.';
+        }
+        
+        window.addEventListener('load', init);
+    </script>
+    <div id="creditNote">NitaD, Univ. Paris-Saclay &middot; 2 Nov 2025</div>
+</body>
+</html>

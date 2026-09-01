@@ -1,2 +1,3 @@
-PattCalc_en_cours.html
-node_modules/
+*.cmd
+/node_modules
+Laue_2_old_analytical.html
