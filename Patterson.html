@@ -94,7 +94,13 @@
                 <p class="info-text">
                     1. Select atom type & click on the canvas to add.<br>
                     2. Adjust scattering factors with the sliders.<br>
-                    3. Hover over Patterson peaks to see vectors.
+                    3. Hover over Patterson peaks to see vectors.<br>
+                    Peak area ∝ summed fᵢfⱼ. Boundary copies are the same periodic peak.
+                    Gold: origin; green: AA; cyan: BB; orange: AB; purple: mixed pairs.<br>
+                    Fourier map: finite h,k range causes broad peaks and ringing;
+                    white is positive, blue negative (linear scale). F₀₀ is included
+                    in the transform but hidden in diffraction. Constant real scattering factors;
+                    fractional coordinates and unit cell area = 1.
                 </p>
             </div>
             
@@ -171,7 +177,7 @@
                 </div>
 
                 <div class="card">
-                    <h2 class="card-title">Patterson Map (Vector Space)</h2>
+                    <h2 class="card-title">Patterson Map (Ideal Vector Peaks)</h2>
                     <div class="plot-grid">
                         <div id="patterson-y-axis" class="y-axis-labels text-dark"></div>
                         <div id="patterson-x-axis" class="x-axis-labels text-dark"></div>
@@ -180,7 +186,7 @@
                 </div>
                 
                 <div class="card">
-                    <h2 class="card-title">Diffraction Pattern (|F<sub>hkl</sub>|²)</h2>
+                    <h2 class="card-title">Diffraction Pattern (|F<sub>hk</sub>|²)</h2>
                     <div class="plot-grid">
                         <div id="diffraction-y-axis" class="y-axis-labels text-light"></div>
                         <div id="diffraction-x-axis" class="x-axis-labels text-light"></div>
@@ -189,7 +195,7 @@
                 </div>
 
                 <div class="card">
-                    <h2 class="card-title">FT of Intensities (Patterson)</h2>
+                    <h2 class="card-title">Finite Fourier Patterson (white + / blue −)</h2>
                     <div class="plot-grid">
                         <div id="ft-y-axis" class="y-axis-labels text-light"></div>
                         <div id="ft-x-axis" class="x-axis-labels text-light"></div>
@@ -268,46 +274,55 @@
             const PEAK_COLOR_AB = '#f97316';
             
             // --- CALCULATION FUNCTIONS ---
+            // Fractional vectors live on a torus. Merge only numerical coincidences.
+            function wrap(value) {
+                const result = ((value % 1) + 1) % 1;
+                return result < 1e-10 || result > 1 - 1e-10 ? 0 : result;
+            }
+
             function calculatePattersonMap() {
                 pattersonPeaks = [];
-                if (atoms.length === 0) return;
-
-                let originWeight = 0;
-                atoms.forEach(atom => {
-                    const f = scatteringFactors[atom.type];
-                    originWeight += f * f;
-                });
-
-                const originPeak = { weight: originWeight, from: -1, to: -1, isOrigin: true };
-                pattersonPeaks.push({ u: 0, v: 0, ...originPeak });
-                pattersonPeaks.push({ u: 1, v: 0, ...originPeak });
-                pattersonPeaks.push({ u: 0, v: 1, ...originPeak });
-                pattersonPeaks.push({ u: 1, v: 1, ...originPeak });
-
+                const groups = new Map();
                 for (let i = 0; i < atoms.length; i++) {
                     for (let j = 0; j < atoms.length; j++) {
-                        if (i === j) continue;
-
-                        let u = atoms[j].x - atoms[i].x;
-                        let v = atoms[j].y - atoms[i].y;
-
-                        u = (u % 1 + 1) % 1;
-                        v = (v % 1 + 1) % 1;
-                        
-                        const fromType = atoms[i].type;
-                        const toType = atoms[j].type;
-                        const vectorType = [fromType, toType].sort().join('');
-                        
-                        const weight = scatteringFactors[fromType] * scatteringFactors[toType];
-                        pattersonPeaks.push({ u, v, from: i, to: j, weight, isOrigin: false, vectorType });
+                        const u = wrap(atoms[j].x - atoms[i].x);
+                        const v = wrap(atoms[j].y - atoms[i].y);
+                        const key = `${u.toFixed(9)},${v.toFixed(9)}`;
+                        const weight = scatteringFactors[atoms[i].type] * scatteringFactors[atoms[j].type];
+                        const vectorType = [atoms[i].type, atoms[j].type].sort().join('');
+                        if (!groups.has(key)) groups.set(key, {
+                            u, v, weight: 0, from: i, to: j,
+                            isOrigin: u === 0 && v === 0, vectorType, contributors: []
+                        });
+                        const peak = groups.get(key);
+                        peak.weight += weight;
+                        peak.contributors.push({ from: i, to: j, weight });
+                        if (peak.vectorType !== vectorType) peak.vectorType = 'mixed';
                     }
                 }
-                
-                let maxWeight = Math.max(...pattersonPeaks.map(p => p.weight), 0);
+                pattersonPeaks = Array.from(groups.values());
+                const maxWeight = Math.max(0, ...pattersonPeaks.map(p => p.weight));
                 pattersonPeaks.forEach(peak => {
-                    const weightRatio = maxWeight > 0 ? peak.weight / maxWeight : 0;
-                    peak.radius = MIN_PEAK_RADIUS + weightRatio * (MAX_PEAK_RADIUS - MIN_PEAK_RADIUS);
+                    // Symbol area is proportional to summed weight.
+                    peak.radius = MAX_PEAK_RADIUS * Math.sqrt(peak.weight / maxWeight);
                 });
+            }
+
+            // Leave room for the complete largest symbol plus its outline.
+            function pattersonViewport(size) {
+                const padding = Math.min(MAX_PEAK_RADIUS + 4, size / 4);
+                return { padding, span: size - 2 * padding,
+                         radiusScale: Math.min(1, padding / (MAX_PEAK_RADIUS + 4)) };
+            }
+
+            // Show centers in the closed unit cell, including equivalent boundary copies.
+            function peakCopies(peak, size) {
+                const { padding, span } = pattersonViewport(size);
+                const us = peak.u === 0 ? [0, 1] : [peak.u];
+                const vs = peak.v === 0 ? [0, 1] : [peak.v];
+                return us.flatMap(u => vs.map(v => ({
+                    x: padding + u * span, y: padding + (1 - v) * span
+                })));
             }
 
             function calculateDiffractionPattern() {
@@ -338,8 +353,8 @@
                 
                 for (let v_px = 0; v_px < size; v_px++) {
                     for (let u_px = 0; u_px < size; u_px++) {
-                        const u = u_px / size;
-                        const v = 1 - (v_px / size);
+                        const u = u_px / (size - 1);
+                        const v = 1 - (v_px / (size - 1));
                         let pattersonVal = 0;
                         diffractionIntensities.forEach(spot => {
                             const phase = 2 * Math.PI * (spot.h * u + spot.k * v);
@@ -350,23 +365,16 @@
                 }
 
                 if (pattersonGrid.length === 0) return;
-                const originPeakValue = Math.max(...pattersonGrid);
-
-                let maxNonOriginPeakValue = 1;
-                for (const val of pattersonGrid) {
-                    if (val < originPeakValue * 0.999 && val > maxNonOriginPeakValue) {
-                        maxNonOriginPeakValue = val;
-                    }
-                }
-                
+                const scale = Math.max(1e-12, ...pattersonGrid.map(Math.abs));
+                // Signed, linear display: positive white, negative blue, zero black.
+                // Negative lobes are expected with a finite rectangular h,k cutoff.
                 for (let i = 0; i < pattersonGrid.length; i++) {
-                    const normalizedVal = pattersonGrid[i] > 0 && maxNonOriginPeakValue > 0 
-                        ? Math.min(255, Math.floor(255 * (pattersonGrid[i] / maxNonOriginPeakValue))) 
-                        : 0;
+                    const value = pattersonGrid[i] / scale;
+                    const level = Math.round(255 * Math.abs(value));
                     const pixelIndex = i * 4;
-                    ftImageData.data[pixelIndex] = normalizedVal;
-                    ftImageData.data[pixelIndex+1] = normalizedVal;
-                    ftImageData.data[pixelIndex+2] = normalizedVal;
+                    ftImageData.data[pixelIndex] = value >= 0 ? level : 0;
+                    ftImageData.data[pixelIndex+1] = value >= 0 ? level : Math.round(level * 0.45);
+                    ftImageData.data[pixelIndex+2] = level;
                     ftImageData.data[pixelIndex+3] = 255;
                 }
             }
@@ -512,8 +520,26 @@ function resizeCanvases() {
             }
 
             function drawPattersonMap() {
-                drawGridOnCanvas(pattersonCtx);
                 const size = pattersonCanvas.width;
+                const { padding, span, radiusScale } = pattersonViewport(size);
+                pattersonCtx.fillStyle = '#f8fafc';
+                pattersonCtx.fillRect(0, 0, size, size);
+                pattersonCtx.strokeStyle = '#e2e8f0';
+                pattersonCtx.lineWidth = 1;
+                for (let i = 0; i <= 10; i++) {
+                    const pos = padding + i * span / 10;
+                    pattersonCtx.beginPath();
+                    pattersonCtx.moveTo(pos, padding);
+                    pattersonCtx.lineTo(pos, padding + span);
+                    pattersonCtx.moveTo(padding, pos);
+                    pattersonCtx.lineTo(padding + span, pos);
+                    pattersonCtx.stroke();
+                }
+                // Align the axis labels with the inset unit-cell grid.
+                const cssScale = pattersonCanvas.getBoundingClientRect().width / size;
+                const inset = padding * cssScale;
+                document.getElementById('patterson-x-axis').style.padding = `4px ${inset}px 0`;
+                document.getElementById('patterson-y-axis').style.padding = `${inset}px 4px ${inset}px 0`;
 
                 pattersonPeaks.forEach(peak => {
                     const isHighlighted = highlightedVector && peak.from === highlightedVector.from && peak.to === highlightedVector.to && Math.abs(peak.u - highlightedVector.u) < 1e-9 && Math.abs(peak.v - highlightedVector.v) < 1e-9;
@@ -528,6 +554,9 @@ function resizeCanvases() {
                             case 'BB':
                                 pattersonCtx.fillStyle = PEAK_COLOR_BB;
                                 break;
+                            case 'mixed':
+                                pattersonCtx.fillStyle = '#8b5cf6';
+                                break;
                             case 'AB':
                                 pattersonCtx.fillStyle = PEAK_COLOR_AB;
                                 break;
@@ -537,20 +566,23 @@ function resizeCanvases() {
                     
                     pattersonCtx.strokeStyle = 'white';
                     pattersonCtx.lineWidth = 2;
-                    pattersonCtx.beginPath();
-                    const u_canvas = peak.u === 1 ? size : peak.u * size;
-                    const v_canvas = peak.v === 1 ? 0 : (1 - peak.v) * size;
-                    pattersonCtx.arc(u_canvas, v_canvas, peak.radius, 0, 2 * Math.PI);
-                    pattersonCtx.fill();
-                    pattersonCtx.stroke();
+                    for (const { x, y } of peakCopies(peak, size)) {
+                        pattersonCtx.beginPath();
+                        pattersonCtx.arc(x, y, peak.radius * radiusScale, 0, 2 * Math.PI);
+                        pattersonCtx.fill();
+                        pattersonCtx.stroke();
+                    }
                 });
 
                 if (highlightedVector) {
                     pattersonCtx.fillStyle = '#1e293b';
                     pattersonCtx.font = 'bold 12px Inter';
                     const text = `(${highlightedVector.u.toFixed(2)}, ${highlightedVector.v.toFixed(2)})`;
-                    const xPos = highlightedVector.u * size + 10;
-                    const yPos = (1 - highlightedVector.v) * size;
+                    const textWidth = pattersonCtx.measureText(text).width;
+                    const xPos = Math.max(4, Math.min(size - textWidth - 4,
+                        padding + highlightedVector.u * span + 10));
+                    const yPos = Math.max(10, Math.min(size - 10,
+                        padding + (1 - highlightedVector.v) * span));
                     pattersonCtx.textAlign = 'left';
                     pattersonCtx.textBaseline = 'middle';
                     pattersonCtx.fillText(text, xPos, yPos);
@@ -617,6 +649,7 @@ function resizeCanvases() {
             function updateAtomList() {
                 const activeId = document.activeElement ? document.activeElement.id : null;
                 atomList.innerHTML = '';
+                if (atoms.length === 0) atomList.appendChild(noAtomsMsg);
                 noAtomsMsg.style.display = atoms.length === 0 ? 'block' : 'none';
                 atoms.forEach((atom, index) => {
                     const li = document.createElement('li');
@@ -628,8 +661,8 @@ function resizeCanvases() {
                     li.innerHTML = `
                         <div>
                             <span>${index + 1}(${atom.type}): (</span>
-                            <input type="number" step="0.01" min="0" max="1" value="${atom.x.toFixed(2)}" id="atom-${index}-x" data-index="${index}" data-coord="x" class="coord-input">,
-                            <input type="number" step="0.01" min="0" max="1" value="${atom.y.toFixed(2)}" id="atom-${index}-y" data-index="${index}" data-coord="y" class="coord-input">
+                            <input type="number" step="0.01" min="0" max="1" value="${atom.x}" id="atom-${index}-x" data-index="${index}" data-coord="x" class="coord-input">,
+                            <input type="number" step="0.01" min="0" max="1" value="${atom.y}" id="atom-${index}-y" data-index="${index}" data-coord="y" class="coord-input">
                             <span>)</span>
                         </div>
                         <button data-index="${index}" class="remove-atom-btn remove-btn">REMOVE</button>
@@ -643,25 +676,21 @@ function resizeCanvases() {
                 if (!highlightedVector) {
                     vectorInfoBox.innerHTML = 'Hover over a Patterson peak...'; return;
                 }
-                const fromAtom = atoms[highlightedVector.from];
-                const toAtom = atoms[highlightedVector.to];
-                if (!fromAtom || !toAtom) return;
-                let real_u = toAtom.x - fromAtom.x;
-                let real_v = toAtom.y - fromAtom.y;
+                const peak = highlightedVector;
+                const lines = peak.contributors.map(({ from, to, weight }) => {
+                    const du = atoms[to].x - atoms[from].x;
+                    const dv = atoms[to].y - atoms[from].y;
+                    return `<div>${from + 1} → ${to + 1}: (${du.toFixed(4)}, ${dv.toFixed(4)}); weight ${weight}</div>`;
+                });
                 vectorInfoBox.innerHTML = `
-                    <div>
-                        <div><span class="text-pink">From Atom ${highlightedVector.from + 1} (x₁,y₁):</span> (${fromAtom.x.toFixed(3)}, ${fromAtom.y.toFixed(3)})</div>
-                        <div><span class="text-purple">To Atom ${highlightedVector.to + 1} (x₂,y₂):</span> (${toAtom.x.toFixed(3)}, ${toAtom.y.toFixed(3)})</div>
-                        <div style="padding-top:4px;">
-                           <div>u = x₂-x₁ = ${real_u.toFixed(3)}</div>
-                           <div>v = y₂-y₁ = ${real_v.toFixed(3)}</div>
-                        </div>
-                        <div style="font-weight:bold; padding-top:4px;"><span class="text-indigo">Peak (u,v):</span> (${highlightedVector.u.toFixed(3)}, ${highlightedVector.v.toFixed(3)})</div>
-                    </div>
-                `;
+                    <div><b>${peak.isOrigin ? 'Origin' : 'Peak'} (u,v): (${peak.u.toFixed(4)}, ${peak.v.toFixed(4)}) modulo 1</b></div>
+                    <div>Total weight: ${peak.weight}; ${peak.contributors.length} ordered pair(s)</div>
+                    <div style="max-height:150px;overflow:auto">${lines.join('')}</div>
+                    <div>Arrow shows the first contributing pair.</div>`;
             }
 
             function redrawAll() {
+                highlightedVector = null;
                 calculatePattersonMap();
                 calculateDiffractionPattern();
                 calculateFTofIntensities();
@@ -702,9 +731,10 @@ function resizeCanvases() {
                 if (event.target.classList.contains('coord-input')) {
                     const index = parseInt(event.target.dataset.index, 10);
                     const coord = event.target.dataset.coord;
-                    let value = parseFloat(event.target.value) || 0;
-                    value = (value % 1 + 1) % 1;
-                    event.target.value = value.toFixed(2);
+                    let value = Number(event.target.value);
+                    if (!Number.isFinite(value) || event.target.value.trim() === "") { updateAtomList(); return; }
+                    value = wrap(value);
+                    event.target.value = value;
                     if (atoms[index]) {
                         atoms[index][coord] = value;
                         redrawAll();
@@ -717,21 +747,24 @@ function resizeCanvases() {
                 const mouseV = 1 - ((event.clientY - rect.top) / rect.height);
                 let foundPeak = null;
                 let minDistance = Infinity;
-                const hoverThreshold = (MAX_PEAK_RADIUS * 2) / rect.width;
+                const size = pattersonCanvas.width;
                 for (const peak of pattersonPeaks) {
-                     const dist = Math.sqrt(Math.pow(peak.u - mouseU, 2) + Math.pow(peak.v - mouseV, 2));
-                     if (dist < hoverThreshold && dist < minDistance) {
-                        if (!peak.isOrigin) {
+                    for (const { x, y } of peakCopies(peak, size)) {
+                        const dist = Math.hypot(x - mouseU * size, y - (1 - mouseV) * size);
+                        if (dist <= peak.radius * pattersonViewport(size).radiusScale + 4 && dist < minDistance) {
                             minDistance = dist;
                             foundPeak = peak;
                         }
-                     }
+                    }
                 }
-                if (JSON.stringify(foundPeak) !== JSON.stringify(highlightedVector)) {
+                if (foundPeak !== highlightedVector) {
                     highlightedVector = foundPeak;
-                    redrawAll();
+                    drawAtoms();
+                    drawPattersonMap();
+                    updateVectorInfo();
                 }
             }
+
             function clearAll() {
                 atoms = [];
                 highlightedVector = null;
@@ -784,7 +817,9 @@ function resizeCanvases() {
             pattersonCanvas.addEventListener('mouseleave', () => {
                 if (highlightedVector) {
                     highlightedVector = null;
-                    redrawAll();
+                    drawAtoms();
+                    drawPattersonMap();
+                    updateVectorInfo();
                 }
             });
             faSlider.addEventListener('input', handleScatteringFactorChange);
