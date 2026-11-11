@@ -13,12 +13,23 @@
         #app-container { display: flex; width: 100%; flex-grow: 1; min-height: 0; }
         
         /* Left Control Panel */
-        #controls-panel { width: 380px; min-width: 320px; max-width: 500px; flex-shrink: 0; padding: 20px; background-color: #0f172a; border-right: 1px solid #1e293b; overflow-y: auto; color: #94a3b8; }
+        #controls-panel { width: 380px; min-width: 320px; max-width: 500px; flex-shrink: 0; padding: 20px; background-color: #0f172a; border-right: 1px solid #1e293b; overflow-y: auto; color: #94a3b8; container-type: inline-size; container-name: panel; }
         #controls-panel h1 { font-size: 1.25rem; font-weight: 700; color: #f8fafc; margin: 0 0 16px 0; }
         .control-group { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #1e293b; }
         .control-group:last-child { border-bottom: none; padding-bottom: 0; }
         .control-label { display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #38bdf8; margin-bottom: 10px; }
         .info-text { font-size: 0.8125rem; color: #94a3b8; line-height: 1.5; margin: 0; }
+
+        /* Accordion */
+        .accordion-group { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #1e293b; }
+        .accordion-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; list-style: none; outline: none; }
+        .accordion-header::-webkit-details-marker { display: none; }
+        .accordion-header:hover .accordion-title,
+        .accordion-header:hover .accordion-chevron { color: #7dd3fc; }
+        .accordion-title { margin-bottom: 0 !important; cursor: pointer; }
+        .accordion-chevron { color: #38bdf8; transition: transform 0.2s ease, color 0.15s; flex-shrink: 0; }
+        details[open] .accordion-chevron { transform: rotate(180deg); }
+        .accordion-content { margin-top: 10px; }
 
         /* Sliders */
         .slider-group { margin-bottom: 12px; }
@@ -46,14 +57,18 @@
         input:checked + .slider-toggle:before { transform: translateX(16px); }
 
         /* Boxes & Lists */
-        .info-box { background-color: #1e293b; padding: 12px; border-radius: 6px; border: 1px solid #334155; min-height: 85px; font-size: 0.8125rem; font-family: monospace; color: #e2e8f0; line-height: 1.4; }
+        .info-box { background-color: #1e293b; padding: 12px; border-radius: 6px; border: 1px solid #334155; min-height: 85px; font-size: clamp(0.75rem, 3.2cqw, 0.875rem); font-family: monospace; color: #e2e8f0; line-height: 1.4; }
         .atom-list-container { max-height: 180px; overflow-y: auto; background-color: #1e293b; padding: 8px; border-radius: 6px; border: 1px solid #334155; }
         .atom-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
-        .atom-item { display: flex; justify-content: space-between; align-items: center; background-color: #0f172a; padding: 6px 10px; border-radius: 4px; border: 1px solid #334155; font-size: 0.8125rem; font-family: monospace; color: #cbd5e1; }
-        .coord-input { width: 52px; text-align: center; background-color: #1e293b; border: 1px solid #475569; color: #f8fafc; border-radius: 4px; padding: 2px 4px; font-family: inherit; }
-        .coord-input:focus { outline: none; border-color: #38bdf8; }
-        .remove-btn { background: none; border: none; color: #ef4444; font-size: 0.75rem; font-weight: 600; cursor: pointer; padding: 2px 6px; }
-        .remove-btn:hover { color: #f87171; }
+        .atom-item { display: flex; justify-content: space-between; align-items: center; background-color: #0f172a; padding: 6px 10px; border-radius: 4px; border: 1px solid #334155; font-size: clamp(0.75rem, 3.2cqw, 0.9375rem); font-family: monospace; color: #cbd5e1; gap: 8px; transition: background-color 0.15s, border-color 0.15s; }
+        .atom-coord-wrapper { display: flex; align-items: center; gap: 6px; flex-grow: 1; min-width: 0; }
+        .atom-label { flex-shrink: 0; white-space: nowrap; }
+        .coord-sep { flex-shrink: 0; color: #64748b; }
+        .coord-input { flex: 1 1 0; min-width: 0; width: 100%; text-align: center; background-color: #1e293b; border: 1px solid #475569; color: #f8fafc; border-radius: 4px; padding: 3px 4px; font-family: inherit; font-size: inherit; box-sizing: border-box; }
+        .coord-input:focus { outline: none; border-color: #38bdf8; background-color: #0f172a; }
+        .remove-btn { background: none; border: none; color: #ef4444; cursor: pointer; padding: 4px; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; transition: color 0.15s, background-color 0.15s; flex-shrink: 0; }
+        .remove-btn:hover { color: #f87171; background-color: rgba(239, 68, 68, 0.15); }
+        .remove-btn svg { pointer-events: none; display: block; }
         .btn-danger { display: block; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.875rem; border: none; cursor: pointer; text-align: center; background-color: #dc2626; color: white; width: 100%; margin-top: 12px; transition: background-color 0.2s; }
         .btn-danger:hover { background-color: #b91c1c; }
         .empty-msg { color: #64748b; font-size: 0.8125rem; text-align: center; margin: 8px 0; }
@@ -63,12 +78,9 @@
         #drag-handle:hover { background-color: #3b82f6; }
         #results-area { flex-grow: 1; background-color: #f8fafc; min-width: 0; display: flex; flex-direction: column; padding: 16px; color: #1e293b; overflow-y: auto; }
         .grid-2x2 { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 12px; height: 100%; min-height: 0; }
-.card { background-color: #ffffff; padding: 10px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: center; align-items: center; border: 1px solid #e2e8f0; overflow: hidden; min-height: 0; min-width: 0; }
-.plot-grid { display: grid; grid-template-areas: 'y-axis plot' '. x-axis'; grid-template-rows: 1fr auto; grid-template-columns: auto auto; gap: 4px; flex-grow: 1; min-height: 0; min-width: 0; width: 100%; justify-content: center; align-content: center; }
-.plot-area { display: flex; justify-content: center; align-items: center; min-height: 0; min-width: 0; }
-.canvas-wrapper { background-color: #e2e8f0; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05); aspect-ratio: 1 / 1; max-width: 100%; max-height: 100%; height: 100%; border-radius: 4px; }        .card-title { font-size: 0.875rem; font-weight: 600; text-align: center; margin: 0 0 6px 0; color: #0f172a; width: 100%; }
-
-        .plot-grid { display: grid; grid-template-areas: 'y-axis plot' '. x-axis'; grid-template-rows: 1fr auto; grid-template-columns: 28px 1fr; gap: 4px; flex-grow: 1; min-height: 0; min-width: 0; }
+        .card { background-color: #ffffff; padding: 10px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: center; align-items: center; border: 1px solid #e2e8f0; overflow: hidden; min-height: 0; min-width: 0; }
+        .card-title { font-size: 0.875rem; font-weight: 600; text-align: center; margin: 0 0 6px 0; color: #0f172a; width: 100%; flex-shrink: 0; }
+        .plot-grid { display: grid; grid-template-areas: 'y-axis plot' '. x-axis'; grid-template-rows: 1fr auto; grid-template-columns: 28px 1fr; gap: 4px; flex-grow: 1; min-height: 0; min-width: 0; width: 100%; justify-content: center; align-content: center; }
         .y-axis-labels { grid-area: y-axis; width: 28px; display: flex; flex-direction: column; justify-content: space-between; text-align: right; font-size: 0.7rem; padding-right: 4px; flex-shrink: 0; }
         .x-axis-labels { grid-area: x-axis; display: flex; justify-content: space-between; text-align: center; font-size: 0.7rem; padding-top: 4px; }
         .text-dark { color: #64748b; }
@@ -77,10 +89,6 @@
         .canvas-wrapper { background-color: #e2e8f0; box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05); overflow: hidden; aspect-ratio: 1 / 1; max-width: 100%; max-height: 100%; height: 100%; border-radius: 4px; }
         canvas { cursor: crosshair; display: block; width: 100%; height: 100%; }
         footer { width: 100%; background-color: #ffffff; padding: 8px 24px; font-size: 0.75rem; color: #64748b; border-top: 1px solid #e2e8f0; flex-shrink: 0; text-align: center; }
-
-        .text-pink { color: #f472b6; }
-        .text-purple { color: #c084fc; }
-        .text-indigo { color: #818cf8; }
         body.resizing { cursor: col-resize !important; user-select: none; }
     </style>
 </head>
@@ -89,20 +97,26 @@
         <div id="controls-panel">
             <h1>Patterson Simulator</h1>
             
-            <div class="control-group">
-                <label class="control-label">Instructions</label>
-                <p class="info-text">
-                    1. Select atom type & click on the canvas to add.<br>
-                    2. Adjust scattering factors with the sliders.<br>
-                    3. Hover over Patterson peaks to see vectors.<br>
-                    Peak area ∝ summed fᵢfⱼ. Boundary copies are the same periodic peak.
-                    Gold: origin; green: AA; cyan: BB; orange: AB; purple: mixed pairs.<br>
-                    Fourier map: finite h,k range causes broad peaks and ringing;
-                    white is positive, blue negative (linear scale). F₀₀ is included
-                    in the transform but hidden in diffraction. Constant real scattering factors;
-                    fractional coordinates and unit cell area = 1.
-                </p>
-            </div>
+            <details class="control-group accordion-group">
+                <summary class="accordion-header">
+                    <span class="control-label accordion-title">Instructions</span>
+                    <svg class="accordion-chevron" viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </summary>
+                <div class="accordion-content">
+                    <p class="info-text">
+                        1. Select atom type & click on the canvas to add.<br>
+                        2. Adjust scattering factors with the sliders.<br>
+                        3. Hover over Patterson peaks to see vectors.<br>
+                        Peak area ∝ summed fᵢfⱼ. Boundary copies are the same periodic peak.
+                        Gold: origin; green: AA; cyan: BB; orange: AB; purple: mixed pairs.<br>
+                        Fourier map: finite h,k range causes peak broadening and truncation ringing
+                        (linear grayscale). F₀₀ is included in the transform but hidden in diffraction.
+                        Constant real scattering factors; fractional coordinates and unit cell area = 1.
+                    </p>
+                </div>
+            </details>
             
             <div class="control-group">
                 <label class="control-label">Select Atom Type</label>
@@ -195,7 +209,7 @@
                 </div>
 
                 <div class="card">
-                    <h2 class="card-title">Finite Fourier Patterson (white + / blue −)</h2>
+                    <h2 class="card-title">Finite Fourier Patterson Map</h2>
                     <div class="plot-grid">
                         <div id="ft-y-axis" class="y-axis-labels text-light"></div>
                         <div id="ft-x-axis" class="x-axis-labels text-light"></div>
@@ -251,6 +265,7 @@
             let diffractionIntensities = [];
             let ftImageData = null;
             let highlightedVector = null;
+            let hoveredPeakCopy = null;
             let currentAtomType = 'A';
             let diffractionGridSize = 10;
             let showHkLabels = false;
@@ -285,9 +300,9 @@
                 const groups = new Map();
                 for (let i = 0; i < atoms.length; i++) {
                     for (let j = 0; j < atoms.length; j++) {
-                        const u = wrap(atoms[j].x - atoms[i].x);
-                        const v = wrap(atoms[j].y - atoms[i].y);
-                        const key = `${u.toFixed(9)},${v.toFixed(9)}`;
+                        const u = wrap(Math.round((atoms[j].x - atoms[i].x) * 1000) / 1000);
+                        const v = wrap(Math.round((atoms[j].y - atoms[i].y) * 1000) / 1000);
+                        const key = `${u.toFixed(3)},${v.toFixed(3)}`;
                         const weight = scatteringFactors[atoms[i].type] * scatteringFactors[atoms[j].type];
                         const vectorType = [atoms[i].type, atoms[j].type].sort().join('');
                         if (!groups.has(key)) groups.set(key, {
@@ -366,40 +381,39 @@
 
                 if (pattersonGrid.length === 0) return;
                 const scale = Math.max(1e-12, ...pattersonGrid.map(Math.abs));
-                // Signed, linear display: positive white, negative blue, zero black.
-                // Negative lobes are expected with a finite rectangular h,k cutoff.
+                // Linear grayscale display: black is 0 / background, white is positive peak.
                 for (let i = 0; i < pattersonGrid.length; i++) {
-                    const value = pattersonGrid[i] / scale;
-                    const level = Math.round(255 * Math.abs(value));
+                    const value = Math.max(0, pattersonGrid[i] / scale);
+                    const level = Math.round(255 * value);
                     const pixelIndex = i * 4;
-                    ftImageData.data[pixelIndex] = value >= 0 ? level : 0;
-                    ftImageData.data[pixelIndex+1] = value >= 0 ? level : Math.round(level * 0.45);
+                    ftImageData.data[pixelIndex] = level;
+                    ftImageData.data[pixelIndex+1] = level;
                     ftImageData.data[pixelIndex+2] = level;
                     ftImageData.data[pixelIndex+3] = 255;
                 }
             }
 
             // --- DRAWING FUNCTIONS ---
-function resizeCanvases() {
-    [realCanvas, pattersonCanvas, diffractionCanvas, ftCanvas].forEach(canvas => {
-        const plotArea = canvas.parentElement.parentElement; // .plot-area (grid cell)
-        const grid = plotArea.parentElement;                 // .plot-grid
-        if (!plotArea || !grid) return;
-        grid.style.gridTemplateColumns = '28px 1fr';         // full width to measure height
-        grid.style.justifyContent = '';
-        const areaRect = plotArea.getBoundingClientRect();
-        const size = Math.floor(Math.min(areaRect.width, areaRect.height));
-        if (size > 0) {
-            canvas.width = size;
-            canvas.height = size;
-            // Pin the plot column to the square's width so the plot and the
-            // x-axis labels center together within the card.
-            grid.style.gridTemplateColumns = `28px ${size}px`;
-            grid.style.justifyContent = 'center';
-        }
-    });
-    redrawAll();
-}
+            function resizeCanvases() {
+                [realCanvas, pattersonCanvas, diffractionCanvas, ftCanvas].forEach(canvas => {
+                    const plotArea = canvas.parentElement.parentElement; // .plot-area (grid cell)
+                    const grid = plotArea.parentElement;                 // .plot-grid
+                    if (!plotArea || !grid) return;
+                    grid.style.gridTemplateColumns = '28px 1fr';         // full width to measure height
+                    grid.style.justifyContent = '';
+                    const areaRect = plotArea.getBoundingClientRect();
+                    const size = Math.floor(Math.min(areaRect.width, areaRect.height));
+                    if (size > 0) {
+                        canvas.width = size;
+                        canvas.height = size;
+                        // Pin the plot column to the square's width so the plot and the
+                        // x-axis labels center together within the card.
+                        grid.style.gridTemplateColumns = `28px ${size}px`;
+                        grid.style.justifyContent = 'center';
+                    }
+                });
+                redrawAll();
+            }
 
             function drawAxisLabels(yId, xId, centered, isDiffraction, theme) {
                 const yEl = document.getElementById(yId), xEl = document.getElementById(xId);
@@ -449,7 +463,7 @@ function resizeCanvases() {
                     pos = center - (i / diffractionGridSize) * center;
                     ctx.beginPath(); ctx.moveTo(pos, 0); ctx.lineTo(pos, size); ctx.stroke();
                 }
-                 for (let i = 1; i <= diffractionGridSize; i++) {
+                for (let i = 1; i <= diffractionGridSize; i++) {
                     let pos = center + (i / diffractionGridSize) * center;
                     ctx.beginPath(); ctx.moveTo(0, pos); ctx.lineTo(size, pos); ctx.stroke();
                     pos = center - (i / diffractionGridSize) * center;
@@ -495,7 +509,7 @@ function resizeCanvases() {
                         }
                     }
                 });
-                if (highlightedVector) {
+                if (highlightedVector && !highlightedVector.isOrigin) {
                     const fromAtom = atoms[highlightedVector.from];
                     const toAtom = atoms[highlightedVector.to];
                     if (fromAtom && toAtom) {
@@ -574,15 +588,13 @@ function resizeCanvases() {
                     }
                 });
 
-                if (highlightedVector) {
+                if (highlightedVector && hoveredPeakCopy) {
                     pattersonCtx.fillStyle = '#1e293b';
-                    pattersonCtx.font = 'bold 12px Inter';
-                    const text = `(${highlightedVector.u.toFixed(2)}, ${highlightedVector.v.toFixed(2)})`;
+                    pattersonCtx.font = 'bold 12px Inter, sans-serif';
+                    const text = `(${highlightedVector.u.toFixed(3)}, ${highlightedVector.v.toFixed(3)})`;
                     const textWidth = pattersonCtx.measureText(text).width;
-                    const xPos = Math.max(4, Math.min(size - textWidth - 4,
-                        padding + highlightedVector.u * span + 10));
-                    const yPos = Math.max(10, Math.min(size - 10,
-                        padding + (1 - highlightedVector.v) * span));
+                    const xPos = Math.max(4, Math.min(size - textWidth - 4, hoveredPeakCopy.x + 10));
+                    const yPos = Math.max(10, Math.min(size - 10, hoveredPeakCopy.y));
                     pattersonCtx.textAlign = 'left';
                     pattersonCtx.textBaseline = 'middle';
                     pattersonCtx.fillText(text, xPos, yPos);
@@ -618,7 +630,7 @@ function resizeCanvases() {
 
                 if (showHkLabels) {
                     diffractionCtx.fillStyle = '#fbbf24';
-                    diffractionCtx.font = '10px Inter';
+                    diffractionCtx.font = '10px Inter, sans-serif';
                     diffractionCtx.textAlign = 'center';
                     diffractionCtx.textBaseline = 'middle';
                     
@@ -638,12 +650,38 @@ function resizeCanvases() {
             }
 
             function drawFTofIntensities() {
-                drawGridOnCanvas(ftCtx, 'dark');
                 if (ftImageData) {
                     ftOffscreenCtx.putImageData(ftImageData, 0, 0);
                     ftCtx.imageSmoothingEnabled = false;
                     ftCtx.drawImage(ftOffscreenCanvas, 0, 0, ftCanvas.width, ftCanvas.height);
+                    // Draw subtle grid overlay so coordinates can be read against the FT map
+                    const size = ftCanvas.width;
+                    ftCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                    ftCtx.lineWidth = 1;
+                    for (let i = 0; i <= 10; i++) {
+                        const pos = i * size / 10;
+                        ftCtx.beginPath(); ftCtx.moveTo(pos, 0); ftCtx.lineTo(pos, size); ftCtx.stroke();
+                        ftCtx.beginPath(); ftCtx.moveTo(0, pos); ftCtx.lineTo(size, pos); ftCtx.stroke();
+                    }
+                } else {
+                    drawGridOnCanvas(ftCtx, 'dark');
                 }
+            }
+
+            function highlightAtomListItems(fromIndex, toIndex) {
+                const items = atomList.querySelectorAll('.atom-item');
+                items.forEach((li, idx) => {
+                    if (fromIndex !== null && idx === fromIndex) {
+                        li.style.backgroundColor = '#3b0764';
+                        li.style.borderColor = '#c026d3';
+                    } else if (toIndex !== null && idx === toIndex) {
+                        li.style.backgroundColor = '#4c1d95';
+                        li.style.borderColor = '#db2777';
+                    } else {
+                        li.style.backgroundColor = '';
+                        li.style.borderColor = '';
+                    }
+                });
             }
             
             function updateAtomList() {
@@ -655,17 +693,26 @@ function resizeCanvases() {
                     const li = document.createElement('li');
                     li.className = 'atom-item';
                     if (highlightedVector) {
-                        if (index === highlightedVector.from) li.style.backgroundColor = '#3b0764';
-                        else if (index === highlightedVector.to) li.style.backgroundColor = '#4c1d95';
+                        if (index === highlightedVector.from) {
+                            li.style.backgroundColor = '#3b0764';
+                            li.style.borderColor = '#c026d3';
+                        } else if (index === highlightedVector.to) {
+                            li.style.backgroundColor = '#4c1d95';
+                            li.style.borderColor = '#db2777';
+                        }
                     }
                     li.innerHTML = `
-                        <div>
-                            <span>${index + 1}(${atom.type}): (</span>
-                            <input type="number" step="0.01" min="0" max="1" value="${atom.x}" id="atom-${index}-x" data-index="${index}" data-coord="x" class="coord-input">,
-                            <input type="number" step="0.01" min="0" max="1" value="${atom.y}" id="atom-${index}-y" data-index="${index}" data-coord="y" class="coord-input">
-                            <span>)</span>
+                        <div class="atom-coord-wrapper">
+                            <span class="atom-label">${index + 1}(${atom.type}):</span>
+                            <input type="number" step="0.001" min="0" max="1" value="${Number(atom.x).toFixed(3)}" id="atom-${index}-x" data-index="${index}" data-coord="x" class="coord-input">
+                            <span class="coord-sep">,</span>
+                            <input type="number" step="0.001" min="0" max="1" value="${Number(atom.y).toFixed(3)}" id="atom-${index}-y" data-index="${index}" data-coord="y" class="coord-input">
                         </div>
-                        <button data-index="${index}" class="remove-atom-btn remove-btn">REMOVE</button>
+                        <button data-index="${index}" class="remove-atom-btn remove-btn" title="Remove atom ${index + 1}" aria-label="Remove atom ${index + 1}">
+                            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
                     `;
                     atomList.appendChild(li);
                 });
@@ -678,19 +725,20 @@ function resizeCanvases() {
                 }
                 const peak = highlightedVector;
                 const lines = peak.contributors.map(({ from, to, weight }) => {
-                    const du = atoms[to].x - atoms[from].x;
-                    const dv = atoms[to].y - atoms[from].y;
-                    return `<div>${from + 1} → ${to + 1}: (${du.toFixed(4)}, ${dv.toFixed(4)}); weight ${weight}</div>`;
+                    const du = wrap(Math.round((atoms[to].x - atoms[from].x) * 1000) / 1000);
+                    const dv = wrap(Math.round((atoms[to].y - atoms[from].y) * 1000) / 1000);
+                    return `<div>${from + 1} → ${to + 1}: (${du.toFixed(3)}, ${dv.toFixed(3)}); weight ${weight}</div>`;
                 });
                 vectorInfoBox.innerHTML = `
-                    <div><b>${peak.isOrigin ? 'Origin' : 'Peak'} (u,v): (${peak.u.toFixed(4)}, ${peak.v.toFixed(4)}) modulo 1</b></div>
+                    <div><b>${peak.isOrigin ? 'Origin' : 'Peak'} (u,v): (${peak.u.toFixed(3)}, ${peak.v.toFixed(3)}) modulo 1</b></div>
                     <div>Total weight: ${peak.weight}; ${peak.contributors.length} ordered pair(s)</div>
                     <div style="max-height:150px;overflow:auto">${lines.join('')}</div>
-                    <div>Arrow shows the first contributing pair.</div>`;
+                    <div>${peak.isOrigin ? 'Origin peak corresponds to self-vectors.' : 'Arrow shows the first contributing pair.'}</div>`;
             }
 
             function redrawAll() {
                 highlightedVector = null;
+                hoveredPeakCopy = null;
                 calculatePattersonMap();
                 calculateDiffractionPattern();
                 calculateFTofIntensities();
@@ -712,18 +760,22 @@ function resizeCanvases() {
             }
             function handleAddAtom(event) {
                 const rect = realCanvas.getBoundingClientRect();
-                const x = (event.clientX - rect.left) / rect.width;
-                const y = 1 - ((event.clientY - rect.top) / rect.height);
-                if (x >= 0 && x <= 1 && y >= 0 && y <= 1) {
+                const rawX = (event.clientX - rect.left) / rect.width;
+                const rawY = 1 - ((event.clientY - rect.top) / rect.height);
+                if (rawX >= 0 && rawX <= 1 && rawY >= 0 && rawY <= 1) {
+                    const x = wrap(Math.round(rawX * 1000) / 1000);
+                    const y = wrap(Math.round(rawY * 1000) / 1000);
                     atoms.push({ x, y, type: currentAtomType });
                     redrawAll();
                 }
             }
             function handleAtomListInteraction(event) {
-                if (event.target.classList.contains('remove-atom-btn')) {
-                    const indexToRemove = parseInt(event.target.dataset.index, 10);
+                const btn = event.target.closest('.remove-atom-btn');
+                if (btn) {
+                    const indexToRemove = parseInt(btn.dataset.index, 10);
                     atoms.splice(indexToRemove, 1);
                     highlightedVector = null; 
+                    hoveredPeakCopy = null;
                     redrawAll();
                 }
             }
@@ -733,8 +785,8 @@ function resizeCanvases() {
                     const coord = event.target.dataset.coord;
                     let value = Number(event.target.value);
                     if (!Number.isFinite(value) || event.target.value.trim() === "") { updateAtomList(); return; }
-                    value = wrap(value);
-                    event.target.value = value;
+                    value = wrap(Math.round(value * 1000) / 1000);
+                    event.target.value = value.toFixed(3);
                     if (atoms[index]) {
                         atoms[index][coord] = value;
                         redrawAll();
@@ -746,28 +798,34 @@ function resizeCanvases() {
                 const mouseU = (event.clientX - rect.left) / rect.width;
                 const mouseV = 1 - ((event.clientY - rect.top) / rect.height);
                 let foundPeak = null;
+                let foundCopy = null;
                 let minDistance = Infinity;
                 const size = pattersonCanvas.width;
                 for (const peak of pattersonPeaks) {
-                    for (const { x, y } of peakCopies(peak, size)) {
-                        const dist = Math.hypot(x - mouseU * size, y - (1 - mouseV) * size);
+                    for (const copy of peakCopies(peak, size)) {
+                        const dist = Math.hypot(copy.x - mouseU * size, copy.y - (1 - mouseV) * size);
                         if (dist <= peak.radius * pattersonViewport(size).radiusScale + 4 && dist < minDistance) {
                             minDistance = dist;
                             foundPeak = peak;
+                            foundCopy = copy;
                         }
                     }
                 }
-                if (foundPeak !== highlightedVector) {
+                if (foundPeak !== highlightedVector || foundCopy !== hoveredPeakCopy) {
                     highlightedVector = foundPeak;
+                    hoveredPeakCopy = foundCopy;
                     drawAtoms();
                     drawPattersonMap();
                     updateVectorInfo();
+                    highlightAtomListItems(foundPeak ? foundPeak.from : null, foundPeak ? foundPeak.to : null);
                 }
             }
 
             function clearAll() {
                 atoms = [];
                 highlightedVector = null;
+                hoveredPeakCopy = null;
+                highlightAtomListItems(null, null);
                 redrawAll();
             }
             function handleScatteringFactorChange(event) {
@@ -799,7 +857,10 @@ function resizeCanvases() {
             const leftPanel = document.getElementById('controls-panel'), resizer = document.getElementById('drag-handle');
             resizer.addEventListener('mousedown', (e) => {
                 e.preventDefault(); document.body.classList.add('resizing');
-                const moveHandler = (e) => { if (e.clientX > 320 && e.clientX < 500) leftPanel.style.width = `${e.clientX}px`; };
+                const moveHandler = (e) => {
+                    const clampedWidth = Math.max(320, Math.min(500, e.clientX));
+                    leftPanel.style.width = `${clampedWidth}px`;
+                };
                 const upHandler = () => {
                     document.body.classList.remove('resizing');
                     window.removeEventListener('mousemove', moveHandler); window.removeEventListener('mouseup', upHandler);
@@ -817,9 +878,11 @@ function resizeCanvases() {
             pattersonCanvas.addEventListener('mouseleave', () => {
                 if (highlightedVector) {
                     highlightedVector = null;
+                    hoveredPeakCopy = null;
                     drawAtoms();
                     drawPattersonMap();
                     updateVectorInfo();
+                    highlightAtomListItems(null, null);
                 }
             });
             faSlider.addEventListener('input', handleScatteringFactorChange);
@@ -829,7 +892,12 @@ function resizeCanvases() {
             spotSizeSlider.addEventListener('input', handleSpotSizeChange);
             window.addEventListener('resize', () => setTimeout(resizeCanvases, 50));
             
-            setTimeout(resizeCanvases, 100);
+            // Pre-draw axis labels so measurement in resizeCanvases accounts for them
+            drawAxisLabels('real-y-axis', 'real-x-axis', false, false, 'light');
+            drawAxisLabels('patterson-y-axis', 'patterson-x-axis', false, false, 'light');
+            drawAxisLabels('diffraction-y-axis', 'diffraction-x-axis', true, true, 'dark');
+            drawAxisLabels('ft-y-axis', 'ft-x-axis', false, false, 'dark');
+            setTimeout(resizeCanvases, 50);
         });
     </script>
 </body>
